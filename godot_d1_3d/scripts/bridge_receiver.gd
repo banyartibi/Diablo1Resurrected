@@ -127,37 +127,42 @@ func setup_area_light():
 func show_osd(text: String, duration: float = 2.5):
 	if osd_label:
 		osd_label.text = text
+var playfield_zoom: float = 1.0
+
 func apply_zoom_step(old_step: int, new_step: int):
-	if not camera: return
-	
+	# Camera FOV stays 60.0 ALWAYS! The HUD stays 100% visible and pinned!
+	if camera:
+		camera.fov = 60.0
+		
 	if new_step == 0:
 		# 1.0x Normal
-		camera.fov = 60.0
+		playfield_zoom = 1.0
 		if old_step > 0:
 			send_input_to_d1(5, 0, 0, 0, 0) # D1 ZoomOutMode (1.5x -> 1.0x)
 	elif new_step == 1:
 		# 1.5x Balanced
-		camera.fov = 60.0
+		playfield_zoom = 1.0
 		if old_step == 0:
 			send_input_to_d1(4, 0, 0, 0, 0) # D1 ZoomInMode (1.0x -> 1.5x)
 		elif old_step >= 2:
 			send_input_to_d1(5, 0, 0, 0, 0) # D1 ZoomOutMode (2.0x -> 1.5x)
 	elif new_step == 2:
 		# 2.0x Zoomed Close
-		camera.fov = 60.0
+		playfield_zoom = 1.0
 		if old_step <= 1:
 			send_input_to_d1(4, 0, 0, 0, 0) # D1 ZoomInMode (1.5x -> 2.0x)
 	elif new_step == 3:
-		# 2.5x Ultra Close (D1 2.0x + Godot 1.25x optical)
+		# 2.5x Ultra Close (D1 2.0x + 1.25x playfield zoom, HUD remains 100% visible!)
 		if old_step <= 1:
 			send_input_to_d1(4, 0, 0, 0, 0)
-		camera.fov = 48.0
+		playfield_zoom = 1.25
 	elif new_step == 4:
-		# 3.0x Epic Macro (D1 2.0x + Godot 1.50x optical)
+		# 3.0x Epic Macro (D1 2.0x + 1.50x playfield zoom, HUD remains 100% visible!)
 		if old_step <= 1:
 			send_input_to_d1(4, 0, 0, 0, 0)
-		camera.fov = 40.0
+		playfield_zoom = 1.50
 		
+	update_shader_params()
 	show_osd("[Zoom] " + zoom_step_names[new_step], 1.2)
 
 func apply_upscaler_mode():
@@ -194,6 +199,7 @@ func update_shader_params():
 		shader_material.set_shader_parameter("color_profile", current_color_profile)
 		shader_material.set_shader_parameter("relief_mode", current_relief_mode)
 		shader_material.set_shader_parameter("engine_torches", engine_torches)
+		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 
 func update_fog_mode():
 	if world_env and world_env.environment:
@@ -286,6 +292,22 @@ func update_frame_texture(w: int, h: int, bytes: PackedByteArray):
 	else:
 		image_texture.update(img)
 
+func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
+	var norm_x = screen_pos.x / vp_size.x
+	var norm_y = screen_pos.y / vp_size.y
+	
+	var hud_boundary = 0.898
+	var mapped_x = norm_x
+	var mapped_y = norm_y
+	
+	if playfield_zoom > 1.001 and norm_y < hud_boundary:
+		var center_x = 0.5
+		var center_y = hud_boundary * 0.5
+		mapped_x = center_x + (norm_x - center_x) / playfield_zoom
+		mapped_y = center_y + (norm_y - center_y) / playfield_zoom
+		
+	return Vector2i(int(mapped_x * d1_width), int(mapped_y * d1_height))
+
 func _input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.is_echo():
 		if event.keycode == KEY_F3:
@@ -339,9 +361,8 @@ func _input(event: InputEvent):
 		return
 		
 	if event is InputEventMouseMotion:
-		var mx = int((event.position.x / vp_size.x) * d1_width)
-		var my = int((event.position.y / vp_size.y) * d1_height)
-		send_input_to_d1(1, 0, 0, mx, my)
+		var mpos = get_game_mouse_pos(event.position, vp_size)
+		send_input_to_d1(1, 0, 0, mpos.x, mpos.y)
 	elif event is InputEventMouseButton:
 		# 5-Step Bidirectional in-game Zoom (1.0x, 1.5x, 2.0x, 2.5x, 3.0x)
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
@@ -357,15 +378,14 @@ func _input(event: InputEvent):
 				apply_zoom_step(old_s, current_zoom_step)
 			return
 			
-		var mx = int((event.position.x / vp_size.x) * d1_width)
-		var my = int((event.position.y / vp_size.y) * d1_height)
+		var mpos = get_game_mouse_pos(event.position, vp_size)
 		var btn = 1
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			btn = 3
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			btn = 2
 		var state = 1 if event.pressed else 0
-		send_input_to_d1(2, btn, state, mx, my)
+		send_input_to_d1(2, btn, state, mpos.x, mpos.y)
 	elif event is InputEventKey:
 		var key = get_sdl_key(event.keycode)
 		var state = 1 if event.pressed else 0

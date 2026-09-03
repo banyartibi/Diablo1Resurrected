@@ -6,6 +6,7 @@ uniform float bump_strength : hint_range(0.0, 3.0) = 0.55;
 uniform int color_profile : hint_range(0, 4) = 0; // 0: Vanilla (Default), 1: Dark Gothic OLED, 2: Hellish Crimson, 3: Crypt Cyan, 4: Noir
 uniform int relief_mode : hint_range(0, 3) = 2;   // 0: Off, 1: 8K Catmull-Rom Spline, 2: AMD FSR CAS (Default), 3: 3D Relief
 uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.90;
+uniform float playfield_zoom : hint_range(1.0, 2.5) = 1.0; // Zooms playfield ONLY, HUD stays pinned!
 uniform bool engine_torches = true;                // Engine-rendered procedural 3D flames & HDR glow
 
 // Procedural 3D Torch Flame Detection (Empirically verified from game backbuffer)
@@ -136,26 +137,39 @@ vec3 apply_color_grading(vec3 c, int profile) {
 
 void fragment() {
     vec2 texel_size = vec2(1.0) / vec2(textureSize(d1_texture, 0));
-    vec3 raw_pixel = texture(d1_texture, UV).bgr;
+    
+    // Compute sample UV: Playfield zooms, but HUD stays 100% fixed at the bottom!
+    vec2 sample_uv = UV;
+    float hud_boundary = 0.898; // HUD is the bottom 10% (144 / 1440 = 0.10)
+    
+    if (playfield_zoom > 1.001 && UV.y < hud_boundary) {
+        vec2 playfield_center = vec2(0.5, hud_boundary * 0.5);
+        vec2 zoomed_uv = playfield_center + (UV - playfield_center) / playfield_zoom;
+        if (zoomed_uv.y < hud_boundary && zoomed_uv.x >= 0.0 && zoomed_uv.x <= 1.0 && zoomed_uv.y >= 0.0) {
+            sample_uv = zoomed_uv;
+        }
+    }
+    
+    vec3 raw_pixel = texture(d1_texture, sample_uv).bgr;
     
     vec3 base_color;
     if (relief_mode == 1) {
         // 8K Catmull-Rom Bicubic Spline (Smooth Continuous Vector)
-        base_color = sample_catmull_rom_8k(d1_texture, UV, texel_size);
+        base_color = sample_catmull_rom_8k(d1_texture, sample_uv, texel_size);
     } else if (relief_mode >= 2) {
         // AMD FidelityFX CAS
-        base_color = apply_fsr_cas(d1_texture, UV, texel_size);
+        base_color = apply_fsr_cas(d1_texture, sample_uv, texel_size);
     } else {
         base_color = raw_pixel;
     }
     
     // Check if this pixel is part of a torch flame on the dungeon floor
     // (Only on the game area, avoiding bottom HUD)
-    bool is_flame = engine_torches && (UV.y < 0.88) && is_torch_flame(raw_pixel);
+    bool is_flame = engine_torches && (sample_uv.y < 0.88) && is_torch_flame(raw_pixel);
     
     if (is_flame) {
         // Re-draw flame dynamically with procedural engine fire & HDR emission!
-        vec3 engine_flame = render_engine_flame(UV, raw_pixel, TIME);
+        vec3 engine_flame = render_engine_flame(sample_uv, raw_pixel, TIME);
         ALBEDO = clamp(engine_flame, 0.0, 1.0);
         EMISSION = engine_flame * 3.2; // Blazing HDR Glow into Godot Forward+ Bloom!
         ROUGHNESS = 0.1;
@@ -170,14 +184,14 @@ void fragment() {
     if (relief_mode > 0 && !is_flame) {
         const vec3 luma = vec3(0.299, 0.587, 0.114);
 
-        float l_tl = dot(texture(d1_texture, UV + vec2(-1.0, -1.0) * texel_size).bgr, luma);
-        float l_tc = dot(texture(d1_texture, UV + vec2( 0.0, -1.0) * texel_size).bgr, luma);
-        float l_tr = dot(texture(d1_texture, UV + vec2( 1.0, -1.0) * texel_size).bgr, luma);
-        float l_ml = dot(texture(d1_texture, UV + vec2(-1.0,  0.0) * texel_size).bgr, luma);
-        float l_mr = dot(texture(d1_texture, UV + vec2( 1.0,  0.0) * texel_size).bgr, luma);
-        float l_bl = dot(texture(d1_texture, UV + vec2(-1.0,  1.0) * texel_size).bgr, luma);
-        float l_bc = dot(texture(d1_texture, UV + vec2( 0.0,  1.0) * texel_size).bgr, luma);
-        float l_br = dot(texture(d1_texture, UV + vec2( 1.0,  1.0) * texel_size).bgr, luma);
+        float l_tl = dot(texture(d1_texture, sample_uv + vec2(-1.0, -1.0) * texel_size).bgr, luma);
+        float l_tc = dot(texture(d1_texture, sample_uv + vec2( 0.0, -1.0) * texel_size).bgr, luma);
+        float l_tr = dot(texture(d1_texture, sample_uv + vec2( 1.0, -1.0) * texel_size).bgr, luma);
+        float l_ml = dot(texture(d1_texture, sample_uv + vec2(-1.0,  0.0) * texel_size).bgr, luma);
+        float l_mr = dot(texture(d1_texture, sample_uv + vec2( 1.0,  0.0) * texel_size).bgr, luma);
+        float l_bl = dot(texture(d1_texture, sample_uv + vec2(-1.0,  1.0) * texel_size).bgr, luma);
+        float l_bc = dot(texture(d1_texture, sample_uv + vec2( 0.0,  1.0) * texel_size).bgr, luma);
+        float l_br = dot(texture(d1_texture, sample_uv + vec2( 1.0,  1.0) * texel_size).bgr, luma);
 
         float gx = (l_tr + 2.0 * l_mr + l_br) - (l_tl + 2.0 * l_ml + l_bl);
         float gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);
