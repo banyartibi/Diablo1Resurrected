@@ -15,46 +15,64 @@ var d1_width: int = 2560
 var d1_height: int = 1440
 
 # User Requested Defaults:
-var current_color_profile: int = 0 # Default: 0 = Vanilla (1996 Classic)
-var current_relief_mode: int = 2   # Default: 2 = AMD FSR CAS Sharpness / Deep 3D
-var current_fog_mode: int = 2      # Default: 2 = Dense Drift (Hellfire Smoke)
-var vsync_enabled: bool = false    # Default: OFF (Uncapped Max FPS)
-var show_fps: bool = false         # Default: OFF
-var current_upscaler_mode: int = 1 # 1 = AMD FSR CAS Sharpness
-var engine_torches: bool = true    # Default: ON (Procedural 3D flames & HDR glow)
+var vsync_enabled: bool = true          # Default: ON (Smooth 144Hz Monitor Sync)
+var show_fps: bool = true               # Default: ON (Immediate performance readout)
+var current_fog_mode: int = 1           # Default: 1 = Crypt Mist (Subtle Dungeon Atmosphere)
+var current_color_profile: int = 0      # Default: 0 = Vanilla (1996 Classic, HUD bypassed)
+var current_upscaler_mode: int = 0      # Default: 0 = AMD FidelityFX CAS
+var current_relief_mode: int = 3        # Default: 3 = Deep 3D Embossed Contour & Normal Relief
+var engine_torches: bool = true         # Default: ON (Comprehensive 3.5x HDR Glow & Fire)
+var area_light_mode: int = 1            # Default: 1 = Dungeon Ambience (0: OFF, 1: Ambience, 2: Hero Follow)
+var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections)
+var playfield_zoom: float = 1.0
 
-var current_zoom_step: int = 1     # 0: 1.0x, 1: 1.5x, 2: 2.0x, 3: 2.5x, 4: 3.0x
+var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
-	"1.0x (Normál / Széles)",
+	"1.0x (Normál / Széles Látószög)",
 	"1.5x (Köztes / Arany Középút)",
 	"2.0x (Közeli / Zoomed)",
 	"2.5x (Ultra Közeli / Ultra Close)",
-	"3.0x (Epikus Részlet / Macro Close)"
+	"3.0x (Epikus Makró / Macro Close)"
 ]
 
-# Godot 4.7 New AreaLight3D Node
+# Godot 4.7 AreaLight3D Node
 var area_light: AreaLight3D
-var area_light_enabled: bool = true
+var player_target_pos: Vector2 = Vector2.ZERO
 
 var upscaler_names = [
-	"Upscaler [F7]: 8K Catmull-Rom Spline (Continuous Curves)",
-	"Upscaler [F7]: AMD FidelityFX CAS Super-Resolution (Sharpness Boost)",
-	"Upscaler [F7]: 3D Embossed Contour & Normal Relief",
-	"Upscaler [F7]: Native 1:1 Direct Pixel-Art"
+	"Upscaler [F7]: AMD FidelityFX CAS Super-Resolution (Default)",
+	"Upscaler [F7]: Anime4K / Neural Spatial CNN (Edge Reconstruction)",
+	"Upscaler [F7]: Anime4K Ultra Thin Lines & Vector Contours",
+	"Upscaler [F7]: 8K Catmull-Rom Bicubic Spline (Continuous Curves)",
+	"Upscaler [F7]: Native 1:1 Direct Retro Pixel-Art"
 ]
 
 var color_names = [
-	"Vanilla (1996 Classic 32-bit)",
-	"Dark Gothic (OLED Black & Warm Embers)",
-	"Hellish Crimson (Blood Moon)",
-	"Crypt Cyan (Spectral Cold)",
-	"Desaturated Noir (Grimdark)"
+	"Vanilla (1996 Classic 32-bit - HUD Untouched)",
+	"Dark Gothic (Refined OLED Deep Shadow)",
+	"Hellish Crimson (Warm Blood-Amber)",
+	"Crypt Cyan (Gothic Cold Chill)",
+	"Desaturated Noir (Grimdark Film)"
 ]
 
 var fog_names = [
 	"Atmospheric Fog: OFF",
-	"Atmospheric Fog: Crypt Mist (Subtle Air Fog)",
+	"Atmospheric Fog: Crypt Mist (Subtle Dungeon Pára)",
 	"Atmospheric Fog: Dense Drift (Hellfire Smoke)"
+]
+
+var relief_names = [
+	"3D Surface Relief [F11]: OFF",
+	"3D Surface Relief [F11]: Mode 1 (Subtle 3D)",
+	"3D Surface Relief [F11]: Mode 2 (Balanced 3D Emboss)",
+	"3D Surface Relief [F11]: Mode 3 (Deep 3D Embossed Relief - Default)",
+	"3D Surface Relief [F11]: Mode 4 (Extreme Sculpted 3D Relief)"
+]
+
+var area_light_names = [
+	"Godot 4.7 AreaLight3D [F6]: DISABLED",
+	"Godot 4.7 AreaLight3D [F6]: Dungeon Ambience (Broad Soft Light Shafts)",
+	"Godot 4.7 AreaLight3D [F6]: Dynamic Hero Tracking (Light Follows Player)"
 ]
 
 var osd_label: Label
@@ -87,8 +105,8 @@ func _ready():
 	apply_upscaler_mode()
 	update_fog_mode()
 	
-	show_osd("Godot 4.7 AreaLight3D Active | Scroll: Bidirectional Zoom | F3: Area Light | F4: V-Sync", 4.0)
-	print("[Godot-D1 Bridge] Receiver initialized. AreaLight3D & Dense Drift active.")
+	show_osd("Diablo 1 Resurrected | F4: V-Sync | F5: HDR Glow | F6: AreaLight | F7: Upscaler | F12: Wet Floor", 4.0)
+	print("[Godot-D1 Bridge] Receiver initialized with user defaults. CAS, Crypt Mist, Deep 3D & VSync active.")
 
 func setup_osd():
 	var canvas = CanvasLayer.new()
@@ -107,9 +125,9 @@ func setup_osd():
 	fps_label = Label.new()
 	fps_label.position = Vector2(40, 75)
 	fps_label.add_theme_font_size_override("font_size", 18)
-	fps_label.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0, 0.8))
+	fps_label.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0, 0.85))
 	fps_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
-	fps_label.visible = false
+	fps_label.visible = show_fps
 	canvas.add_child(fps_label)
 
 func setup_area_light():
@@ -123,11 +141,24 @@ func setup_area_light():
 	area_light.position = Vector3(0.0, 1.8, 3.2)
 	area_light.rotation_degrees = Vector3(-25.0, 0.0, 0.0)
 	add_child(area_light)
+	update_area_light_mode()
+
+func update_area_light_mode():
+	if not area_light: return
+	if area_light_mode == 0:
+		area_light.visible = false
+	elif area_light_mode == 1:
+		area_light.visible = true
+		area_light.position = Vector3(0.0, 1.8, 3.2)
+		area_light.area_size = Vector2(8.0, 3.5)
+	elif area_light_mode == 2:
+		area_light.visible = true
+		area_light.area_size = Vector2(4.5, 3.0)
 
 func show_osd(text: String, duration: float = 2.5):
 	if osd_label:
 		osd_label.text = text
-var playfield_zoom: float = 1.0
+		osd_timer = duration
 
 func apply_zoom_step(old_step: int, new_step: int):
 	# Camera FOV stays 60.0 ALWAYS! The HUD stays 100% visible and pinned!
@@ -170,35 +201,33 @@ func apply_upscaler_mode():
 	if not vp: return
 	
 	if current_upscaler_mode == 0:
-		# 8K Catmull-Rom Bicubic Spline + FSR 2.2 Native AA
-		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
-		vp.scaling_3d_scale = 1.0
-		vp.fsr_sharpness = 1.0
-		current_relief_mode = 1
-	elif current_upscaler_mode == 1:
-		# AMD FSR CAS Sharpness Boost (Default)
+		# AMD FidelityFX CAS Super-Resolution (Default)
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 		vp.scaling_3d_scale = 1.0
 		vp.fsr_sharpness = 1.2
-		current_relief_mode = 2
-	elif current_upscaler_mode == 2:
-		# 3D Normal Relief
-		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
-		vp.scaling_3d_scale = 1.0
-		current_relief_mode = 3
-	elif current_upscaler_mode == 3:
-		# Native 1:1 Pixel-Art
+	elif current_upscaler_mode in [1, 2]:
+		# Anime4K Neural Edge / Thin Lines
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		vp.scaling_3d_scale = 1.0
-		current_relief_mode = 0
+	elif current_upscaler_mode == 3:
+		# 8K Catmull-Rom Bicubic Spline
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
+		vp.scaling_3d_scale = 1.0
+		vp.fsr_sharpness = 1.0
+	elif current_upscaler_mode == 4:
+		# Native 1:1 Direct Pixel-Art
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		vp.scaling_3d_scale = 1.0
 		
 	update_shader_params()
 
 func update_shader_params():
 	if shader_material:
 		shader_material.set_shader_parameter("color_profile", current_color_profile)
+		shader_material.set_shader_parameter("upscaler_mode", current_upscaler_mode)
 		shader_material.set_shader_parameter("relief_mode", current_relief_mode)
 		shader_material.set_shader_parameter("engine_torches", engine_torches)
+		shader_material.set_shader_parameter("wet_floor", wet_floor)
 		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 
 func update_fog_mode():
@@ -207,10 +236,11 @@ func update_fog_mode():
 		if current_fog_mode == 0:
 			env.volumetric_fog_enabled = false
 		elif current_fog_mode == 1:
+			# Crypt Mist (Subtle atmospheric dungeon pára - Default)
 			env.volumetric_fog_enabled = true
-			env.volumetric_fog_density = 0.015
+			env.volumetric_fog_density = 0.016
 			env.volumetric_fog_emission = Color(0.02, 0.02, 0.02, 1)
-			env.volumetric_fog_emission_energy = 0.2
+			env.volumetric_fog_emission_energy = 0.22
 		elif current_fog_mode == 2:
 			# Dense Drift (Hellfire Smoke)
 			env.volumetric_fog_enabled = true
@@ -223,9 +253,13 @@ func _process(delta: float):
 	frame_counter += 1
 	fps_timer += delta
 	
-	if area_light and area_light_enabled:
+	if area_light and area_light_mode > 0:
 		var flicker = 1.30 + 0.14 * sin(time_accum * 4.5) * cos(time_accum * 2.2)
 		area_light.light_energy = flicker
+		if area_light_mode == 2:
+			# Dynamic hero tracking: smoothly lerp towards player target position
+			var target_3d = Vector3(player_target_pos.x, player_target_pos.y + 0.8, 3.0)
+			area_light.position = area_light.position.lerp(target_3d, delta * 4.0)
 	
 	if fps_timer >= 1.0:
 		current_fps = frame_counter
@@ -266,10 +300,14 @@ func _process(delta: float):
 	var _pitch = file.get_32()
 	var frame_id = file.get_32()
 	var _timestamp = file.get_32()
-	var _player_x = file.get_float()
-	var _player_y = file.get_float()
+	var px = file.get_float()
+	var py = file.get_float()
 	var _zoom_mode = file.get_32()
 	var _torch_count = file.get_32()
+	
+	# Update player target coordinate in 3D world space
+	if px > 0.0 or py > 0.0:
+		player_target_pos = Vector2((px / 112.0 - 0.5) * 8.0, (py / 112.0 - 0.5) * -4.5)
 	
 	# Skip to payload at 4096 bytes (4KB aligned page)
 	file.seek(4096)
@@ -310,13 +348,7 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 
 func _input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.is_echo():
-		if event.keycode == KEY_F3:
-			area_light_enabled = !area_light_enabled
-			if area_light:
-				area_light.visible = area_light_enabled
-			show_osd("[F3] Godot 4.7 AreaLight3D: " + ("ENABLED (Soft Atmospheric Light Shafts)" if area_light_enabled else "DISABLED"))
-			return
-		elif event.keycode == KEY_F4:
+		if event.keycode == KEY_F4:
 			vsync_enabled = !vsync_enabled
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED)
 			show_osd("[F4] V-Sync: " + ("ON (Screen Refresh Rate Limit)" if vsync_enabled else "OFF (Uncapped Max FPS)"))
@@ -324,7 +356,12 @@ func _input(event: InputEvent):
 		elif event.keycode == KEY_F5:
 			engine_torches = !engine_torches
 			update_shader_params()
-			show_osd("[F5] Engine 3D Torches & HDR Glow: " + ("ENABLED" if engine_torches else "DISABLED"))
+			show_osd("[F5] Engine 3D Torches & HDR Glow: " + ("ENABLED (3.5x HDR Bloom)" if engine_torches else "DISABLED"))
+			return
+		elif event.keycode == KEY_F6:
+			area_light_mode = (area_light_mode + 1) % area_light_names.size()
+			update_area_light_mode()
+			show_osd(area_light_names[area_light_mode])
 			return
 		elif event.keycode == KEY_F7:
 			current_upscaler_mode = (current_upscaler_mode + 1) % upscaler_names.size()
@@ -348,9 +385,14 @@ func _input(event: InputEvent):
 			show_osd("[F10] Color Profile: " + color_names[current_color_profile])
 			return
 		elif event.keycode == KEY_F11:
-			current_relief_mode = (current_relief_mode + 1) % 4
+			current_relief_mode = (current_relief_mode + 1) % relief_names.size()
 			update_shader_params()
-			show_osd("[F11] 3D Surface Relief: Mode " + str(current_relief_mode))
+			show_osd(relief_names[current_relief_mode])
+			return
+		elif event.keycode == KEY_F12:
+			wet_floor = !wet_floor
+			update_shader_params()
+			show_osd("[F12] Dungeon Floor: " + ("Wet & Reflective Cobblestone (PBR Specular ON)" if wet_floor else "Dry Stone Surface (OFF)"))
 			return
 
 	if not FileAccess.file_exists("/dev/shm/d1_godot_frame"):
@@ -396,11 +438,9 @@ func send_input_to_d1(msg_type: int, code: int, state: int, x: int, y: int):
 	if not file:
 		return
 		
-	# Offset 304: inputWriteIdx (4 bytes), 308: inputReadIdx (4 bytes)
 	file.seek(304)
 	var write_idx = file.get_32()
 	
-	# Slot in ring buffer: 312 + (write_idx % 128) * 20
 	var slot_offset = 312 + (write_idx % 128) * 20
 	file.seek(slot_offset)
 	file.store_32(msg_type)
@@ -409,7 +449,6 @@ func send_input_to_d1(msg_type: int, code: int, state: int, x: int, y: int):
 	file.store_32(x)
 	file.store_32(y)
 	
-	# Increment inputWriteIdx
 	file.seek(304)
 	file.store_32(write_idx + 1)
 	file.flush()

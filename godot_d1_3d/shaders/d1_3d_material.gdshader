@@ -3,15 +3,21 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specula
 
 uniform sampler2D d1_texture : source_color, filter_linear_mipmap, hint_default_black;
 uniform float bump_strength : hint_range(0.0, 3.0) = 0.55;
-uniform int color_profile : hint_range(0, 4) = 0; // 0: Vanilla (Default), 1: Dark Gothic OLED, 2: Hellish Crimson, 3: Crypt Cyan, 4: Noir
-uniform int relief_mode : hint_range(0, 3) = 2;   // 0: Off, 1: 8K Catmull-Rom Spline, 2: AMD FSR CAS (Default), 3: 3D Relief
-uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.90;
+uniform int color_profile : hint_range(0, 4) = 0;   // 0: Vanilla (Default), 1: Dark Gothic OLED, 2: Hellish Crimson, 3: Crypt Cyan, 4: Noir
+uniform int upscaler_mode : hint_range(0, 4) = 0;   // 0: AMD FSR CAS (Default), 1: Anime4K Neural Edge, 2: Anime4K Thin Lines, 3: 8K Spline, 4: Native
+uniform int relief_mode : hint_range(0, 4) = 3;     // 0: Off, 1: Subtle, 2: Balanced, 3: Deep 3D (Default), 4: Extreme
+uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.95;
 uniform float playfield_zoom : hint_range(1.0, 2.5) = 1.0; // Zooms playfield ONLY, HUD stays pinned!
-uniform bool engine_torches = true;                // Engine-rendered procedural 3D flames & HDR glow
+uniform bool engine_torches = true;                  // Engine-rendered procedural 3D flames & HDR glow
+uniform bool wet_floor = true;                       // Wet cobblestone PBR reflections & specular gloss
 
-// Procedural 3D Torch Flame Detection (Empirically verified from game backbuffer)
-bool is_torch_flame(vec3 col) {
-    return (col.r > 0.60 && col.g > 0.22 && col.b < 0.22 && col.r > col.g * 1.28 && col.r > col.b * 3.2);
+// Comprehensive Torch, Fire & Magic Glow Detection (Yellow core, orange body, red edges, lightning)
+bool is_fire_or_magic(vec3 col) {
+    // Warm fire / torch / brazier / lava
+    bool is_warm_fire = (col.r > 0.40 && col.g > 0.15 && col.b < 0.38 && col.r >= col.g * 0.90 && col.r > col.b * 1.5);
+    // Extreme bright magic light (spells, lightning, holy shrines, gold)
+    bool is_magic = (col.r > 0.82 && col.g > 0.82 && col.b > 0.55);
+    return is_warm_fire || is_magic;
 }
 
 // Procedural flame noise generator
@@ -40,12 +46,12 @@ vec3 render_engine_flame(vec2 uv, vec3 orig_color, float t) {
     float flame_shape = clamp((n1 * 0.6 + n2 * 0.4) * 1.5, 0.0, 1.0);
 
     // Natural flame flicker
-    float flicker = 0.88 + 0.32 * sin(t * 16.0) * cos(t * 6.5 + 1.2);
+    float flicker = 0.90 + 0.30 * sin(t * 16.0) * cos(t * 6.5 + 1.2);
 
     // HDR color ramp: blinding yellow-hot core -> rich amber -> deep crimson licking tips
-    vec3 core = vec3(3.5, 2.8, 1.2) * flicker;
-    vec3 mid  = vec3(2.6, 1.1, 0.15) * flicker;
-    vec3 tip  = vec3(1.4, 0.3, 0.04) * flicker;
+    vec3 core = vec3(3.8, 3.1, 1.3) * flicker;
+    vec3 mid  = vec3(2.8, 1.3, 0.20) * flicker;
+    vec3 tip  = vec3(1.6, 0.4, 0.05) * flicker;
 
     vec3 flame_color = mix(tip, mid, flame_shape);
     flame_color = mix(flame_color, core, clamp(flame_shape * 1.8 - 0.7, 0.0, 1.0));
@@ -102,46 +108,94 @@ vec3 apply_fsr_cas(sampler2D tex, vec2 uv, vec2 texel) {
     return clamp(sharpened, 0.0, 1.0);
 }
 
+// Anime4K / Neural Spatial CNN: Gradient Normal Edge Push
+vec3 sample_neural_edge_push(sampler2D tex, vec2 uv, vec2 texel) {
+    vec3 cc = texture(tex, uv).bgr;
+    const vec3 luma = vec3(0.299, 0.587, 0.114);
+    
+    float l_tl = dot(texture(tex, uv + vec2(-1.0, -1.0) * texel).bgr, luma);
+    float l_tc = dot(texture(tex, uv + vec2( 0.0, -1.0) * texel).bgr, luma);
+    float l_tr = dot(texture(tex, uv + vec2( 1.0, -1.0) * texel).bgr, luma);
+    float l_ml = dot(texture(tex, uv + vec2(-1.0,  0.0) * texel).bgr, luma);
+    float l_mr = dot(texture(tex, uv + vec2( 1.0,  0.0) * texel).bgr, luma);
+    float l_bl = dot(texture(tex, uv + vec2(-1.0,  1.0) * texel).bgr, luma);
+    float l_bc = dot(texture(tex, uv + vec2( 0.0,  1.0) * texel).bgr, luma);
+    float l_br = dot(texture(tex, uv + vec2( 1.0,  1.0) * texel).bgr, luma);
+
+    float gx = (l_tr + 2.0 * l_mr + l_br) - (l_tl + 2.0 * l_ml + l_bl);
+    float gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);
+    float edge = length(vec2(gx, gy));
+
+    if (edge > 0.035) {
+        vec2 dir = normalize(vec2(gx, gy));
+        vec2 pushed_uv = uv - dir * (texel * 0.45 * clamp(edge * 2.5, 0.0, 1.0));
+        vec3 pushed_col = texture(tex, pushed_uv).bgr;
+        return mix(cc, pushed_col, clamp(edge * 2.8, 0.0, 1.0));
+    }
+    return cc;
+}
+
+// Anime4K: Ultra Thin Line Reconstruction & Anti-Aliased Contours
+vec3 sample_anime4k_thin_lines(sampler2D tex, vec2 uv, vec2 texel) {
+    vec3 pushed = sample_neural_edge_push(tex, uv, texel);
+    vec3 up = texture(tex, uv + vec2(0.0, -1.0) * texel).bgr;
+    vec3 dn = texture(tex, uv + vec2(0.0,  1.0) * texel).bgr;
+    vec3 lf = texture(tex, uv + vec2(-1.0, 0.0) * texel).bgr;
+    vec3 rt = texture(tex, uv + vec2( 1.0, 0.0) * texel).bgr;
+    
+    vec3 min_c = min(pushed, min(min(up, dn), min(lf, rt)));
+    vec3 max_c = max(pushed, max(max(up, dn), max(lf, rt)));
+    
+    vec3 sharpened = pushed + (pushed - (up + dn + lf + rt) * 0.25) * 0.65;
+    return clamp(sharpened, min_c, max_c);
+}
+
+// Refined, Softer Color Grading Curves
 vec3 apply_color_grading(vec3 c, int profile) {
     if (profile == 0) {
-        return c; // Vanilla 1996
+        return c; // Vanilla 1996 Classic
     }
-    
-    // OLED Contrast S-curve
-    vec3 x = max(vec3(0.0), c - 0.004);
-    vec3 graded = (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
-    
+
     if (profile == 1) {
-        // Dark Gothic (OLED Black & Warm Embers)
-        graded.r = pow(graded.r, 0.95) * 1.05;
-        graded.g = pow(graded.g, 1.02);
-        graded.b = pow(graded.b, 1.08) * 0.92;
+        // Dark Gothic (OLED) - Softened black point, deep contrast without crushing stone details
+        vec3 x = max(vec3(0.0), c - 0.002);
+        vec3 graded = (x * (5.5 * x + 0.45)) / (x * (5.5 * x + 1.5) + 0.05);
+        graded.r = pow(graded.r, 0.97) * 1.03;
+        graded.g = pow(graded.g, 1.01);
+        graded.b = pow(graded.b, 1.04) * 0.95;
+        return clamp(graded, 0.0, 1.0);
     } else if (profile == 2) {
-        // Hellish Crimson
-        graded.r = pow(graded.r, 0.90) * 1.15;
-        graded.g = pow(graded.g, 1.15) * 0.85;
-        graded.b = pow(graded.b, 1.25) * 0.75;
+        // Hellish Crimson - Softened, atmospheric warm blood-amber instead of red cellophane
+        vec3 graded = c;
+        graded.r = pow(graded.r, 0.94) * 1.06;
+        graded.g = pow(graded.g, 1.06) * 0.92;
+        graded.b = pow(graded.b, 1.10) * 0.86;
+        return clamp(graded, 0.0, 1.0);
     } else if (profile == 3) {
-        // Crypt Cyan
-        graded.r = pow(graded.r, 1.15) * 0.85;
-        graded.g = pow(graded.g, 0.98) * 1.05;
-        graded.b = pow(graded.b, 0.92) * 1.15;
+        // Crypt Cyan - Muted eerie chill, subtle cool tint
+        vec3 graded = c;
+        graded.r = pow(graded.r, 1.06) * 0.92;
+        graded.g = pow(graded.g, 0.99) * 1.02;
+        graded.b = pow(graded.b, 0.95) * 1.06;
+        return clamp(graded, 0.0, 1.0);
     } else if (profile == 4) {
-        // Grimdark Desaturated Noir
-        float l = dot(graded, vec3(0.299, 0.587, 0.114));
-        graded = mix(vec3(l), graded, 0.35);
+        // Desaturated Noir - Smooth filmic grayscale without harsh clipping
+        float l = dot(c, vec3(0.299, 0.587, 0.114));
+        vec3 graded = mix(vec3(l), c, 0.42);
+        graded = pow(graded, vec3(1.05));
+        return clamp(graded, 0.0, 1.0);
     }
-    
-    return clamp(graded, 0.0, 1.0);
+
+    return c;
 }
 
 void fragment() {
     vec2 texel_size = vec2(1.0) / vec2(textureSize(d1_texture, 0));
-    
+
     // Compute sample UV: Playfield zooms, but HUD stays 100% fixed at the bottom!
     vec2 sample_uv = UV;
-    float hud_boundary = 0.898; // HUD is the bottom 10% (144 / 1440 = 0.10)
-    
+    float hud_boundary = 0.898; // HUD is the bottom ~10% (144 / 1440 = 0.10)
+
     if (playfield_zoom > 1.001 && UV.y < hud_boundary) {
         vec2 playfield_center = vec2(0.5, hud_boundary * 0.5);
         vec2 zoomed_uv = playfield_center + (UV - playfield_center) / playfield_zoom;
@@ -149,38 +203,53 @@ void fragment() {
             sample_uv = zoomed_uv;
         }
     }
-    
+
     vec3 raw_pixel = texture(d1_texture, sample_uv).bgr;
-    
+
+    // Apply selected Upscaler
     vec3 base_color;
-    if (relief_mode == 1) {
-        // 8K Catmull-Rom Bicubic Spline (Smooth Continuous Vector)
-        base_color = sample_catmull_rom_8k(d1_texture, sample_uv, texel_size);
-    } else if (relief_mode >= 2) {
-        // AMD FidelityFX CAS
+    if (upscaler_mode == 0) {
+        // AMD FidelityFX CAS (Default)
         base_color = apply_fsr_cas(d1_texture, sample_uv, texel_size);
+    } else if (upscaler_mode == 1) {
+        // Anime4K / Neural Spatial CNN Edge Push
+        base_color = sample_neural_edge_push(d1_texture, sample_uv, texel_size);
+    } else if (upscaler_mode == 2) {
+        // Anime4K Ultra Thin Lines & Vector Contours
+        base_color = sample_anime4k_thin_lines(d1_texture, sample_uv, texel_size);
+    } else if (upscaler_mode == 3) {
+        // 8K Catmull-Rom Bicubic Spline
+        base_color = sample_catmull_rom_8k(d1_texture, sample_uv, texel_size);
     } else {
+        // Native 1:1 Pixel-Art
         base_color = raw_pixel;
     }
-    
-    // Check if this pixel is part of a torch flame on the dungeon floor
-    // (Only on the game area, avoiding bottom HUD)
-    bool is_flame = engine_torches && (sample_uv.y < 0.88) && is_torch_flame(raw_pixel);
-    
+
+    // Check if this pixel is part of a torch flame, fire or magic glow
+    // (Checked across entire playfield, excluding only bottom HUD)
+    bool is_flame = engine_torches && (sample_uv.y < hud_boundary) && is_fire_or_magic(raw_pixel);
+
     if (is_flame) {
-        // Re-draw flame dynamically with procedural engine fire & HDR emission!
+        // Re-draw flame dynamically with procedural engine fire & intense HDR emission!
         vec3 engine_flame = render_engine_flame(sample_uv, raw_pixel, TIME);
         ALBEDO = clamp(engine_flame, 0.0, 1.0);
-        EMISSION = engine_flame * 3.2; // Blazing HDR Glow into Godot Forward+ Bloom!
+        EMISSION = engine_flame * 3.5; // Blazing HDR Glow into Godot Forward+ Bloom!
         ROUGHNESS = 0.1;
     } else {
-        // Normal game world
-        ALBEDO = apply_color_grading(base_color, color_profile);
+        // Normal game world vs HUD:
+        if (sample_uv.y >= hud_boundary) {
+            // HUD Area: 100% UNTOUCHED, pure original 1996 colors!
+            ALBEDO = base_color;
+        } else {
+            // Playfield: Apply tuned atmospheric color grading!
+            ALBEDO = apply_color_grading(base_color, color_profile);
+        }
         EMISSION = vec3(0.0);
-        ROUGHNESS = 0.80;
     }
 
     // 3D Normal Mapping & Emboss Relief
+    float gx = 0.0;
+    float gy = 0.0;
     if (relief_mode > 0 && !is_flame) {
         const vec3 luma = vec3(0.299, 0.587, 0.114);
 
@@ -193,14 +262,30 @@ void fragment() {
         float l_bc = dot(texture(d1_texture, sample_uv + vec2( 0.0,  1.0) * texel_size).bgr, luma);
         float l_br = dot(texture(d1_texture, sample_uv + vec2( 1.0,  1.0) * texel_size).bgr, luma);
 
-        float gx = (l_tr + 2.0 * l_mr + l_br) - (l_tl + 2.0 * l_ml + l_bl);
-        float gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);
+        gx = (l_tr + 2.0 * l_mr + l_br) - (l_tl + 2.0 * l_ml + l_bl);
+        gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);
 
-        float strength = bump_strength * (relief_mode == 2 ? 1.6 : (relief_mode == 3 ? 2.4 : 0.85));
+        // Strength scales with relief_mode (Mode 3 Deep 3D is default)
+        float mult = 0.6;
+        if (relief_mode == 2) mult = 1.3;
+        else if (relief_mode == 3) mult = 2.2;
+        else if (relief_mode == 4) mult = 3.2;
+
+        float strength = bump_strength * mult;
         vec3 normal_tangent = normalize(vec3(-gx * strength, -gy * strength, 1.0));
         NORMAL = (VIEW_MATRIX * vec4(normal_tangent, 0.0)).xyz;
     }
 
-    SPECULAR = 0.15;
+    // Wet Cobblestone PBR Specular & Roughness
+    if (wet_floor && sample_uv.y < hud_boundary) {
+        float edge_val = clamp(length(vec2(gx, gy)) * 1.8, 0.0, 1.0);
+        // Crevices collect water, stone surfaces glint with soft PBR specular
+        ROUGHNESS = mix(0.20, 0.52, edge_val);
+        SPECULAR = mix(0.60, 0.32, edge_val);
+    } else {
+        ROUGHNESS = 0.80;
+        SPECULAR = 0.15;
+    }
+
     METALLIC = 0.0;
 }
