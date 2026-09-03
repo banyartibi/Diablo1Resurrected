@@ -19,7 +19,7 @@ background_mode = 1
 background_color = Color(0.01, 0.01, 0.015, 1)
 ambient_light_source = 2
 ambient_light_color = Color(1.0, 1.0, 1.0, 1)
-ambient_light_energy = 1.0
+ambient_light_energy = 0.35
 tonemap_mode = 2
 glow_enabled = true
 glow_normalized = true
@@ -68,20 +68,21 @@ fov = 60.0
 material_override = SubResource("ShaderMaterial_d1")
 mesh = SubResource("QuadMesh_d1")
 
-[node name="GothicAmbientLight" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 6)
-light_color = Color(0.92, 0.70, 0.45, 1)
-light_energy = 0.08
+[node name="GothicAngledLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.925417, 0.163176, -0.34202, 0, 0.902268, 0.431182, 0.378893, -0.399025, 0.834976, 0, 4, 6)
+light_color = Color(0.96, 0.78, 0.50, 1)
+light_energy = 0.70
 light_specular = 0.0
 shadow_enabled = false
 
 [node name="HeroTorchLight" type="OmniLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.8)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 2.8)
 light_color = Color(1.0, 0.74, 0.40, 1)
-light_energy = 0.60
-light_specular = 0.15
+light_energy = 0.50
+light_specular = 0.08
 omni_range = 9.5
 omni_attenuation = 1.8
+
 
 
 [node name="DungeonEmbers3D" type="GPUParticles3D" parent="."]

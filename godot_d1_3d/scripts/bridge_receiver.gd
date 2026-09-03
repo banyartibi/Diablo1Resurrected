@@ -19,9 +19,9 @@ var vsync_enabled: bool = true          # Default: ON (Smooth 144Hz Monitor Sync
 var show_fps: bool = true               # Default: ON (Immediate performance readout)
 var current_fog_mode: int = 1           # Default: 1 = Crypt Mist (Subtle Dungeon Atmosphere)
 var current_color_profile: int = 2      # Default: 2 = Hellish Crimson (Warm Blood-Amber, HUD bypassed)
-var current_upscaler_mode: int = 2      # Default: 2 = Anime4K Ultra Thin Lines & Vector Contours
+var current_upscaler_mode: int = 3      # Default: 3 = 8K Catmull-Rom Bicubic Spline!
 var current_relief_mode: int = 3        # Default: 3 = Deep 3D Embossed Contour & Normal Relief
-var engine_torches: bool = true         # Default: ON (Comprehensive 3.5x HDR Glow & Fire)
+var current_hdr_level: int = 3          # Default: 3 = 3.0x Blazing HDR Glow (0: OFF, 1: 1.0x, 2: 2.0x, 3: 3.0x)
 var hero_light_enabled: bool = true     # Default: ON (Soft Natural Dungeon Torchlight, No Ugly Rectangles!)
 var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections, Soft Specular)
 var playfield_zoom: float = 1.0
@@ -35,13 +35,19 @@ var zoom_step_names = [
 	"3.0x (Epikus Makró / Macro Close)"
 ]
 
-var player_target_pos: Vector2 = Vector2.ZERO
+var hdr_multipliers = [0.0, 1.0, 2.0, 3.0]
+var hdr_names = [
+	"[F5] Engine HDR Glow: OFF (0.0x)",
+	"[F5] Engine HDR Glow: 1.0x (Subtle Natural Glow)",
+	"[F5] Engine HDR Glow: 2.0x (Warm Radiant Bloom)",
+	"[F5] Engine HDR Glow: 3.0x (Intense Blazing Bloom - Default)"
+]
 
 var upscaler_names = [
 	"Upscaler [F7]: AMD FidelityFX CAS Super-Resolution",
 	"Upscaler [F7]: Anime4K / Neural Spatial CNN (Edge Reconstruction)",
-	"Upscaler [F7]: Anime4K Ultra Thin Lines & Vector Contours (Default)",
-	"Upscaler [F7]: 8K Catmull-Rom Bicubic Spline (Continuous Curves)",
+	"Upscaler [F7]: Anime4K Ultra Thin Lines & Vector Contours",
+	"Upscaler [F7]: 8K Catmull-Rom Bicubic Spline (Default)",
 	"Upscaler [F7]: Native 1:1 Direct Retro Pixel-Art"
 ]
 
@@ -60,7 +66,7 @@ var fog_names = [
 ]
 
 var relief_names = [
-	"3D Surface Relief [F11]: OFF",
+	"3D Surface Relief [F11]: OFF (Flat 2D)",
 	"3D Surface Relief [F11]: Mode 1 (Subtle 3D)",
 	"3D Surface Relief [F11]: Mode 2 (Balanced 3D Emboss)",
 	"3D Surface Relief [F11]: Mode 3 (Deep 3D Embossed Relief - Default)",
@@ -100,8 +106,8 @@ func _ready():
 	update_fog_mode()
 	update_torch_light()
 	
-	show_osd("Diablo 1 Resurrected | Crimson + Anime4K + Crypt Mist Active | F4: V-Sync | F6: Torchlight", 4.0)
-	print("[Godot-D1 Bridge] Receiver initialized with user defaults. Anime4K, Crimson, Crypt Mist & Deep 3D active.")
+	show_osd("Diablo 1 Resurrected | Crimson + 8K Catmull + Crypt Mist Active | F4: V-Sync | F5: HDR Glow", 4.0)
+	print("[Godot-D1 Bridge] Receiver initialized with user defaults. 8K Spline, Crimson, Crypt Mist & Deep 3D active.")
 
 func setup_osd():
 	var canvas = CanvasLayer.new()
@@ -129,8 +135,8 @@ func update_torch_light():
 	if hero_light:
 		hero_light.visible = hero_light_enabled
 		hero_light.light_color = Color(1.0, 0.74, 0.40, 1.0) # Warm gothic amber
-		hero_light.light_energy = 0.55
-		hero_light.light_specular = 0.12 # Soft natural glint, no blinding white hotspot
+		hero_light.light_energy = 0.50
+		hero_light.light_specular = 0.08 # Soft natural glint, no blinding white hotspot
 		hero_light.omni_range = 9.5
 		hero_light.omni_attenuation = 1.8
 
@@ -185,11 +191,11 @@ func apply_upscaler_mode():
 		vp.scaling_3d_scale = 1.0
 		vp.fsr_sharpness = 1.2
 	elif current_upscaler_mode in [1, 2]:
-		# Anime4K Neural Edge / Ultra Thin Lines (Default)
+		# Anime4K Neural Edge / Ultra Thin Lines
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		vp.scaling_3d_scale = 1.0
 	elif current_upscaler_mode == 3:
-		# 8K Catmull-Rom Bicubic Spline
+		# 8K Catmull-Rom Bicubic Spline (Default)
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
 		vp.scaling_3d_scale = 1.0
 		vp.fsr_sharpness = 1.0
@@ -205,7 +211,7 @@ func update_shader_params():
 		shader_material.set_shader_parameter("color_profile", current_color_profile)
 		shader_material.set_shader_parameter("upscaler_mode", current_upscaler_mode)
 		shader_material.set_shader_parameter("relief_mode", current_relief_mode)
-		shader_material.set_shader_parameter("engine_torches", engine_torches)
+		shader_material.set_shader_parameter("hdr_glow_mult", hdr_multipliers[current_hdr_level])
 		shader_material.set_shader_parameter("wet_floor", wet_floor)
 		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 
@@ -234,10 +240,8 @@ func _process(delta: float):
 	
 	if hero_light and hero_light_enabled:
 		# Organic soft torch breathing flicker
-		var flicker = 0.55 + 0.08 * sin(time_accum * 4.8) * cos(time_accum * 2.3)
+		var flicker = 0.50 + 0.06 * sin(time_accum * 4.8) * cos(time_accum * 2.3)
 		hero_light.light_energy = flicker
-		# Keep light gently centered on the playfield
-		hero_light.position = Vector3(0.0, 0.3, 2.8)
 	
 	if fps_timer >= 1.0:
 		current_fps = frame_counter
@@ -278,13 +282,10 @@ func _process(delta: float):
 	var _pitch = file.get_32()
 	var frame_id = file.get_32()
 	var _timestamp = file.get_32()
-	var px = file.get_float()
-	var py = file.get_float()
+	var _px = file.get_float()
+	var _py = file.get_float()
 	var _zoom_mode = file.get_32()
 	var _torch_count = file.get_32()
-	
-	if px > 0.0 or py > 0.0:
-		player_target_pos = Vector2((px / 112.0 - 0.5) * 8.0, (py / 112.0 - 0.5) * -4.5)
 	
 	# Skip to payload at 4096 bytes (4KB aligned page)
 	file.seek(4096)
@@ -331,9 +332,9 @@ func _input(event: InputEvent):
 			show_osd("[F4] V-Sync: " + ("ON (Screen Refresh Rate Limit)" if vsync_enabled else "OFF (Uncapped Max FPS)"))
 			return
 		elif event.keycode == KEY_F5:
-			engine_torches = !engine_torches
+			current_hdr_level = (current_hdr_level + 1) % hdr_names.size()
 			update_shader_params()
-			show_osd("[F5] Engine 3D Torches & HDR Glow: " + ("ENABLED (3.5x HDR Bloom)" if engine_torches else "DISABLED"))
+			show_osd(hdr_names[current_hdr_level])
 			return
 		elif event.keycode == KEY_F6:
 			hero_light_enabled = !hero_light_enabled

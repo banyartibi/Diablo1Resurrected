@@ -2,13 +2,13 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specular_schlick_ggx;
 
 uniform sampler2D d1_texture : source_color, filter_linear_mipmap, hint_default_black;
-uniform float bump_strength : hint_range(0.0, 3.0) = 0.55;
+uniform float bump_strength : hint_range(0.0, 3.0) = 0.65;
 uniform int color_profile : hint_range(0, 4) = 2;   // 0: Vanilla, 1: Dark Gothic, 2: Hellish Crimson (Default), 3: Crypt Cyan, 4: Noir
-uniform int upscaler_mode : hint_range(0, 4) = 2;   // 0: AMD FSR CAS, 1: Anime4K Edge, 2: Anime4K Thin Lines (Default), 3: 8K Spline, 4: Native
+uniform int upscaler_mode : hint_range(0, 4) = 3;   // 0: AMD CAS, 1: Anime4K Edge, 2: Anime4K Thin, 3: 8K Spline (Default), 4: Native
 uniform int relief_mode : hint_range(0, 4) = 3;     // 0: Off, 1: Subtle, 2: Balanced, 3: Deep 3D (Default), 4: Extreme
 uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.95;
 uniform float playfield_zoom : hint_range(1.0, 2.5) = 1.0; // Zooms playfield ONLY, HUD stays pinned!
-uniform bool engine_torches = true;                  // Engine-rendered procedural 3D flames & HDR glow
+uniform float hdr_glow_mult : hint_range(0.0, 4.0) = 3.0;  // 0.0: OFF, 1.0, 2.0, 3.0 (Default)
 uniform bool wet_floor = true;                       // Wet cobblestone PBR reflections & specular gloss
 
 // Comprehensive Torch, Fire & Magic Glow Detection (Yellow core, orange body, red edges, lightning)
@@ -150,38 +150,38 @@ vec3 sample_anime4k_thin_lines(sampler2D tex, vec2 uv, vec2 texel) {
     return clamp(sharpened, min_c, max_c);
 }
 
-// Refined, Softer Color Grading Curves
+// Distinct, Rich Color Grading Profiles
 vec3 apply_color_grading(vec3 c, int profile) {
     if (profile == 0) {
-        return c; // Vanilla 1996 Classic
+        return c; // Vanilla 1996 Classic 32-bit
     }
 
     if (profile == 1) {
-        // Dark Gothic (OLED) - Very gentle filmic curve, shadow details fully preserved
+        // Dark Gothic (OLED) - Deep, rich shadows with clear midtones
         vec3 x = max(vec3(0.0), c - 0.001);
-        vec3 graded = (x * (4.2 * x + 0.35)) / (x * (4.2 * x + 1.2) + 0.04);
-        graded.r = pow(graded.r, 0.98) * 1.02;
-        graded.b = pow(graded.b, 1.02) * 0.97;
+        vec3 graded = (x * (4.5 * x + 0.38)) / (x * (4.5 * x + 1.25) + 0.045);
+        graded.r = pow(graded.r, 0.96) * 1.04;
+        graded.b = pow(graded.b, 1.03) * 0.95;
         return clamp(graded, 0.0, 1.0);
     } else if (profile == 2) {
-        // Hellish Crimson (Default) - Warm, rich, dark dungeon ambiance
+        // Hellish Crimson (Default) - Warm, rich blood-dungeon ambiance
         vec3 graded = c;
-        graded.r = pow(graded.r, 0.94) * 1.06;
-        graded.g = pow(graded.g, 1.04) * 0.94;
-        graded.b = pow(graded.b, 1.08) * 0.88;
+        graded.r = pow(graded.r, 0.91) * 1.12;
+        graded.g = pow(graded.g, 1.04) * 0.92;
+        graded.b = pow(graded.b, 1.09) * 0.84;
         return clamp(graded, 0.0, 1.0);
     } else if (profile == 3) {
-        // Crypt Cyan - Muted eerie chill, subtle cool tint
+        // Crypt Cyan - Chilling, eerie spectral cold dungeon ambiance
         vec3 graded = c;
-        graded.r = pow(graded.r, 1.06) * 0.92;
-        graded.g = pow(graded.g, 0.99) * 1.02;
-        graded.b = pow(graded.b, 0.95) * 1.06;
+        graded.r = pow(graded.r, 1.10) * 0.84;
+        graded.g = pow(graded.g, 0.96) * 1.04;
+        graded.b = pow(graded.b, 0.91) * 1.16;
         return clamp(graded, 0.0, 1.0);
     } else if (profile == 4) {
-        // Desaturated Noir - Smooth filmic grayscale without harsh clipping
+        // Desaturated Noir - Dramatic, stark grimdark monochrome with subtle tint
         float l = dot(c, vec3(0.299, 0.587, 0.114));
-        vec3 graded = mix(vec3(l), c, 0.42);
-        graded = pow(graded, vec3(1.05));
+        vec3 graded = mix(vec3(l), c, 0.28);
+        graded = pow(graded, vec3(1.10)) * 1.08;
         return clamp(graded, 0.0, 1.0);
     }
 
@@ -208,7 +208,7 @@ void fragment() {
     // Apply selected Upscaler
     vec3 base_color;
     if (upscaler_mode == 0) {
-        // AMD FidelityFX CAS (Default)
+        // AMD FidelityFX CAS
         base_color = apply_fsr_cas(d1_texture, sample_uv, texel_size);
     } else if (upscaler_mode == 1) {
         // Anime4K / Neural Spatial CNN Edge Push
@@ -217,7 +217,7 @@ void fragment() {
         // Anime4K Ultra Thin Lines & Vector Contours
         base_color = sample_anime4k_thin_lines(d1_texture, sample_uv, texel_size);
     } else if (upscaler_mode == 3) {
-        // 8K Catmull-Rom Bicubic Spline
+        // 8K Catmull-Rom Bicubic Spline (Default)
         base_color = sample_catmull_rom_8k(d1_texture, sample_uv, texel_size);
     } else {
         // Native 1:1 Pixel-Art
@@ -226,29 +226,13 @@ void fragment() {
 
     // Check if this pixel is part of a torch flame, fire or magic glow
     // (Checked across entire playfield, excluding only bottom HUD)
-    bool is_flame = engine_torches && (sample_uv.y < hud_boundary) && is_fire_or_magic(raw_pixel);
+    bool is_flame = (hdr_glow_mult > 0.05) && (sample_uv.y < hud_boundary) && is_fire_or_magic(raw_pixel);
 
-    if (is_flame) {
-        // Re-draw flame dynamically with procedural engine fire & intense HDR emission!
-        vec3 engine_flame = render_engine_flame(sample_uv, raw_pixel, TIME);
-        ALBEDO = clamp(engine_flame, 0.0, 1.0);
-        EMISSION = engine_flame * 3.5; // Blazing HDR Glow into Godot Forward+ Bloom!
-        ROUGHNESS = 0.1;
-    } else {
-        // Normal game world vs HUD:
-        if (sample_uv.y >= hud_boundary) {
-            // HUD Area: 100% UNTOUCHED, pure original 1996 colors!
-            ALBEDO = base_color;
-        } else {
-            // Playfield: Apply tuned atmospheric color grading!
-            ALBEDO = apply_color_grading(base_color, color_profile);
-        }
-        EMISSION = vec3(0.0);
-    }
-
-    // 3D Normal Mapping & Emboss Relief
+    // 3D Normal Mapping & Tactile Albedo Relief
     float gx = 0.0;
     float gy = 0.0;
+    float relief_shading = 1.0;
+
     if (relief_mode > 0 && !is_flame) {
         const vec3 luma = vec3(0.299, 0.587, 0.114);
 
@@ -265,14 +249,36 @@ void fragment() {
         gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);
 
         // Strength scales with relief_mode (Mode 3 Deep 3D is default)
-        float mult = 0.6;
-        if (relief_mode == 2) mult = 1.3;
-        else if (relief_mode == 3) mult = 2.2;
-        else if (relief_mode == 4) mult = 3.2;
+        float mult = 0.8;
+        if (relief_mode == 2) mult = 1.6;
+        else if (relief_mode == 3) mult = 2.6;
+        else if (relief_mode == 4) mult = 4.0;
 
         float strength = bump_strength * mult;
         vec3 normal_tangent = normalize(vec3(-gx * strength, -gy * strength, 1.0));
         NORMAL = (VIEW_MATRIX * vec4(normal_tangent, 0.0)).xyz;
+
+        // Tactile directional light relief directly in albedo:
+        // Illuminates high relief edges and casts deep shadows into cracks
+        relief_shading = clamp(1.0 + (-gx * 0.7 - gy * 0.7) * (mult * 0.22), 0.65, 1.40);
+    }
+
+    if (is_flame) {
+        // Re-draw flame dynamically with procedural engine fire & adjustable HDR emission!
+        vec3 engine_flame = render_engine_flame(sample_uv, raw_pixel, TIME);
+        ALBEDO = clamp(engine_flame, 0.0, 1.0);
+        EMISSION = engine_flame * (hdr_glow_mult * 1.15); // Dynamic HDR Glow level!
+        ROUGHNESS = 0.1;
+    } else {
+        // Normal game world vs HUD:
+        if (sample_uv.y >= hud_boundary) {
+            // HUD Area: 100% UNTOUCHED, pure original 1996 colors!
+            ALBEDO = base_color;
+        } else {
+            // Playfield: Apply tuned atmospheric color grading & 3D relief shading!
+            ALBEDO = apply_color_grading(base_color, color_profile) * relief_shading;
+        }
+        EMISSION = vec3(0.0);
     }
 
     // Wet Cobblestone PBR Specular & Roughness (Gentle, natural damp stone gloss)
