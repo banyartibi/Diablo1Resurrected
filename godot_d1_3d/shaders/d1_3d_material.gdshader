@@ -3,7 +3,7 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specula
 
 uniform sampler2D d1_texture : source_color, filter_linear_mipmap, hint_default_black;
 uniform float bump_strength : hint_range(0.0, 3.0) = 0.65;
-uniform int color_profile : hint_range(0, 4) = 3;   // 0: Vanilla, 1: Dark Gothic, 2: Hellish Crimson, 3: Crypt Cyan (Default), 4: Noir
+uniform int color_profile : hint_range(0, 4) = 1;   // 0: Vanilla, 1: Dark Gothic (Default), 2: Hellish Crimson, 3: Crypt Cyan, 4: Noir
 uniform int upscaler_mode : hint_range(0, 4) = 3;   // 0: AMD CAS, 1: Anime4K Edge, 2: Anime4K Thin, 3: 8K Spline (Default), 4: Native
 uniform int relief_mode : hint_range(0, 4) = 3;     // 0: Off, 1: Subtle, 2: Balanced, 3: Deep 3D (Default), 4: Extreme
 uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.95;

@@ -18,11 +18,11 @@ var d1_height: int = 1440
 var vsync_enabled: bool = true          # Default: ON (Smooth 144Hz Monitor Sync)
 var show_fps: bool = true               # Default: ON (Immediate performance readout)
 var current_fog_mode: int = 1           # Default: 1 = Crypt Mist (Subtle Dungeon Atmosphere)
-var current_color_profile: int = 3      # Default: 3 = Crypt Cyan (Gothic Cold Chill - Default)
+var current_color_profile: int = 1      # Default: 1 = Dark Gothic (Deep OLED Slate Contrast - Default)
 var current_upscaler_mode: int = 3      # Default: 3 = 8K Catmull-Rom Bicubic Spline!
 var current_relief_mode: int = 3        # Default: 3 = Deep 3D Embossed Contour & Normal Relief
 var current_hdr_level: int = 3          # Default: 3 = 3.0x Blazing HDR Glow (0: OFF, 1: 1.0x, 2: 2.0x, 3: 3.0x)
-var hero_light_enabled: bool = true     # Default: ON (Soft Natural Dungeon Torchlight, No Ugly Rectangles!)
+var hero_light_enabled: bool = false    # Default: OFF (Respects authentic Diablo shadows, no bleeding through walls!)
 var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections, Darker Damp Stone + Glossy Puddles)
 var playfield_zoom: float = 1.0
 var left_panel_open: bool = false
@@ -55,9 +55,9 @@ var upscaler_names = [
 
 var color_names = [
 	"Vanilla (1996 Classic 32-bit - UI Untouched)",
-	"Dark Gothic (Deep OLED Slate Contrast)",
+	"Dark Gothic (Deep OLED Slate Contrast - Default)",
 	"Hellish Crimson (Warm Blood-Amber)",
-	"Crypt Cyan (Gothic Cold Chill - Default)",
+	"Crypt Cyan (Gothic Cold Chill)",
 	"Desaturated Noir (Grimdark Film)"
 ]
 
@@ -108,8 +108,8 @@ func _ready():
 	update_fog_mode()
 	update_torch_light()
 	
-	show_osd("Diablo 1 Resurrected | Crypt Cyan + 8K Catmull + Music Active | F4: V-Sync | F12: Wet Floor", 4.0)
-	print("[Godot-D1 Bridge] Receiver initialized with user defaults. Crypt Cyan, 8K Spline & Panel Shield active.")
+	show_osd("Diablo 1 Resurrected | Dark Gothic + 8K Catmull + Music Active | F4: V-Sync | F12: Wet Floor", 4.0)
+	print("[Godot-D1 Bridge] Receiver initialized with user defaults. Dark Gothic, 8K Spline & Panel Shield active.")
 
 func setup_osd():
 	var canvas = CanvasLayer.new()
