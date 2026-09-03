@@ -1,0 +1,25 @@
+# Build artifacts
+DevilutionX/build/
+*.o
+*.a
+*.so
+*.d
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Godot engine binary & cache (>100MB files blocked by GitHub)
+tools/
+extension_api.json
+.godot/
+*.import
+
+# Proprietary Blizzard game data files
+*.mpq
+*.MPQ
+
+# Temporary and editor files
+.DS_Store
+*.tmp
+*~
