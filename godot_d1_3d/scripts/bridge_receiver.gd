@@ -18,13 +18,15 @@ var d1_height: int = 1440
 var vsync_enabled: bool = true          # Default: ON (Smooth 144Hz Monitor Sync)
 var show_fps: bool = true               # Default: ON (Immediate performance readout)
 var current_fog_mode: int = 1           # Default: 1 = Crypt Mist (Subtle Dungeon Atmosphere)
-var current_color_profile: int = 2      # Default: 2 = Hellish Crimson (Warm Blood-Amber, HUD bypassed)
+var current_color_profile: int = 3      # Default: 3 = Crypt Cyan (Gothic Cold Chill - Default)
 var current_upscaler_mode: int = 3      # Default: 3 = 8K Catmull-Rom Bicubic Spline!
 var current_relief_mode: int = 3        # Default: 3 = Deep 3D Embossed Contour & Normal Relief
 var current_hdr_level: int = 3          # Default: 3 = 3.0x Blazing HDR Glow (0: OFF, 1: 1.0x, 2: 2.0x, 3: 3.0x)
 var hero_light_enabled: bool = true     # Default: ON (Soft Natural Dungeon Torchlight, No Ugly Rectangles!)
-var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections, Soft Specular)
+var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections, Darker Damp Stone + Glossy Puddles)
 var playfield_zoom: float = 1.0
+var left_panel_open: bool = false
+var right_panel_open: bool = false
 
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
@@ -52,10 +54,10 @@ var upscaler_names = [
 ]
 
 var color_names = [
-	"Vanilla (1996 Classic 32-bit - HUD Untouched)",
-	"Dark Gothic (Refined Gentle OLED Shadow)",
-	"Hellish Crimson (Warm Blood-Amber - Default)",
-	"Crypt Cyan (Gothic Cold Chill)",
+	"Vanilla (1996 Classic 32-bit - UI Untouched)",
+	"Dark Gothic (Deep OLED Slate Contrast)",
+	"Hellish Crimson (Warm Blood-Amber)",
+	"Crypt Cyan (Gothic Cold Chill - Default)",
 	"Desaturated Noir (Grimdark Film)"
 ]
 
@@ -106,8 +108,8 @@ func _ready():
 	update_fog_mode()
 	update_torch_light()
 	
-	show_osd("Diablo 1 Resurrected | Crimson + 8K Catmull + Crypt Mist Active | F4: V-Sync | F5: HDR Glow", 4.0)
-	print("[Godot-D1 Bridge] Receiver initialized with user defaults. 8K Spline, Crimson, Crypt Mist & Deep 3D active.")
+	show_osd("Diablo 1 Resurrected | Crypt Cyan + 8K Catmull + Music Active | F4: V-Sync | F12: Wet Floor", 4.0)
+	print("[Godot-D1 Bridge] Receiver initialized with user defaults. Crypt Cyan, 8K Spline & Panel Shield active.")
 
 func setup_osd():
 	var canvas = CanvasLayer.new()
@@ -214,6 +216,8 @@ func update_shader_params():
 		shader_material.set_shader_parameter("hdr_glow_mult", hdr_multipliers[current_hdr_level])
 		shader_material.set_shader_parameter("wet_floor", wet_floor)
 		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
+		shader_material.set_shader_parameter("left_panel_open", left_panel_open)
+		shader_material.set_shader_parameter("right_panel_open", right_panel_open)
 
 func update_fog_mode():
 	if world_env and world_env.environment:
@@ -286,6 +290,16 @@ func _process(delta: float):
 	var _py = file.get_float()
 	var _zoom_mode = file.get_32()
 	var _torch_count = file.get_32()
+	
+	# Read UI panel flags exported from DevilutionX (torches[0].normX and normY)
+	var left_p = file.get_float()
+	var right_p = file.get_float()
+	var new_left = (left_p > 0.5)
+	var new_right = (right_p > 0.5)
+	if new_left != left_panel_open or new_right != right_panel_open:
+		left_panel_open = new_left
+		right_panel_open = new_right
+		update_shader_params()
 	
 	# Skip to payload at 4096 bytes (4KB aligned page)
 	file.seek(4096)
@@ -370,7 +384,7 @@ func _input(event: InputEvent):
 		elif event.keycode == KEY_F12:
 			wet_floor = !wet_floor
 			update_shader_params()
-			show_osd("[F12] Dungeon Floor: " + ("Wet & Reflective Cobblestone (PBR Specular ON)" if wet_floor else "Dry Stone Surface (OFF)"))
+			show_osd("[F12] Dungeon Floor: " + ("Wet & Reflective Cobblestone (Glossy Puddles ON)" if wet_floor else "Dry Dusty Stone Surface (OFF)"))
 			return
 
 	if not FileAccess.file_exists("/dev/shm/d1_godot_frame"):

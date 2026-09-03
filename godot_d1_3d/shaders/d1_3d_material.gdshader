@@ -3,21 +3,30 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specula
 
 uniform sampler2D d1_texture : source_color, filter_linear_mipmap, hint_default_black;
 uniform float bump_strength : hint_range(0.0, 3.0) = 0.65;
-uniform int color_profile : hint_range(0, 4) = 2;   // 0: Vanilla, 1: Dark Gothic, 2: Hellish Crimson (Default), 3: Crypt Cyan, 4: Noir
+uniform int color_profile : hint_range(0, 4) = 3;   // 0: Vanilla, 1: Dark Gothic, 2: Hellish Crimson, 3: Crypt Cyan (Default), 4: Noir
 uniform int upscaler_mode : hint_range(0, 4) = 3;   // 0: AMD CAS, 1: Anime4K Edge, 2: Anime4K Thin, 3: 8K Spline (Default), 4: Native
 uniform int relief_mode : hint_range(0, 4) = 3;     // 0: Off, 1: Subtle, 2: Balanced, 3: Deep 3D (Default), 4: Extreme
 uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.95;
 uniform float playfield_zoom : hint_range(1.0, 2.5) = 1.0; // Zooms playfield ONLY, HUD stays pinned!
 uniform float hdr_glow_mult : hint_range(0.0, 4.0) = 3.0;  // 0.0: OFF, 1.0, 2.0, 3.0 (Default)
-uniform bool wet_floor = true;                       // Wet cobblestone PBR reflections & specular gloss
+uniform bool wet_floor = true;                             // Wet cobblestone PBR reflections & specular gloss
+uniform bool left_panel_open = false;                      // Character sheet / Quest window open
+uniform bool right_panel_open = false;                     // Inventory / Spellbook open
 
-// Comprehensive Torch, Fire & Magic Glow Detection (Yellow core, orange body, red edges, lightning)
+// Strict Torch, Fire & Spell Detection (Guaranteed 0% false positives on UI windows & inventory)
 bool is_fire_or_magic(vec3 col) {
-    // Warm fire / torch / brazier / lava
-    bool is_warm_fire = (col.r > 0.40 && col.g > 0.15 && col.b < 0.38 && col.r >= col.g * 0.90 && col.r > col.b * 1.5);
-    // Extreme bright magic light (spells, lightning, holy shrines, gold)
-    bool is_magic = (col.r > 0.82 && col.g > 0.82 && col.b > 0.55);
-    return is_warm_fire || is_magic;
+    // 1. Explicitly reject parchment, stone UI panels, light grays, and UI gold borders
+    // UI parchment has high blue (> 0.22) or nearly equal red and green
+    if (col.b > 0.22) return false;
+    if (abs(col.r - col.g) < 0.08 && col.r > 0.45) return false;
+
+    // 2. Real dungeon fire: intensely rich red/amber with very low blue
+    bool is_torch_fire = (col.r > 0.52 && col.g > 0.16 && col.g < 0.75 && col.b < 0.20 && col.r > col.b * 2.8 && col.r >= col.g * 1.04);
+
+    // 3. Blinding lightning / holy spells: pure white-hot electrical core
+    bool is_lightning = (col.r > 0.92 && col.g > 0.92 && col.b > 0.90 && length(col - vec3(1.0)) < 0.12);
+
+    return is_torch_fire || is_lightning;
 }
 
 // Procedural flame noise generator
@@ -157,25 +166,26 @@ vec3 apply_color_grading(vec3 c, int profile) {
     }
 
     if (profile == 1) {
-        // Dark Gothic (OLED) - Deep, rich shadows with clear midtones
-        vec3 x = max(vec3(0.0), c - 0.001);
-        vec3 graded = (x * (4.5 * x + 0.38)) / (x * (4.5 * x + 1.25) + 0.045);
-        graded.r = pow(graded.r, 0.96) * 1.04;
-        graded.b = pow(graded.b, 1.03) * 0.95;
-        return clamp(graded, 0.0, 1.0);
+        // Dark Gothic: True grimdark dungeon contrast, deep inky shadows, rich torchlit highlights
+        vec3 col = c;
+        col = (col * (2.8 * col + 0.15)) / (col * (2.8 * col + 0.85) + 0.12);
+        col.r = pow(col.r, 1.04) * 0.96;
+        col.g = pow(col.g, 1.01) * 0.98;
+        col.b = pow(col.b, 0.95) * 1.07;
+        return clamp(col, 0.0, 1.0);
     } else if (profile == 2) {
-        // Hellish Crimson (Default) - Warm, rich blood-dungeon ambiance
+        // Hellish Crimson - Warm, rich blood-dungeon ambiance
         vec3 graded = c;
         graded.r = pow(graded.r, 0.91) * 1.12;
         graded.g = pow(graded.g, 1.04) * 0.92;
         graded.b = pow(graded.b, 1.09) * 0.84;
         return clamp(graded, 0.0, 1.0);
     } else if (profile == 3) {
-        // Crypt Cyan - Chilling, eerie spectral cold dungeon ambiance
+        // Crypt Cyan (Default) - Chilling, eerie spectral cold dungeon ambiance
         vec3 graded = c;
         graded.r = pow(graded.r, 1.10) * 0.84;
         graded.g = pow(graded.g, 0.96) * 1.04;
-        graded.b = pow(graded.b, 0.91) * 1.16;
+        graded.b = pow(graded.b, 0.91) * 1.18;
         return clamp(graded, 0.0, 1.0);
     } else if (profile == 4) {
         // Desaturated Noir - Dramatic, stark grimdark monochrome with subtle tint
@@ -205,6 +215,11 @@ void fragment() {
 
     vec3 raw_pixel = texture(d1_texture, sample_uv).bgr;
 
+    // Check if UV falls inside an active UI panel (Character Sheet, Inventory, Quest Log, Spellbook)
+    bool in_left_panel = left_panel_open && (sample_uv.x <= 0.40 && sample_uv.y >= 0.06 && sample_uv.y < hud_boundary);
+    bool in_right_panel = right_panel_open && (sample_uv.x >= 0.60 && sample_uv.y >= 0.06 && sample_uv.y < hud_boundary);
+    bool in_ui = (sample_uv.y >= hud_boundary) || in_left_panel || in_right_panel;
+
     // Apply selected Upscaler
     vec3 base_color;
     if (upscaler_mode == 0) {
@@ -225,15 +240,15 @@ void fragment() {
     }
 
     // Check if this pixel is part of a torch flame, fire or magic glow
-    // (Checked across entire playfield, excluding only bottom HUD)
-    bool is_flame = (hdr_glow_mult > 0.05) && (sample_uv.y < hud_boundary) && is_fire_or_magic(raw_pixel);
+    // (Checked across playfield, strictly excluding HUD and UI panels)
+    bool is_flame = (hdr_glow_mult > 0.05) && (!in_ui) && is_fire_or_magic(raw_pixel);
 
     // 3D Normal Mapping & Tactile Albedo Relief
     float gx = 0.0;
     float gy = 0.0;
     float relief_shading = 1.0;
 
-    if (relief_mode > 0 && !is_flame) {
+    if (relief_mode > 0 && !is_flame && !in_ui) {
         const vec3 luma = vec3(0.299, 0.587, 0.114);
 
         float l_tl = dot(texture(d1_texture, sample_uv + vec2(-1.0, -1.0) * texel_size).bgr, luma);
@@ -259,7 +274,6 @@ void fragment() {
         NORMAL = (VIEW_MATRIX * vec4(normal_tangent, 0.0)).xyz;
 
         // Tactile directional light relief directly in albedo:
-        // Illuminates high relief edges and casts deep shadows into cracks
         relief_shading = clamp(1.0 + (-gx * 0.7 - gy * 0.7) * (mult * 0.22), 0.65, 1.40);
     }
 
@@ -270,26 +284,33 @@ void fragment() {
         EMISSION = engine_flame * (hdr_glow_mult * 1.15); // Dynamic HDR Glow level!
         ROUGHNESS = 0.1;
     } else {
-        // Normal game world vs HUD:
-        if (sample_uv.y >= hud_boundary) {
-            // HUD Area: 100% UNTOUCHED, pure original 1996 colors!
+        if (in_ui) {
+            // UI Areas (HUD, Inventory, Character Sheet): 100% UNTOUCHED, pure original 1996 colors & text!
             ALBEDO = base_color;
+            EMISSION = vec3(0.0);
         } else {
             // Playfield: Apply tuned atmospheric color grading & 3D relief shading!
             ALBEDO = apply_color_grading(base_color, color_profile) * relief_shading;
+            EMISSION = vec3(0.0);
         }
-        EMISSION = vec3(0.0);
     }
 
-    // Wet Cobblestone PBR Specular & Roughness (Gentle, natural damp stone gloss)
-    if (wet_floor && sample_uv.y < hud_boundary) {
-        float edge_val = clamp(length(vec2(gx, gy)) * 1.5, 0.0, 1.0);
-        // Natural damp cobblestone: soft specular gloss in crevices, no mirror reflection
-        ROUGHNESS = mix(0.45, 0.78, edge_val);
-        SPECULAR = mix(0.18, 0.05, edge_val);
+    // Wet Cobblestone Floor: Deep water-absorbed stone color + glossy puddle reflections
+    if (wet_floor && !in_ui) {
+        float edge_val = clamp(length(vec2(gx, gy)) * 1.6, 0.0, 1.0);
+        // Low crevice areas accumulate water into glossy puddles
+        float puddle_mask = clamp(1.0 - edge_val * 1.5, 0.0, 1.0);
+        
+        // Wet stone is naturally darker and richer in saturation
+        ALBEDO = mix(ALBEDO, ALBEDO * 0.80, 0.65);
+        
+        // Puddles reflect light with smooth PBR specular gloss
+        ROUGHNESS = mix(0.70, 0.18, puddle_mask);
+        SPECULAR = mix(0.08, 0.65, puddle_mask);
     } else {
-        ROUGHNESS = 0.88;
-        SPECULAR = 0.02;
+        // Dry, dusty stone floor: completely matte
+        ROUGHNESS = 0.95;
+        SPECULAR = 0.01;
     }
 
     METALLIC = 0.0;

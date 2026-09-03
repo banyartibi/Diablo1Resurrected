@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <cstring>
 
+#include "control.h"
+
 namespace devilution {
 
 bool gbGodotBridgeActive = true;
@@ -59,6 +61,10 @@ void ExportGodotFrame(const SDL_Surface *surface)
 	hdr->playerNormY = 0.52f;
 	hdr->zoomMode = (CurrentZoomMode == ZoomMode::Zoomed_2x) ? 3 : (CurrentZoomMode == ZoomMode::Balanced_1_5x ? 2 : 1);
 	hdr->torchCount = 0;
+
+	// Export UI Panel States (Character sheet, Inventory, Quest log, Spellbook)
+	hdr->torches[0].normX = IsLeftPanelOpen() ? 1.0f : 0.0f;
+	hdr->torches[0].normY = IsRightPanelOpen() ? 1.0f : 0.0f;
 
 	// Copy pixels directly to shared memory
 	uint8_t *dstPixels = static_cast<uint8_t *>(g_ShmMapped) + sizeof(D1BridgeHeader);

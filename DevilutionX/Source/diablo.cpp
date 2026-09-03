@@ -2651,6 +2651,8 @@ bool MinimizePaused = false;
 
 bool diablo_is_focused()
 {
+	if (gbGodotBridgeActive)
+		return true;
 #ifndef USE_SDL1
 	return SDL_GetKeyboardFocus() == ghMainWnd;
 #else
