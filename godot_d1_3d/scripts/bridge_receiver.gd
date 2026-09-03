@@ -18,12 +18,12 @@ var d1_height: int = 1440
 var vsync_enabled: bool = true          # Default: ON (Smooth 144Hz Monitor Sync)
 var show_fps: bool = true               # Default: ON (Immediate performance readout)
 var current_fog_mode: int = 1           # Default: 1 = Crypt Mist (Subtle Dungeon Atmosphere)
-var current_color_profile: int = 0      # Default: 0 = Vanilla (1996 Classic, HUD bypassed)
-var current_upscaler_mode: int = 0      # Default: 0 = AMD FidelityFX CAS
+var current_color_profile: int = 2      # Default: 2 = Hellish Crimson (Warm Blood-Amber, HUD bypassed)
+var current_upscaler_mode: int = 2      # Default: 2 = Anime4K Ultra Thin Lines & Vector Contours
 var current_relief_mode: int = 3        # Default: 3 = Deep 3D Embossed Contour & Normal Relief
 var engine_torches: bool = true         # Default: ON (Comprehensive 3.5x HDR Glow & Fire)
-var area_light_mode: int = 1            # Default: 1 = Dungeon Ambience (0: OFF, 1: Ambience, 2: Hero Follow)
-var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections)
+var hero_light_enabled: bool = true     # Default: ON (Soft Natural Dungeon Torchlight, No Ugly Rectangles!)
+var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections, Soft Specular)
 var playfield_zoom: float = 1.0
 
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
@@ -35,29 +35,27 @@ var zoom_step_names = [
 	"3.0x (Epikus Makró / Macro Close)"
 ]
 
-# Godot 4.7 AreaLight3D Node
-var area_light: AreaLight3D
 var player_target_pos: Vector2 = Vector2.ZERO
 
 var upscaler_names = [
-	"Upscaler [F7]: AMD FidelityFX CAS Super-Resolution (Default)",
+	"Upscaler [F7]: AMD FidelityFX CAS Super-Resolution",
 	"Upscaler [F7]: Anime4K / Neural Spatial CNN (Edge Reconstruction)",
-	"Upscaler [F7]: Anime4K Ultra Thin Lines & Vector Contours",
+	"Upscaler [F7]: Anime4K Ultra Thin Lines & Vector Contours (Default)",
 	"Upscaler [F7]: 8K Catmull-Rom Bicubic Spline (Continuous Curves)",
 	"Upscaler [F7]: Native 1:1 Direct Retro Pixel-Art"
 ]
 
 var color_names = [
 	"Vanilla (1996 Classic 32-bit - HUD Untouched)",
-	"Dark Gothic (Refined OLED Deep Shadow)",
-	"Hellish Crimson (Warm Blood-Amber)",
+	"Dark Gothic (Refined Gentle OLED Shadow)",
+	"Hellish Crimson (Warm Blood-Amber - Default)",
 	"Crypt Cyan (Gothic Cold Chill)",
 	"Desaturated Noir (Grimdark Film)"
 ]
 
 var fog_names = [
 	"Atmospheric Fog: OFF",
-	"Atmospheric Fog: Crypt Mist (Subtle Dungeon Pára)",
+	"Atmospheric Fog: Crypt Mist (Subtle Dungeon Pára - Default)",
 	"Atmospheric Fog: Dense Drift (Hellfire Smoke)"
 ]
 
@@ -67,12 +65,6 @@ var relief_names = [
 	"3D Surface Relief [F11]: Mode 2 (Balanced 3D Emboss)",
 	"3D Surface Relief [F11]: Mode 3 (Deep 3D Embossed Relief - Default)",
 	"3D Surface Relief [F11]: Mode 4 (Extreme Sculpted 3D Relief)"
-]
-
-var area_light_names = [
-	"Godot 4.7 AreaLight3D [F6]: DISABLED",
-	"Godot 4.7 AreaLight3D [F6]: Dungeon Ambience (Broad Soft Light Shafts)",
-	"Godot 4.7 AreaLight3D [F6]: Dynamic Hero Tracking (Light Follows Player)"
 ]
 
 var osd_label: Label
@@ -86,6 +78,9 @@ func _ready():
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	DisplayServer.window_move_to_foreground()
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED)
+	
+	if not hero_light:
+		hero_light = get_node_or_null("HeroTorchLight")
 	
 	# Solid Flat 2D Viewport setup (pure clean fullscreen)
 	if mesh_instance:
@@ -101,12 +96,12 @@ func _ready():
 		camera.rotation_degrees = Vector3.ZERO
 		
 	setup_osd()
-	setup_area_light()
 	apply_upscaler_mode()
 	update_fog_mode()
+	update_torch_light()
 	
-	show_osd("Diablo 1 Resurrected | F4: V-Sync | F5: HDR Glow | F6: AreaLight | F7: Upscaler | F12: Wet Floor", 4.0)
-	print("[Godot-D1 Bridge] Receiver initialized with user defaults. CAS, Crypt Mist, Deep 3D & VSync active.")
+	show_osd("Diablo 1 Resurrected | Crimson + Anime4K + Crypt Mist Active | F4: V-Sync | F6: Torchlight", 4.0)
+	print("[Godot-D1 Bridge] Receiver initialized with user defaults. Anime4K, Crimson, Crypt Mist & Deep 3D active.")
 
 func setup_osd():
 	var canvas = CanvasLayer.new()
@@ -130,30 +125,14 @@ func setup_osd():
 	fps_label.visible = show_fps
 	canvas.add_child(fps_label)
 
-func setup_area_light():
-	area_light = AreaLight3D.new()
-	area_light.name = "GothicAreaLight"
-	area_light.light_color = Color(1.0, 0.72, 0.38, 1.0) # Warm gothic amber/torchlight
-	area_light.light_energy = 1.35
-	area_light.light_volumetric_fog_energy = 0.90 # Illuminates the dense smoke with soft rectangular beam!
-	area_light.area_size = Vector2(8.0, 3.5)
-	area_light.area_range = 14.0
-	area_light.position = Vector3(0.0, 1.8, 3.2)
-	area_light.rotation_degrees = Vector3(-25.0, 0.0, 0.0)
-	add_child(area_light)
-	update_area_light_mode()
-
-func update_area_light_mode():
-	if not area_light: return
-	if area_light_mode == 0:
-		area_light.visible = false
-	elif area_light_mode == 1:
-		area_light.visible = true
-		area_light.position = Vector3(0.0, 1.8, 3.2)
-		area_light.area_size = Vector2(8.0, 3.5)
-	elif area_light_mode == 2:
-		area_light.visible = true
-		area_light.area_size = Vector2(4.5, 3.0)
+func update_torch_light():
+	if hero_light:
+		hero_light.visible = hero_light_enabled
+		hero_light.light_color = Color(1.0, 0.74, 0.40, 1.0) # Warm gothic amber
+		hero_light.light_energy = 0.55
+		hero_light.light_specular = 0.12 # Soft natural glint, no blinding white hotspot
+		hero_light.omni_range = 9.5
+		hero_light.omni_attenuation = 1.8
 
 func show_osd(text: String, duration: float = 2.5):
 	if osd_label:
@@ -201,12 +180,12 @@ func apply_upscaler_mode():
 	if not vp: return
 	
 	if current_upscaler_mode == 0:
-		# AMD FidelityFX CAS Super-Resolution (Default)
+		# AMD FidelityFX CAS Super-Resolution
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 		vp.scaling_3d_scale = 1.0
 		vp.fsr_sharpness = 1.2
 	elif current_upscaler_mode in [1, 2]:
-		# Anime4K Neural Edge / Thin Lines
+		# Anime4K Neural Edge / Ultra Thin Lines (Default)
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		vp.scaling_3d_scale = 1.0
 	elif current_upscaler_mode == 3:
@@ -253,13 +232,12 @@ func _process(delta: float):
 	frame_counter += 1
 	fps_timer += delta
 	
-	if area_light and area_light_mode > 0:
-		var flicker = 1.30 + 0.14 * sin(time_accum * 4.5) * cos(time_accum * 2.2)
-		area_light.light_energy = flicker
-		if area_light_mode == 2:
-			# Dynamic hero tracking: smoothly lerp towards player target position
-			var target_3d = Vector3(player_target_pos.x, player_target_pos.y + 0.8, 3.0)
-			area_light.position = area_light.position.lerp(target_3d, delta * 4.0)
+	if hero_light and hero_light_enabled:
+		# Organic soft torch breathing flicker
+		var flicker = 0.55 + 0.08 * sin(time_accum * 4.8) * cos(time_accum * 2.3)
+		hero_light.light_energy = flicker
+		# Keep light gently centered on the playfield
+		hero_light.position = Vector3(0.0, 0.3, 2.8)
 	
 	if fps_timer >= 1.0:
 		current_fps = frame_counter
@@ -305,7 +283,6 @@ func _process(delta: float):
 	var _zoom_mode = file.get_32()
 	var _torch_count = file.get_32()
 	
-	# Update player target coordinate in 3D world space
 	if px > 0.0 or py > 0.0:
 		player_target_pos = Vector2((px / 112.0 - 0.5) * 8.0, (py / 112.0 - 0.5) * -4.5)
 	
@@ -359,9 +336,9 @@ func _input(event: InputEvent):
 			show_osd("[F5] Engine 3D Torches & HDR Glow: " + ("ENABLED (3.5x HDR Bloom)" if engine_torches else "DISABLED"))
 			return
 		elif event.keycode == KEY_F6:
-			area_light_mode = (area_light_mode + 1) % area_light_names.size()
-			update_area_light_mode()
-			show_osd(area_light_names[area_light_mode])
+			hero_light_enabled = !hero_light_enabled
+			update_torch_light()
+			show_osd("[F6] Dungeon Soft Torchlight: " + ("ENABLED (Warm Candlelight)" if hero_light_enabled else "DISABLED"))
 			return
 		elif event.keycode == KEY_F7:
 			current_upscaler_mode = (current_upscaler_mode + 1) % upscaler_names.size()
@@ -465,7 +442,6 @@ func get_sdl_key(keycode: int) -> int:
 	if keycode == KEY_SHIFT: return 1073742049
 	if keycode == KEY_CTRL: return 1073742048
 	if keycode == KEY_ALT: return 1073742050
-	# Navigation & Arrow keys for menus and dialogs
 	if keycode == KEY_UP: return 1073741906
 	if keycode == KEY_DOWN: return 1073741905
 	if keycode == KEY_LEFT: return 1073741904

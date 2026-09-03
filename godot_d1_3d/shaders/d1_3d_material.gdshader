@@ -3,8 +3,8 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specula
 
 uniform sampler2D d1_texture : source_color, filter_linear_mipmap, hint_default_black;
 uniform float bump_strength : hint_range(0.0, 3.0) = 0.55;
-uniform int color_profile : hint_range(0, 4) = 0;   // 0: Vanilla (Default), 1: Dark Gothic OLED, 2: Hellish Crimson, 3: Crypt Cyan, 4: Noir
-uniform int upscaler_mode : hint_range(0, 4) = 0;   // 0: AMD FSR CAS (Default), 1: Anime4K Neural Edge, 2: Anime4K Thin Lines, 3: 8K Spline, 4: Native
+uniform int color_profile : hint_range(0, 4) = 2;   // 0: Vanilla, 1: Dark Gothic, 2: Hellish Crimson (Default), 3: Crypt Cyan, 4: Noir
+uniform int upscaler_mode : hint_range(0, 4) = 2;   // 0: AMD FSR CAS, 1: Anime4K Edge, 2: Anime4K Thin Lines (Default), 3: 8K Spline, 4: Native
 uniform int relief_mode : hint_range(0, 4) = 3;     // 0: Off, 1: Subtle, 2: Balanced, 3: Deep 3D (Default), 4: Extreme
 uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.95;
 uniform float playfield_zoom : hint_range(1.0, 2.5) = 1.0; // Zooms playfield ONLY, HUD stays pinned!
@@ -157,19 +157,18 @@ vec3 apply_color_grading(vec3 c, int profile) {
     }
 
     if (profile == 1) {
-        // Dark Gothic (OLED) - Softened black point, deep contrast without crushing stone details
-        vec3 x = max(vec3(0.0), c - 0.002);
-        vec3 graded = (x * (5.5 * x + 0.45)) / (x * (5.5 * x + 1.5) + 0.05);
-        graded.r = pow(graded.r, 0.97) * 1.03;
-        graded.g = pow(graded.g, 1.01);
-        graded.b = pow(graded.b, 1.04) * 0.95;
+        // Dark Gothic (OLED) - Very gentle filmic curve, shadow details fully preserved
+        vec3 x = max(vec3(0.0), c - 0.001);
+        vec3 graded = (x * (4.2 * x + 0.35)) / (x * (4.2 * x + 1.2) + 0.04);
+        graded.r = pow(graded.r, 0.98) * 1.02;
+        graded.b = pow(graded.b, 1.02) * 0.97;
         return clamp(graded, 0.0, 1.0);
     } else if (profile == 2) {
-        // Hellish Crimson - Softened, atmospheric warm blood-amber instead of red cellophane
+        // Hellish Crimson (Default) - Warm, rich, dark dungeon ambiance
         vec3 graded = c;
         graded.r = pow(graded.r, 0.94) * 1.06;
-        graded.g = pow(graded.g, 1.06) * 0.92;
-        graded.b = pow(graded.b, 1.10) * 0.86;
+        graded.g = pow(graded.g, 1.04) * 0.94;
+        graded.b = pow(graded.b, 1.08) * 0.88;
         return clamp(graded, 0.0, 1.0);
     } else if (profile == 3) {
         // Crypt Cyan - Muted eerie chill, subtle cool tint
@@ -276,15 +275,15 @@ void fragment() {
         NORMAL = (VIEW_MATRIX * vec4(normal_tangent, 0.0)).xyz;
     }
 
-    // Wet Cobblestone PBR Specular & Roughness
+    // Wet Cobblestone PBR Specular & Roughness (Gentle, natural damp stone gloss)
     if (wet_floor && sample_uv.y < hud_boundary) {
-        float edge_val = clamp(length(vec2(gx, gy)) * 1.8, 0.0, 1.0);
-        // Crevices collect water, stone surfaces glint with soft PBR specular
-        ROUGHNESS = mix(0.20, 0.52, edge_val);
-        SPECULAR = mix(0.60, 0.32, edge_val);
+        float edge_val = clamp(length(vec2(gx, gy)) * 1.5, 0.0, 1.0);
+        // Natural damp cobblestone: soft specular gloss in crevices, no mirror reflection
+        ROUGHNESS = mix(0.45, 0.78, edge_val);
+        SPECULAR = mix(0.18, 0.05, edge_val);
     } else {
-        ROUGHNESS = 0.80;
-        SPECULAR = 0.15;
+        ROUGHNESS = 0.88;
+        SPECULAR = 0.02;
     }
 
     METALLIC = 0.0;
