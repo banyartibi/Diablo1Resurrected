@@ -14,7 +14,7 @@ var music_player_b: AudioStreamPlayer = null
 var active_music_player: AudioStreamPlayer = null
 var current_music_path: String = ""
 var music_tween: Tween = null
-var music_volume_db: float = -3.0
+var music_volume_db: float = 0.0
 
 # SFX Pools
 var sfx_2d_pool: Array[AudioStreamPlayer] = []
@@ -115,7 +115,7 @@ func play_music(raw_path: String) -> void:
 	if clean_path.is_empty():
 		return
 		
-	if clean_path == current_music_path and active_music_player and active_music_player.playing:
+	if clean_path == current_music_path and active_music_player and active_music_player.playing and active_music_player.volume_db > -20.0:
 		return
 		
 	current_music_path = clean_path
@@ -235,7 +235,13 @@ func get_or_load_stream(path: String, is_music: bool) -> AudioStreamWAV:
 		
 	if stream:
 		if is_music:
+			var bytes_per_sample = 2 if stream.format == AudioStreamWAV.FORMAT_16_BITS else 1
+			var channels = 2 if stream.stereo else 1
+			var frame_size = bytes_per_sample * channels
+			var total_frames = int(stream.data.size() / frame_size) if frame_size > 0 else 0
 			stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			stream.loop_begin = 0
+			stream.loop_end = total_frames
 		stream_cache[path] = stream
 		return stream
 		

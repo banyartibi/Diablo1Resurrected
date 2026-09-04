@@ -259,7 +259,13 @@ Ref<AudioStreamWAV> DiabloBridge::load_wav_stream(const String &path, bool loop)
 
 	Ref<AudioStreamWAV> stream = AudioStreamWAV::load_from_buffer(pba);
 	if (stream.is_valid() && loop) {
+		int bytes_per_sample = (stream->get_format() == AudioStreamWAV::FORMAT_16_BITS) ? 2 : 1;
+		int channels = stream->is_stereo() ? 2 : 1;
+		int frame_size = bytes_per_sample * channels;
+		int total_frames = (frame_size > 0) ? (stream->get_data().size() / frame_size) : 0;
 		stream->set_loop_mode(AudioStreamWAV::LOOP_FORWARD);
+		stream->set_loop_begin(0);
+		stream->set_loop_end(total_frames);
 	}
 	return stream;
 }

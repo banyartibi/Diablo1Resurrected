@@ -488,7 +488,8 @@ func _input(event: InputEvent):
 	elif event is InputEventKey:
 		var key = get_sdl_key(event.keycode)
 		var state = 1 if event.pressed else 0
-		send_input_to_d1(3, key, state, 0, 0)
+		var uni = event.unicode if event.pressed else 0
+		send_input_to_d1(3, key, state, uni, 0)
 
 func send_input_to_d1(msg_type: int, code: int, state: int, x: int, y: int):
 	if use_gdextension and diablo_bridge != null:

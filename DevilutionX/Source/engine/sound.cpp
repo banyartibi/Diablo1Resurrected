@@ -284,6 +284,23 @@ void music_start(_music_id nTrack)
 	const char *trackPath;
 
 	assert(nTrack < NUM_MUSIC);
+	if (gbGodotBridgeActive) {
+		if (!gbMusicOn) {
+			music_stop();
+			return;
+		}
+		if (HaveSpawn())
+			trackPath = SpawnMusicTracks[nTrack];
+		else
+			trackPath = MusicTracks[nTrack];
+
+		if (sgnMusicTrack != nTrack) {
+			PushDevilutionXAudioEvent(D1AudioEvent::MUSIC_PLAY, trackPath);
+			sgnMusicTrack = nTrack;
+		}
+		return;
+	}
+
 	music_stop();
 	if (!gbMusicOn)
 		return;
@@ -291,12 +308,6 @@ void music_start(_music_id nTrack)
 		trackPath = SpawnMusicTracks[nTrack];
 	else
 		trackPath = MusicTracks[nTrack];
-
-	if (gbGodotBridgeActive) {
-		PushDevilutionXAudioEvent(D1AudioEvent::MUSIC_PLAY, trackPath);
-		sgnMusicTrack = nTrack;
-		return;
-	}
 
 #ifdef DISABLE_STREAMING_MUSIC
 	const bool stream = false;
