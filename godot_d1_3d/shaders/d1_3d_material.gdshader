@@ -7,6 +7,7 @@ uniform int color_profile : hint_range(0, 4) = 1;   // 0: Vanilla, 1: Dark Gothi
 uniform int upscaler_mode : hint_range(0, 4) = 3;   // 0: AMD CAS, 1: Anime4K Edge, 2: Anime4K Thin, 3: 8K Spline (Default), 4: Native
 uniform int relief_mode : hint_range(0, 4) = 3;     // 0: Off, 1: Subtle, 2: Balanced, 3: Deep 3D (Default), 4: Extreme
 uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.95;
+uniform float playfield_zoom : hint_range(1.0, 2.5) = 1.0; // Continuous playfield zoom (1.0x, 1.25x, 1.50x)
 uniform float hdr_glow_mult : hint_range(0.0, 4.0) = 3.0;  // 0.0: OFF, 1.0, 2.0, 3.0 (Default)
 uniform bool wet_floor = true;                             // Wet cobblestone PBR reflections & specular gloss
 uniform bool left_panel_open = false;                      // Character sheet / Quest window open
@@ -201,22 +202,43 @@ void fragment() {
     vec2 tex_size = vec2(textureSize(d1_texture, 0));
     vec2 texel_size = vec2(1.0) / tex_size;
 
-    vec2 sample_uv = UV;
-    vec3 raw_pixel = texture(d1_texture, sample_uv).bgr;
-
     // Check UI regions with pixel-perfect resolution independence:
-    // 1. Bottom Main Control Panel: 640x144 pixels centered at the bottom
     float main_panel_x = (tex_size.x - 640.0) * 0.5;
-    float main_panel_y = tex_size.y - 144.0;
-    vec2 pixel_pos = sample_uv * tex_size;
+    float panel_base_y = tex_size.y - 128.0;
+    vec2 pixel_pos = UV * tex_size;
 
-    bool in_main_panel = (pixel_pos.x >= main_panel_x && pixel_pos.x <= (main_panel_x + 640.0) && pixel_pos.y >= main_panel_y);
+    // 1. Bottom Main Control Panel:
+    // Base rectangular panel is 128px high (tex_size.y - 128.0)
+    bool in_hud_base = (pixel_pos.x >= main_panel_x && pixel_pos.x <= (main_panel_x + 640.0) && pixel_pos.y >= panel_base_y);
+    // The two glass globes protrude 13px higher into the playfield with smooth circular curvature:
+    float dx_life = (pixel_pos.x - (main_panel_x + 138.5)) / 29.5;
+    float dy_life = (panel_base_y - pixel_pos.y) / 13.0;
+    bool in_life_dome = (pixel_pos.y >= (panel_base_y - 13.0) && pixel_pos.y < panel_base_y && (dx_life * dx_life + dy_life * dy_life <= 1.05));
+
+    float dx_mana = (pixel_pos.x - (main_panel_x + 504.5)) / 29.5;
+    float dy_mana = (panel_base_y - pixel_pos.y) / 13.0;
+    bool in_mana_dome = (pixel_pos.y >= (panel_base_y - 13.0) && pixel_pos.y < panel_base_y && (dx_mana * dx_mana + dy_mana * dy_mana <= 1.05));
+
+    bool in_main_panel = in_hud_base || in_life_dome || in_mana_dome;
+
     // 2. Left UI Panel (Character Sheet / Quest Log)
-    bool in_left_panel = left_panel_open && (pixel_pos.x <= 320.0 && pixel_pos.y < main_panel_y);
+    bool in_left_panel = left_panel_open && (pixel_pos.x <= 320.0 && pixel_pos.y < panel_base_y);
     // 3. Right UI Panel (Inventory / Spellbook)
-    bool in_right_panel = right_panel_open && (pixel_pos.x >= (tex_size.x - 320.0) && pixel_pos.y < main_panel_y);
-    // Combined UI mask: ONLY true UI panels are protected; playfield cobblestones beside the HUD receive full shaders!
+    bool in_right_panel = right_panel_open && (pixel_pos.x >= (tex_size.x - 320.0) && pixel_pos.y < panel_base_y);
+
+    // Combined UI mask: ONLY true UI panels are masked; playfield ground behind/beside HUD gets full shaders!
     bool in_ui = in_main_panel || in_left_panel || in_right_panel;
+
+    // Seamless Full-Screen Playfield Zoom (for 2.5x and 3.0x ultra-close views):
+    // The playfield scales smoothly and continuously around the player hero!
+    // The HUD panel stays pinned 1:1 at the bottom center.
+    vec2 sample_uv = UV;
+    if (!in_ui && playfield_zoom > 1.001) {
+        vec2 playfield_center = vec2(0.5, panel_base_y * 0.5 / tex_size.y);
+        sample_uv = playfield_center + (UV - playfield_center) / playfield_zoom;
+    }
+
+    vec3 raw_pixel = texture(d1_texture, sample_uv).bgr;
 
     // Apply selected Upscaler
     vec3 base_color;

@@ -24,6 +24,7 @@ var current_relief_mode: int = 3        # Default: 3 = Deep 3D Embossed Contour 
 var current_hdr_level: int = 3          # Default: 3 = 3.0x Blazing HDR Glow (0: OFF, 1: 1.0x, 2: 2.0x, 3: 3.0x)
 var hero_light_enabled: bool = false    # Default: OFF (Respects authentic Diablo shadows, no bleeding through walls!)
 var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections, Darker Damp Stone + Glossy Puddles)
+var playfield_zoom: float = 1.0
 var left_panel_open: bool = false
 var right_panel_open: bool = false
 var diablo_bridge = null
@@ -33,7 +34,9 @@ var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
 	"1.0x (Normál / Széles Látószög)",
 	"1.5x (Köztes / Kiegyensúlyozott)",
-	"2.0x (Közeli / Zoomed)"
+	"2.0x (Közeli / Zoomed)",
+	"2.5x (Ultra Közeli / Ultra Close)",
+	"3.0x (Epikus Makró / Macro Close)"
 ]
 
 var hdr_multipliers = [0.0, 1.0, 2.0, 3.0]
@@ -176,26 +179,27 @@ func apply_zoom_step(old_step: int, new_step: int):
 	if camera:
 		camera.fov = 60.0
 		
-	if new_step == 0:
-		# 1.0x Normal
-		if old_step == 1:
-			send_input_to_d1(5, 0, 0, 0, 0) # D1 ZoomOutMode (1.5x -> 1.0x)
-		elif old_step == 2:
-			send_input_to_d1(5, 0, 0, 0, 0)
-			send_input_to_d1(5, 0, 0, 0, 0) # 2.0x -> 1.5x -> 1.0x
-	elif new_step == 1:
-		# 1.5x Balanced
-		if old_step == 0:
-			send_input_to_d1(4, 0, 0, 0, 0) # D1 ZoomInMode (1.0x -> 1.5x)
-		elif old_step == 2:
-			send_input_to_d1(5, 0, 0, 0, 0) # D1 ZoomOutMode (2.0x -> 1.5x)
-	elif new_step == 2:
-		# 2.0x Zoomed
-		if old_step == 1:
-			send_input_to_d1(4, 0, 0, 0, 0) # D1 ZoomInMode (1.5x -> 2.0x)
-		elif old_step == 0:
-			send_input_to_d1(4, 0, 0, 0, 0)
-			send_input_to_d1(4, 0, 0, 0, 0) # 1.0x -> 1.5x -> 2.0x
+	# Target D1 native zoom level:
+	# 0: Normal (1.0x)
+	# 1: Balanced (1.5x)
+	# 2+: Zoomed (2.0x)
+	var old_d1 = 0 if old_step == 0 else (1 if old_step == 1 else 2)
+	var new_d1 = 0 if new_step == 0 else (1 if new_step == 1 else 2)
+	
+	if new_d1 > old_d1:
+		for i in range(new_d1 - old_d1):
+			send_input_to_d1(4, 0, 0, 0, 0) # D1 ZoomInMode
+	elif new_d1 < old_d1:
+		for i in range(old_d1 - new_d1):
+			send_input_to_d1(5, 0, 0, 0, 0) # D1 ZoomOutMode
+			
+	# Apply continuous playfield zoom for 2.5x and 3.0x ultra close views
+	if new_step <= 2:
+		playfield_zoom = 1.0
+	elif new_step == 3:
+		playfield_zoom = 1.25 # 2.0x * 1.25 = 2.5x Ultra Close
+	elif new_step == 4:
+		playfield_zoom = 1.50 # 2.0x * 1.50 = 3.0x Macro Close
 		
 	update_shader_params()
 	show_osd("[Zoom] " + zoom_step_names[new_step], 1.2)
@@ -232,6 +236,7 @@ func update_shader_params():
 		shader_material.set_shader_parameter("relief_mode", current_relief_mode)
 		shader_material.set_shader_parameter("hdr_glow_mult", hdr_multipliers[current_hdr_level])
 		shader_material.set_shader_parameter("wet_floor", wet_floor)
+		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 		shader_material.set_shader_parameter("left_panel_open", left_panel_open)
 		shader_material.set_shader_parameter("right_panel_open", right_panel_open)
 
@@ -376,8 +381,27 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var norm_x = screen_pos.x / vp_size.x
 	var norm_y = screen_pos.y / vp_size.y
 	
-	var game_x = int(clamp(norm_x * float(d1_width), 0.0, float(d1_width - 1)))
-	var game_y = int(clamp(norm_y * float(d1_height), 0.0, float(d1_height - 1)))
+	var main_x = (float(d1_width) - 640.0) * 0.5
+	var panel_base_y = float(d1_height) - 128.0
+	var pixel_x = norm_x * float(d1_width)
+	var pixel_y = norm_y * float(d1_height)
+	
+	var in_hud = (pixel_x >= main_x and pixel_x <= main_x + 640.0 and pixel_y >= (panel_base_y - 13.0))
+	var in_left = left_panel_open and (pixel_x <= 320.0 and pixel_y < panel_base_y)
+	var in_right = right_panel_open and (pixel_x >= float(d1_width) - 320.0 and pixel_y < panel_base_y)
+	var in_ui = in_hud or in_left or in_right
+	
+	var mapped_x = norm_x
+	var mapped_y = norm_y
+	
+	if not in_ui and playfield_zoom > 1.001:
+		var center_x = 0.5
+		var center_y = panel_base_y * 0.5 / float(d1_height)
+		mapped_x = center_x + (norm_x - center_x) / playfield_zoom
+		mapped_y = center_y + (norm_y - center_y) / playfield_zoom
+		
+	var game_x = int(clamp(mapped_x * float(d1_width), 0.0, float(d1_width - 1)))
+	var game_y = int(clamp(mapped_y * float(d1_height), 0.0, float(d1_height - 1)))
 	return Vector2i(game_x, game_y)
 
 func _input(event: InputEvent):
@@ -440,7 +464,7 @@ func _input(event: InputEvent):
 		var mpos = get_game_mouse_pos(event.position, vp_size)
 		send_input_to_d1(1, 0, 0, mpos.x, mpos.y)
 	elif event is InputEventMouseButton:
-		# 3-Step Native DevilutionX In-Game Zoom (1.0x Normal, 1.5x Balanced, 2.0x Zoomed)
+		# 5-Step In-Game Zoom (1.0x, 1.5x, 2.0x Native D1 + 2.5x, 3.0x Ultra-Close Seamless Playfield)
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			if current_zoom_step < zoom_step_names.size() - 1:
 				var old_s = current_zoom_step
