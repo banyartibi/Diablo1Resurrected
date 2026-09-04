@@ -44,6 +44,10 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_vanilla_hud_hidden"), &DiabloBridge::is_vanilla_hud_hidden);
 	ClassDB::bind_method(D_METHOD("is_game_running"), &DiabloBridge::is_game_running);
 	ClassDB::bind_method(D_METHOD("get_spell_icon_texture", "spell_id", "spell_type"), &DiabloBridge::get_spell_icon_texture);
+	ClassDB::bind_method(D_METHOD("has_hover_item"), &DiabloBridge::has_hover_item);
+	ClassDB::bind_method(D_METHOD("get_hover_item_info"), &DiabloBridge::get_hover_item_info);
+	ClassDB::bind_method(D_METHOD("get_available_spells"), &DiabloBridge::get_available_spells);
+	ClassDB::bind_method(D_METHOD("select_spell", "spell_id", "spell_type"), &DiabloBridge::select_spell);
 
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
@@ -250,6 +254,40 @@ Ref<ImageTexture> DiabloBridge::get_spell_icon_texture(int spell_id, int spell_t
 		return Ref<ImageTexture>();
 
 	return ImageTexture::create_from_image(img);
+}
+
+bool DiabloBridge::has_hover_item() const {
+	return devilution::g_D1EngineData.hasHoverInfo;
+}
+
+Dictionary DiabloBridge::get_hover_item_info() const {
+	Dictionary d;
+	d["has_hover"] = devilution::g_D1EngineData.hasHoverInfo;
+	d["name"] = String::utf8(devilution::g_D1EngineData.hoverItemName);
+	d["stats"] = String::utf8(devilution::g_D1EngineData.hoverItemStats);
+	d["quality"] = devilution::g_D1EngineData.hoverItemQuality;
+	d["is_inventory"] = devilution::g_D1EngineData.isInventoryHover;
+	d["mouse_pos"] = Vector2i(devilution::g_D1EngineData.hoverMouseX, devilution::g_D1EngineData.hoverMouseY);
+	return d;
+}
+
+Array DiabloBridge::get_available_spells() const {
+	Array arr;
+	auto spells = devilution::GetAvailableSpells();
+	for (const auto &sp : spells) {
+		Dictionary d;
+		d["id"] = sp.id;
+		d["type"] = sp.type;
+		d["name"] = String::utf8(sp.name);
+		d["mana_cost"] = sp.manaCost;
+		d["hotkey"] = String::utf8(sp.hotkey);
+		arr.push_back(d);
+	}
+	return arr;
+}
+
+void DiabloBridge::select_spell(int spell_id, int spell_type) {
+	devilution::SelectSpell(spell_id, spell_type);
 }
 
 PackedInt32Array DiabloBridge::get_dungeon_grid() const {

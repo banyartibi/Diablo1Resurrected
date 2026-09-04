@@ -1,6 +1,7 @@
 #include "engine/render_bridge.hpp"
 #include "engine/render/scrollrt.h"
 #include "engine/dx.h"
+#include "engine/backbuffer_state.hpp"
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -16,8 +17,10 @@
 #include "levels/gendung.h"
 #include "diablo.h"
 #include "utils/paths.h"
+#include "engine.h"
 #include "engine/assets.hpp"
 #include "panels/spell_icons.hpp"
+#include "utils/language.h"
 #include "engine/palette.h"
 #include "engine/surface.hpp"
 #include "items.h"
@@ -170,6 +173,48 @@ void ExportGodotFrame(const SDL_Surface *surface)
 			g_D1EngineData.speedbookY = 0;
 			g_D1EngineData.speedbookW = 0;
 			g_D1EngineData.speedbookH = 0;
+		}
+
+		// Export Hover Item Info
+		if (!InfoString.empty() && gbRunGame) {
+			g_D1EngineData.hasHoverInfo = true;
+			string_view fullInfo = InfoString.str();
+			size_t firstNl = fullInfo.find('\n');
+			if (firstNl != string_view::npos) {
+				string_view nameStr = fullInfo.substr(0, firstNl);
+				string_view statsStr = fullInfo.substr(firstNl + 1);
+				std::strncpy(g_D1EngineData.hoverItemName, nameStr.data(), std::min(sizeof(g_D1EngineData.hoverItemName) - 1, nameStr.size()));
+				g_D1EngineData.hoverItemName[std::min(sizeof(g_D1EngineData.hoverItemName) - 1, nameStr.size())] = '\0';
+				std::strncpy(g_D1EngineData.hoverItemStats, statsStr.data(), std::min(sizeof(g_D1EngineData.hoverItemStats) - 1, statsStr.size()));
+				g_D1EngineData.hoverItemStats[std::min(sizeof(g_D1EngineData.hoverItemStats) - 1, statsStr.size())] = '\0';
+			} else {
+				std::strncpy(g_D1EngineData.hoverItemName, fullInfo.data(), std::min(sizeof(g_D1EngineData.hoverItemName) - 1, fullInfo.size()));
+				g_D1EngineData.hoverItemName[std::min(sizeof(g_D1EngineData.hoverItemName) - 1, fullInfo.size())] = '\0';
+				g_D1EngineData.hoverItemStats[0] = '\0';
+			}
+
+			if (HasAnyOf(InfoColor, UiFlags::ColorBlue))
+				g_D1EngineData.hoverItemQuality = 1;
+			else if (HasAnyOf(InfoColor, UiFlags::ColorWhitegold))
+				g_D1EngineData.hoverItemQuality = 2;
+			else if (HasAnyOf(InfoColor, UiFlags::ColorRed))
+				g_D1EngineData.hoverItemQuality = 3;
+			else
+				g_D1EngineData.hoverItemQuality = 0;
+
+			g_D1EngineData.hoverMouseX = MousePosition.x;
+			g_D1EngineData.hoverMouseY = MousePosition.y;
+
+			const Rectangle &rpRect = GetRightPanel();
+			g_D1EngineData.isInventoryHover = IsRightPanelOpen() &&
+				(MousePosition.x >= rpRect.position.x && MousePosition.x <= rpRect.position.x + rpRect.size.width &&
+				 MousePosition.y >= rpRect.position.y && MousePosition.y <= rpRect.position.y + rpRect.size.height);
+		} else {
+			g_D1EngineData.hasHoverInfo = false;
+			g_D1EngineData.hoverItemName[0] = '\0';
+			g_D1EngineData.hoverItemStats[0] = '\0';
+			g_D1EngineData.hoverItemQuality = 0;
+			g_D1EngineData.isInventoryHover = false;
 		}
 
 		g_D1EngineData.isGameRunning = gbRunGame;
@@ -505,11 +550,11 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 	if (!gbRunGame || spellId <= 0 || spellId > static_cast<int>(SpellID::LAST))
 		return {};
 
-	// Check if un-faded logical/orig palette is loaded with valid colors
-	const auto &pal = (logical_palette[PAL16_YELLOW].r > 50 || logical_palette[PAL16_BLUE].b > 50) ? logical_palette : orig_palette;
+	// orig_palette holds the un-faded master palette loaded from town/dungeon data
+	const auto &pal = orig_palette;
 	bool paletteReady = false;
-	for (int i = 128; i < 256; ++i) {
-		if (pal[i].r > 80 || pal[i].g > 80 || pal[i].b > 80) {
+	for (int i = 16; i < 256; ++i) {
+		if (pal[i].r > 40 || pal[i].g > 40 || pal[i].b > 40) {
 			paletteReady = true;
 			break;
 		}
@@ -556,6 +601,69 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 		return {};
 
 	return rgba;
+}
+
+std::vector<AvailableSpellItem> GetAvailableSpells()
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return {};
+
+	std::vector<AvailableSpellItem> result;
+	Player &myPlayer = *MyPlayer;
+
+	for (auto i : enum_values<SpellType>()) {
+		uint64_t mask = 0;
+		switch (static_cast<SpellType>(i)) {
+		case SpellType::Skill:
+			mask = myPlayer._pAblSpells;
+			break;
+		case SpellType::Spell:
+			mask = myPlayer._pMemSpells;
+			break;
+		case SpellType::Scroll:
+			mask = myPlayer._pScrlSpells;
+			break;
+		case SpellType::Charges:
+			mask = myPlayer._pISpells;
+			break;
+		default:
+			continue;
+		}
+
+		int8_t j = static_cast<int8_t>(SpellID::Firebolt);
+		for (uint64_t spl = 1; j < MAX_SPELLS; spl <<= 1, j++) {
+			if ((mask & spl) == 0)
+				continue;
+			SpellID splId = static_cast<SpellID>(j);
+			AvailableSpellItem item;
+			item.id = static_cast<int>(splId);
+			item.type = static_cast<int>(i);
+			string_view name = pgettext("spell", GetSpellData(splId).sNameText);
+			std::strncpy(item.name, name.data(), std::min(sizeof(item.name) - 1, name.size()));
+			item.name[std::min(sizeof(item.name) - 1, name.size())] = '\0';
+			item.manaCost = GetManaAmount(myPlayer, splId);
+
+			for (size_t t = 0; t < NumHotkeys; t++) {
+				if (myPlayer._pSplHotKey[t] == splId && myPlayer._pSplTHotKey[t] == static_cast<SpellType>(i)) {
+					std::snprintf(item.hotkey, sizeof(item.hotkey), "F%zu", t + 5);
+					break;
+				}
+			}
+
+			result.push_back(item);
+		}
+	}
+	return result;
+}
+
+void SelectSpell(int spellId, int spellType)
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return;
+	MyPlayer->_pRSpell = static_cast<SpellID>(spellId);
+	MyPlayer->_pRSplType = static_cast<SpellType>(spellType);
+	spselflag = false;
+	RedrawEverything();
 }
 
 } // namespace devilution

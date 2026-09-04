@@ -251,15 +251,11 @@ func update_shader_params():
 		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 		shader_material.set_shader_parameter("left_panel_open", left_panel_open)
 		shader_material.set_shader_parameter("right_panel_open", right_panel_open)
-		shader_material.set_shader_parameter("speedbook_open", speedbook_open)
 		if diablo_bridge and diablo_bridge.has_method("get_left_panel_rect"):
 			var lp = diablo_bridge.get_left_panel_rect()
 			var rp = diablo_bridge.get_right_panel_rect()
 			shader_material.set_shader_parameter("left_panel_rect", Vector4(lp.position.x, lp.position.y, lp.size.x, lp.size.y))
 			shader_material.set_shader_parameter("right_panel_rect", Vector4(rp.position.x, rp.position.y, rp.size.x, rp.size.y))
-		if diablo_bridge and diablo_bridge.has_method("get_speedbook_rect"):
-			var sb = diablo_bridge.get_speedbook_rect()
-			shader_material.set_shader_parameter("speedbook_rect", Vector4(sb.position.x, sb.position.y, sb.size.x, sb.size.y))
 		shader_material.set_shader_parameter("hide_vanilla_hud", modern_hud_enabled and last_is_ingame)
 
 func update_fog_mode():
@@ -430,7 +426,7 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	else:
 		in_left = left_panel_open and (pixel_x <= 320.0 and pixel_y < panel_base_y)
 		in_right = right_panel_open and (pixel_x >= float(d1_width) - 320.0 and pixel_y < panel_base_y)
-	if diablo_bridge and diablo_bridge.has_method("get_speedbook_rect"):
+	if not (modern_hud_enabled and last_is_ingame) and diablo_bridge and diablo_bridge.has_method("get_speedbook_rect"):
 		var sb = diablo_bridge.get_speedbook_rect()
 		in_speedbook = speedbook_open and (pixel_x >= sb.position.x and pixel_x <= sb.position.x + sb.size.x and pixel_y >= sb.position.y and pixel_y <= sb.position.y + sb.size.y)
 	var in_ui = in_hud or in_left or in_right or in_speedbook

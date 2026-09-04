@@ -1335,7 +1335,7 @@ void DrawView(const Surface &out, Point startPosition)
 	if (qtextflag) {
 		DrawQText(out);
 	}
-	if (spselflag) {
+	if (spselflag && !gbHideVanillaHUD) {
 		DrawSpellList(out);
 	}
 	if (DropGoldFlag) {

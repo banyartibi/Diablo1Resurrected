@@ -66,6 +66,10 @@ public:
 	bool is_vanilla_hud_hidden() const;
 	bool is_game_running() const;
 	Ref<ImageTexture> get_spell_icon_texture(int spell_id, int spell_type);
+	bool has_hover_item() const;
+	Dictionary get_hover_item_info() const;
+	Array get_available_spells() const;
+	void select_spell(int spell_id, int spell_type);
 
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap
 	PackedInt32Array get_dungeon_grid() const;

@@ -93,12 +93,29 @@ struct D1EngineData {
 	int speedbookY = 0;
 	int speedbookW = 0;
 	int speedbookH = 0;
+	bool hasHoverInfo = false;
+	char hoverItemName[128] = { 0 };
+	char hoverItemStats[512] = { 0 };
+	int hoverItemQuality = 0;
+	bool isInventoryHover = false;
+	int hoverMouseX = 0;
+	int hoverMouseY = 0;
+};
+
+struct AvailableSpellItem {
+	int id = 0;
+	int type = 0;
+	char name[64] = { 0 };
+	int manaCost = 0;
+	char hotkey[16] = { 0 };
 };
 
 extern D1EngineData g_D1EngineData;
 extern bool gbHideVanillaHUD;
 void SetVanillaHUDHidden(bool hidden);
 std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType);
+std::vector<AvailableSpellItem> GetAvailableSpells();
+void SelectSpell(int spellId, int spellType);
 void UseBeltSlot(int slotIndex);
 void ClickBeltSlot(int slotIndex);
 

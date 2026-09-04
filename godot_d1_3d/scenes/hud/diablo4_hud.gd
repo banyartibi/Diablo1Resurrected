@@ -37,9 +37,37 @@ const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 @onready var level_label: Label = $Root/HBox/CenterPanel/VBox/XPContainer/LevelLabel
 @onready var gold_label: Label = $Root/HBox/CenterPanel/VBox/XPContainer/GoldLabel
 
+# Item Tooltip Popup
+@onready var item_tooltip: PanelContainer = $ItemTooltip
+@onready var item_title_label: Label = $ItemTooltip/Margin/VBox/TitleLabel
+@onready var item_divider: ColorRect = $ItemTooltip/Margin/VBox/Divider
+@onready var item_stats_label: Label = $ItemTooltip/Margin/VBox/StatsLabel
+
+# Skill Selector (Speedbook)
+@onready var skill_selector: PanelContainer = $SkillSelector
+@onready var skill_grid: HFlowContainer = $SkillSelector/Margin/VBox/Scroll/Grid
+@onready var skill_close_btn: Button = $SkillSelector/Margin/VBox/Header/CloseBtn
+
 var diablo_bridge = null
 var current_spell_id: int = -1
 var current_spell_type: int = -1
+var is_speedbook_showing: bool = false
+var spell_icon_cache: Dictionary = {}
+var tooltip_style: StyleBoxFlat
+
+const QUALITY_TITLE_COLORS = {
+	0: Color(0.92, 0.90, 0.85, 1.0),   # Normal: Crisp Silver/Bone
+	1: Color(0.38, 0.68, 1.0, 1.0),    # Magic: Arcane Sky Blue
+	2: Color(1.0, 0.84, 0.30, 1.0),    # Unique: Radiance Gold
+	3: Color(1.0, 0.32, 0.32, 1.0)     # Unmet requirements / Red
+}
+
+const QUALITY_BORDER_COLORS = {
+	0: Color(0.55, 0.52, 0.45, 0.9),   # Normal: Weathered Stone Gray
+	1: Color(0.22, 0.52, 0.95, 0.95),  # Magic: Arcane Azure Glow
+	2: Color(0.92, 0.74, 0.25, 1.0),   # Unique: Ornate Imperial Gold
+	3: Color(0.92, 0.22, 0.22, 0.95)   # Unmet requirements / Crimson Warning
+}
 
 # Cache materials
 var life_mat: ShaderMaterial
@@ -127,6 +155,12 @@ func _ready():
 	if secondary_slot and secondary_slot.material is ShaderMaterial:
 		secondary_slot_mat = secondary_slot.material as ShaderMaterial
 
+	if item_tooltip:
+		var base_sb = item_tooltip.get_theme_stylebox("panel")
+		if base_sb is StyleBoxFlat:
+			tooltip_style = base_sb.duplicate()
+			item_tooltip.add_theme_stylebox_override("panel", tooltip_style)
+
 	# Disable all keyboard focus grabbing on HUD elements so TAB key always toggles automap!
 	_disable_focus_recursive(self)
 
@@ -161,13 +195,16 @@ func setup_button_events():
 						use_belt_slot(idx + 1)
 		)
 
-	# RMB secondary slot click (opens spell list/speedbook)
+	# RMB secondary slot click (opens native skill selector)
 	if secondary_slot:
 		secondary_slot.mouse_filter = Control.MOUSE_FILTER_STOP
 		secondary_slot.gui_input.connect(func(event: InputEvent):
 			if event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT):
 				toggle_speedbook()
 		)
+
+	if skill_close_btn:
+		skill_close_btn.pressed.connect(func(): close_speedbook())
 
 	# Quick utility buttons
 	var btn_char = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnChar
@@ -206,10 +243,162 @@ func use_belt_slot(slot_idx: int):
 		var key = KEY_1 + (slot_idx - 1)
 		send_key(key)
 
+func _input(event: InputEvent):
+	if not visible:
+		return
+
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_S:
+			toggle_speedbook()
+			get_viewport().set_input_as_handled()
+			return
+		elif event.keycode == KEY_ESCAPE and is_speedbook_showing:
+			close_speedbook()
+			get_viewport().set_input_as_handled()
+			return
+
+	if event is InputEventMouseButton and event.pressed and is_speedbook_showing:
+		if skill_selector and skill_selector.visible:
+			if not skill_selector.get_global_rect().has_point(event.position):
+				if not secondary_slot.get_global_rect().has_point(event.position):
+					close_speedbook()
+
+func get_cached_spell_icon(spell_id: int, spell_type: int) -> Texture2D:
+	var key = "%d_%d" % [spell_id, spell_type]
+	if spell_icon_cache.has(key) and spell_icon_cache[key] != null:
+		return spell_icon_cache[key]
+
+	if diablo_bridge and diablo_bridge.has_method("get_spell_icon_texture"):
+		var tex = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
+		if tex != null:
+			spell_icon_cache[key] = tex
+			return tex
+	return null
+
 func toggle_speedbook():
+	if is_speedbook_showing:
+		close_speedbook()
+	else:
+		open_speedbook()
+
+func open_speedbook():
 	if not diablo_bridge:
 		return
-	send_key(KEY_S)
+	is_speedbook_showing = true
+	populate_speedbook()
+	if skill_selector:
+		skill_selector.visible = true
+
+func close_speedbook():
+	is_speedbook_showing = false
+	if skill_selector:
+		skill_selector.visible = false
+
+func populate_speedbook():
+	if not skill_grid:
+		return
+	for child in skill_grid.get_children():
+		child.queue_free()
+
+	if not diablo_bridge or not diablo_bridge.has_method("get_available_spells"):
+		return
+
+	var spells = diablo_bridge.get_available_spells()
+	if spells.is_empty():
+		var empty_lbl = Label.new()
+		empty_lbl.text = "No skills or spells available"
+		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_lbl.add_theme_color_override("font_color", Color(0.7, 0.65, 0.6))
+		empty_lbl.add_theme_font_size_override("font_size", 11)
+		empty_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		skill_grid.add_child(empty_lbl)
+		return
+
+	for spell_info in spells:
+		var s_id: int = spell_info.get("id", 0)
+		var s_type: int = spell_info.get("type", 0)
+		var s_name: String = spell_info.get("name", "Spell")
+		var mana: int = spell_info.get("mana_cost", 0)
+		var hotkey: String = spell_info.get("hotkey", "")
+
+		var btn = Button.new()
+		btn.custom_minimum_size = Vector2(46, 46)
+		btn.focus_mode = Control.FOCUS_NONE
+		btn.mouse_filter = Control.MOUSE_FILTER_STOP
+
+		var sb = StyleBoxFlat.new()
+		sb.bg_color = Color(0.10, 0.09, 0.12, 0.95)
+		sb.set_corner_radius_all(3)
+		var is_current = (s_id == current_spell_id and s_type == current_spell_type)
+		if is_current:
+			sb.border_color = Color(1.0, 0.88, 0.35, 1.0)
+			sb.border_width_left = 2
+			sb.border_width_top = 2
+			sb.border_width_right = 2
+			sb.border_width_bottom = 2
+		else:
+			var border_c = SPELL_TYPE_COLORS.get(s_type, Color(0.45, 0.4, 0.3, 0.8))
+			sb.border_color = Color(border_c.r * 0.7, border_c.g * 0.7, border_c.b * 0.7, 0.8)
+			sb.border_width_left = 1
+			sb.border_width_top = 1
+			sb.border_width_right = 1
+			sb.border_width_bottom = 1
+
+		btn.add_theme_stylebox_override("normal", sb)
+
+		var sb_hover = sb.duplicate()
+		sb_hover.border_color = Color(1.0, 0.95, 0.6, 1.0)
+		btn.add_theme_stylebox_override("hover", sb_hover)
+
+		# Icon
+		var icon_tex = get_cached_spell_icon(s_id, s_type)
+		if icon_tex != null:
+			var tex_rect = TextureRect.new()
+			tex_rect.texture = icon_tex
+			tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			tex_rect.custom_minimum_size = Vector2(36, 36)
+			tex_rect.anchors_preset = Control.PRESET_FULL_RECT
+			tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(tex_rect)
+
+		# Hotkey badge
+		if hotkey != "":
+			var hk_lbl = Label.new()
+			hk_lbl.text = hotkey
+			hk_lbl.add_theme_font_size_override("font_size", 9)
+			hk_lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.4, 1.0))
+			hk_lbl.position = Vector2(2, 0)
+			hk_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(hk_lbl)
+
+		# Mana cost label
+		if mana > 0:
+			var mana_lbl = Label.new()
+			mana_lbl.text = str(mana)
+			mana_lbl.add_theme_font_size_override("font_size", 9)
+			mana_lbl.add_theme_color_override("font_color", Color(0.4, 0.8, 1.0, 1.0))
+			mana_lbl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+			mana_lbl.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+			mana_lbl.grow_vertical = Control.GROW_DIRECTION_BEGIN
+			mana_lbl.position = Vector2(24, 28)
+			mana_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(mana_lbl)
+
+		var type_str = SPELL_TYPE_NAMES.get(s_type, "Skill")
+		var tip = "%s (%s)\nMana Cost: %d" % [s_name, type_str, mana]
+		if hotkey != "":
+			tip += "\nHotkey: %s" % hotkey
+		btn.tooltip_text = tip
+
+		btn.pressed.connect(func():
+			if diablo_bridge and diablo_bridge.has_method("select_spell"):
+				diablo_bridge.select_spell(s_id, s_type)
+			close_speedbook()
+			update_secondary_spell()
+		)
+
+		skill_grid.add_child(btn)
 
 func get_sdl_key(keycode: int) -> int:
 	if keycode == KEY_ESCAPE: return 27
@@ -241,10 +430,14 @@ func send_key(keycode: int):
 func _process(delta: float):
 	if not diablo_bridge or not diablo_bridge.has_method("is_engine_ready") or not diablo_bridge.is_engine_ready():
 		$Root.visible = false
+		if item_tooltip: item_tooltip.visible = false
+		if skill_selector: skill_selector.visible = false
 		return
 
 	if diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
 		$Root.visible = false
+		if item_tooltip: item_tooltip.visible = false
+		if skill_selector: skill_selector.visible = false
 		return
 
 	$Root.visible = true
@@ -253,6 +446,7 @@ func _process(delta: float):
 	update_xp_and_level()
 	update_secondary_spell()
 	update_belt_potions()
+	update_item_tooltip()
 
 func update_health_and_mana(delta: float):
 	var hp = diablo_bridge.get_player_hp()
@@ -322,7 +516,7 @@ func update_secondary_spell():
 
 	# If spell changed OR if secondary_icon doesn't have a valid texture yet:
 	if spell_id != current_spell_id or spell_type != current_spell_type or (secondary_icon and secondary_icon.texture == null):
-		var tex = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
+		var tex = get_cached_spell_icon(spell_id, spell_type)
 		if tex != null:
 			current_spell_id = spell_id
 			current_spell_type = spell_type
@@ -337,7 +531,7 @@ func update_secondary_spell():
 				secondary_slot.tooltip_text = "%s (%s) [RMB]\nClick or press 'S' to change active spell." % [spell_name, type_name]
 		else:
 			# Palette not ready yet: do not show a black box!
-			if secondary_icon:
+			if secondary_icon and current_spell_id <= 0:
 				secondary_icon.texture = null
 				secondary_icon.visible = false
 
@@ -405,6 +599,80 @@ func update_belt_potions():
 				9: tip = "Oil (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Use oil" % [i + 1, i + 1]
 				_: tip = "Empty Belt Slot %d\n[LMB] Place item from cursor" % (i + 1)
 		slot.tooltip_text = tip
+
+func update_item_tooltip():
+	if not diablo_bridge or not diablo_bridge.has_method("has_hover_item"):
+		if item_tooltip and item_tooltip.visible:
+			item_tooltip.visible = false
+		return
+
+	if not diablo_bridge.has_hover_item():
+		if item_tooltip and item_tooltip.visible:
+			item_tooltip.visible = false
+		return
+
+	var info = diablo_bridge.get_hover_item_info()
+	var item_name: String = info.get("name", "")
+	if item_name.strip_edges() == "":
+		if item_tooltip and item_tooltip.visible:
+			item_tooltip.visible = false
+		return
+
+	var stats: String = info.get("stats", "")
+	var quality: int = info.get("quality", 0)
+	var is_inv: bool = info.get("is_inventory", false)
+	var mouse_pos: Vector2i = info.get("mouse_pos", Vector2i.ZERO)
+
+	item_title_label.text = item_name
+	item_stats_label.text = stats
+	var has_stats = (stats.strip_edges() != "")
+	item_stats_label.visible = has_stats
+	if item_divider:
+		item_divider.visible = has_stats
+
+	var title_col = QUALITY_TITLE_COLORS.get(quality, QUALITY_TITLE_COLORS[0])
+	var border_col = QUALITY_BORDER_COLORS.get(quality, QUALITY_BORDER_COLORS[0])
+	item_title_label.add_theme_color_override("font_color", title_col)
+	if tooltip_style:
+		tooltip_style.border_color = border_col
+		if item_divider:
+			item_divider.color = Color(border_col.r, border_col.g, border_col.b, 0.6)
+
+	item_tooltip.visible = true
+	item_tooltip.reset_size()
+
+	var vp_size = get_viewport().get_visible_rect().size
+	var d1_w = float(diablo_bridge.get_frame_width())
+	var d1_h = float(diablo_bridge.get_frame_height())
+	if d1_w <= 0: d1_w = 640.0
+	if d1_h <= 0: d1_h = 480.0
+
+	var scale_x = vp_size.x / d1_w
+	var scale_y = vp_size.y / d1_h
+
+	var tooltip_w = item_tooltip.size.x
+	var tooltip_h = item_tooltip.size.y
+
+	var target_pos = Vector2.ZERO
+	if is_inv:
+		# Classic D1 inventory is on the right 320px: place card cleanly to the left of the window
+		var inv_left_x = (d1_w - 320.0) * scale_x
+		target_pos.x = inv_left_x - tooltip_w - 14.0
+		target_pos.y = clampf(float(mouse_pos.y) * scale_y - tooltip_h * 0.35, 20.0, vp_size.y - tooltip_h - 20.0)
+		if target_pos.x < 10.0:
+			target_pos.x = 10.0
+	else:
+		# Ground / Belt hover: next to mouse cursor
+		target_pos.x = float(mouse_pos.x) * scale_x + 18.0
+		target_pos.y = float(mouse_pos.y) * scale_y + 12.0
+		if target_pos.x + tooltip_w > vp_size.x - 10.0:
+			target_pos.x = float(mouse_pos.x) * scale_x - tooltip_w - 14.0
+		if target_pos.y + tooltip_h > vp_size.y - 10.0:
+			target_pos.y = vp_size.y - tooltip_h - 10.0
+		if target_pos.x < 10.0: target_pos.x = 10.0
+		if target_pos.y < 10.0: target_pos.y = 10.0
+
+	item_tooltip.position = target_pos
 
 func format_number(n: int) -> String:
 	if n <= 0: return "0"

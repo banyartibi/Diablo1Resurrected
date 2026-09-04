@@ -14,8 +14,6 @@ uniform bool left_panel_open = false;                      // Character sheet / 
 uniform bool right_panel_open = false;                     // Inventory / Spellbook open
 uniform vec4 left_panel_rect = vec4(0.0, 0.0, 320.0, 352.0);
 uniform vec4 right_panel_rect = vec4(320.0, 0.0, 320.0, 352.0);
-uniform bool speedbook_open = false;                       // Speedbook / Spell selection popup open
-uniform vec4 speedbook_rect = vec4(0.0, 0.0, 0.0, 0.0);
 uniform bool hide_vanilla_hud = true;                      // Modern Diablo IV HUD active (full-screen playfield)
 
 // Strict Torch, Fire & Spell Detection (Guaranteed 0% false positives on UI windows & inventory)
@@ -240,13 +238,8 @@ void fragment() {
         (pixel_pos.x >= (right_panel_rect.x - 6.0) && pixel_pos.x <= (right_panel_rect.x + right_panel_rect.z + 6.0) &&
          pixel_pos.y >= (right_panel_rect.y - 6.0) && pixel_pos.y <= (right_panel_rect.y + right_panel_rect.w + 6.0));
 
-    // 4. Speedbook / Spell Selection Popup (protect from playfield zoom and HDR bloom)
-    bool in_speedbook = speedbook_open &&
-        (pixel_pos.x >= (speedbook_rect.x - 6.0) && pixel_pos.x <= (speedbook_rect.x + speedbook_rect.z + 6.0) &&
-         pixel_pos.y >= (speedbook_rect.y - 6.0) && pixel_pos.y <= (speedbook_rect.y + speedbook_rect.w + 6.0));
-
     // Combined UI mask: ONLY true UI panels are masked; playfield ground behind/beside HUD gets full shaders!
-    bool in_ui = in_main_panel || in_left_panel || in_right_panel || in_speedbook;
+    bool in_ui = in_main_panel || in_left_panel || in_right_panel;
 
     // Seamless Full-Screen Playfield Zoom (for 2.5x and 3.0x ultra-close views):
     // The playfield scales smoothly and continuously around the player hero!

@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://d4hudscene001"]
+[gd_scene load_steps=20 format=3 uid="uid://d4hudscene001"]
 
 [ext_resource type="Script" path="res://scenes/hud/diablo4_hud.gd" id="1_hud"]
 [ext_resource type="Shader" path="res://shaders/liquid_globe.gdshader" id="2_liquid"]
@@ -93,6 +93,34 @@ corner_radius_top_left = 2
 corner_radius_top_right = 2
 corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tooltip"]
+bg_color = Color(0.04, 0.03, 0.05, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.72, 0.35, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0, 0, 0, 0.8)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_skill_panel"]
+bg_color = Color(0.06, 0.05, 0.08, 0.97)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.65, 0.52, 0.28, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+shadow_color = Color(0, 0, 0, 0.85)
+shadow_size = 12
 
 [node name="Diablo4HUD" type="CanvasLayer"]
 layer = 100
@@ -910,3 +938,118 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 tooltip_text = "Mana: 50 / 50"
+
+[node name="SkillSelector" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -210.0
+offset_top = -370.0
+offset_right = 210.0
+offset_bottom = -148.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_skill_panel")
+
+[node name="Margin" type="MarginContainer" parent="SkillSelector"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="SkillSelector/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Header" type="HBoxContainer" parent="SkillSelector/Margin/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="SkillSelector/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.95, 0.82, 0.45, 1)
+theme_override_font_sizes/font_size = 12
+text = "Select Active Spell [RMB]"
+
+[node name="CloseBtn" type="Button" parent="SkillSelector/Margin/VBox/Header"]
+custom_minimum_size = Vector2(22, 20)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.8, 0.75, 0.7, 1)
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+text = "✕"
+
+[node name="Divider" type="ColorRect" parent="SkillSelector/Margin/VBox"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+color = Color(0.45, 0.38, 0.25, 0.8)
+
+[node name="Scroll" type="ScrollContainer" parent="SkillSelector/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Grid" type="HFlowContainer" parent="SkillSelector/Margin/VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+
+[node name="ItemTooltip" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 100.0
+offset_top = 100.0
+offset_right = 360.0
+offset_bottom = 220.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_tooltip")
+
+[node name="Margin" type="MarginContainer" parent="ItemTooltip"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="ItemTooltip/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 5
+
+[node name="TitleLabel" type="Label" parent="ItemTooltip/Margin/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.35, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 3
+theme_override_font_sizes/font_size = 13
+text = "Item Name"
+horizontal_alignment = 1
+
+[node name="Divider" type="ColorRect" parent="ItemTooltip/Margin/VBox"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.48, 0.4, 0.28, 0.8)
+
+[node name="StatsLabel" type="Label" parent="ItemTooltip/Margin/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.88, 0.85, 0.8, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
+theme_override_constants/line_spacing = 3
+text = "Item Stats"
+horizontal_alignment = 1
