@@ -1363,7 +1363,7 @@ void DrawView(const Surface &out, Point startPosition)
 	doom_draw(out);
 	DrawInfoBox(out);
 	control_update_life_mana(); // Update life/mana totals before rendering any portion of the flask.
-	if (!gbHideVanillaHUD) {
+	if (!gbHideVanillaHUD || !gbRunGame) {
 		DrawLifeFlaskUpper(out);
 		DrawManaFlaskUpper(out);
 	}
@@ -1853,14 +1853,15 @@ void DrawAndBlit()
 	bool drawCtrlPan = false;
 
 	const Rectangle &mainPanel = GetMainPanel();
+	const bool hideHud = gbHideVanillaHUD && gbRunGame;
 
 	if (gnScreenWidth > mainPanel.size.width || IsRedrawEverything()) {
-		drawHealth = !gbHideVanillaHUD;
-		drawMana = !gbHideVanillaHUD;
-		drawControlButtons = !gbHideVanillaHUD;
-		drawBelt = !gbHideVanillaHUD;
+		drawHealth = !hideHud;
+		drawMana = !hideHud;
+		drawControlButtons = !hideHud;
+		drawBelt = !hideHud;
 		drawInfoBox = false;
-		drawCtrlPan = !gbHideVanillaHUD;
+		drawCtrlPan = !hideHud;
 		hgt = gnScreenHeight;
 	} else if (IsRedrawViewport()) {
 		drawInfoBox = true;
@@ -1873,9 +1874,14 @@ void DrawAndBlit()
 
 	nthread_UpdateProgressToNextGameTick();
 
-	DrawView(out, ViewPosition);
 	if (drawCtrlPan) {
 		DrawCtrlPan(out);
+	}
+	if (drawControlButtons) {
+		DrawCtrlBtns(out);
+	}
+	if (drawInfoBox) {
+		DrawInfoBox(out);
 	}
 	if (drawHealth) {
 		DrawLifeFlaskLower(out);
@@ -1885,16 +1891,13 @@ void DrawAndBlit()
 
 		DrawSpell(out);
 	}
-	if (drawControlButtons) {
-		DrawCtrlBtns(out);
-	}
 	if (drawBelt) {
 		DrawInvBelt(out);
 	}
 	if (drawChatInput) {
 		DrawTalkPan(out);
 	}
-	if (!gbHideVanillaHUD) {
+	if (!hideHud && MyPlayer != nullptr) {
 		DrawXPBar(out);
 		if (*sgOptions.Gameplay.showHealthValues)
 			DrawFlaskValues(out, { mainPanel.position.x + 134, mainPanel.position.y + 28 }, MyPlayer->_pHitPoints >> 6, MyPlayer->_pMaxHP >> 6);

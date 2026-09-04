@@ -36,6 +36,7 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_belt_items"), &DiabloBridge::get_belt_items);
 	ClassDB::bind_method(D_METHOD("set_vanilla_hud_hidden", "hidden"), &DiabloBridge::set_vanilla_hud_hidden);
 	ClassDB::bind_method(D_METHOD("is_vanilla_hud_hidden"), &DiabloBridge::is_vanilla_hud_hidden);
+	ClassDB::bind_method(D_METHOD("is_game_running"), &DiabloBridge::is_game_running);
 	ClassDB::bind_method(D_METHOD("get_spell_icon_texture", "spell_id", "spell_type"), &DiabloBridge::get_spell_icon_texture);
 
 	// 112x112 Dungeon Grid
@@ -182,6 +183,10 @@ void DiabloBridge::set_vanilla_hud_hidden(bool hidden) {
 
 bool DiabloBridge::is_vanilla_hud_hidden() const {
 	return devilution::gbHideVanillaHUD;
+}
+
+bool DiabloBridge::is_game_running() const {
+	return devilution::g_D1EngineData.isGameRunning;
 }
 
 Ref<ImageTexture> DiabloBridge::get_spell_icon_texture(int spell_id, int spell_type) {

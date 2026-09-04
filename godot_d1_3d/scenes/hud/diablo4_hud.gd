@@ -174,7 +174,14 @@ func send_key(keycode: int):
 
 func _process(delta: float):
 	if not diablo_bridge or not diablo_bridge.has_method("is_engine_ready") or not diablo_bridge.is_engine_ready():
+		$Root.visible = false
 		return
+
+	if diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
+		$Root.visible = false
+		return
+
+	$Root.visible = true
 
 	update_health_and_mana(delta)
 	update_xp_and_level()
@@ -238,6 +245,15 @@ func update_secondary_spell():
 	if spell_id != current_spell_id or spell_type != current_spell_type:
 		current_spell_id = spell_id
 		current_spell_type = spell_type
+
+		if spell_id <= 0:
+			if secondary_icon:
+				secondary_icon.texture = null
+			if secondary_slot_mat:
+				secondary_slot_mat.set_shader_parameter("is_active", false)
+			if secondary_slot:
+				secondary_slot.tooltip_text = "Select Skill / Spell\nClick or press 'S' to open spellbook."
+			return
 
 		var tex = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
 		if secondary_icon:

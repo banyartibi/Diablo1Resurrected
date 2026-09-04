@@ -129,12 +129,29 @@ void FreeSmallSpellIcons()
 	SmallSpellIcons = std::nullopt;
 }
 
+bool HasLargeSpellIcons()
+{
+	return LargeSpellIcons.has_value();
+}
+
 void DrawLargeSpellIcon(const Surface &out, Point position, SpellID spell)
 {
+	if (!LargeSpellIcons) {
+		LoadLargeSpellIcons();
+		if (!LargeSpellIcons)
+			return;
+	}
+	int8_t spellIdx = static_cast<int8_t>(spell);
+	if (spellIdx < 0 || static_cast<size_t>(spellIdx) >= sizeof(SpellITbl) / sizeof(SpellITbl[0]))
+		return;
+	size_t iconIdx = SpellITbl[spellIdx];
+	if (iconIdx >= (*LargeSpellIcons).numSprites())
+		return;
 #ifdef UNPACKED_MPQS
-	ClxDrawTRN(out, position, (*LargeSpellIconsBackground)[0], SplTransTbl);
+	if (LargeSpellIconsBackground && !(*LargeSpellIconsBackground).empty())
+		ClxDrawTRN(out, position, (*LargeSpellIconsBackground)[0], SplTransTbl);
 #endif
-	ClxDrawTRN(out, position, (*LargeSpellIcons)[SpellITbl[static_cast<int8_t>(spell)]], SplTransTbl);
+	ClxDrawTRN(out, position, (*LargeSpellIcons)[iconIdx], SplTransTbl);
 }
 
 void DrawSmallSpellIcon(const Surface &out, Point position, SpellID spell)

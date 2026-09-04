@@ -137,6 +137,7 @@ void ExportGodotFrame(const SDL_Surface *surface)
 		g_D1EngineData.dungeonType = leveltype;
 		g_D1EngineData.leftPanelOpen = IsLeftPanelOpen();
 		g_D1EngineData.rightPanelOpen = IsRightPanelOpen();
+		g_D1EngineData.isGameRunning = gbRunGame;
 
 		size_t reqBytes = static_cast<size_t>(srcSurface->w) * srcSurface->h * 4;
 		if (g_D1InternalFrame.size() != reqBytes) {
@@ -422,8 +423,14 @@ std::vector<uint8_t> LoadDevilutionXAsset(const char *path)
 std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 {
 	std::vector<uint8_t> rgba(56 * 56 * 4, 0);
-	if (spellId < 0 || spellId > static_cast<int>(SpellID::LAST))
+	if (!gbRunGame || spellId <= 0 || spellId > static_cast<int>(SpellID::LAST))
 		return rgba;
+
+	if (!HasLargeSpellIcons()) {
+		LoadLargeSpellIcons();
+		if (!HasLargeSpellIcons())
+			return rgba;
+	}
 
 	OwnedSurface surface(56, 56);
 	std::memset(surface.begin(), 0, surface.pitch() * surface.h());

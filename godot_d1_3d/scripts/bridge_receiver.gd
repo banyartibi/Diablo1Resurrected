@@ -32,6 +32,7 @@ var use_gdextension: bool = false
 var modern_hud_scene = preload("res://scenes/hud/diablo4_hud.tscn")
 var modern_hud = null
 var modern_hud_enabled: bool = true     # Default: Modern Diablo IV Native CanvasLayer HUD
+var last_is_ingame: bool = false
 
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
@@ -249,7 +250,7 @@ func update_shader_params():
 		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 		shader_material.set_shader_parameter("left_panel_open", left_panel_open)
 		shader_material.set_shader_parameter("right_panel_open", right_panel_open)
-		shader_material.set_shader_parameter("hide_vanilla_hud", modern_hud_enabled)
+		shader_material.set_shader_parameter("hide_vanilla_hud", modern_hud_enabled and last_is_ingame)
 
 func update_fog_mode():
 	if world_env and world_env.environment:
@@ -323,9 +324,11 @@ func _process(delta: float):
 					
 			var new_left = diablo_bridge.is_left_panel_open()
 			var new_right = diablo_bridge.is_right_panel_open()
-			if new_left != left_panel_open or new_right != right_panel_open:
+			var is_ingame = diablo_bridge.is_game_running() if diablo_bridge.has_method("is_game_running") else false
+			if new_left != left_panel_open or new_right != right_panel_open or is_ingame != last_is_ingame:
 				left_panel_open = new_left
 				right_panel_open = new_right
+				last_is_ingame = is_ingame
 				update_shader_params()
 		return
 			
@@ -402,7 +405,7 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var pixel_y = norm_y * float(d1_height)
 	
 	var in_hud = false
-	if not modern_hud_enabled:
+	if not (modern_hud_enabled and last_is_ingame):
 		in_hud = (pixel_x >= main_x and pixel_x <= main_x + 640.0 and pixel_y >= (panel_base_y - 13.0))
 	var in_left = left_panel_open and (pixel_x <= 320.0 and pixel_y < panel_base_y)
 	var in_right = right_panel_open and (pixel_x >= float(d1_width) - 320.0 and pixel_y < panel_base_y)
@@ -413,7 +416,7 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	
 	if not in_ui and playfield_zoom > 1.001:
 		var center_x = 0.5
-		var center_y = 0.5 if modern_hud_enabled else (panel_base_y * 0.5 / float(d1_height))
+		var center_y = 0.5 if (modern_hud_enabled and last_is_ingame) else (panel_base_y * 0.5 / float(d1_height))
 		mapped_x = center_x + (norm_x - center_x) / playfield_zoom
 		mapped_y = center_y + (norm_y - center_y) / playfield_zoom
 		

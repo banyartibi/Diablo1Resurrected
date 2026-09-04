@@ -71,6 +71,7 @@ struct D1EngineData {
 	int dungeonType = 0;
 	bool leftPanelOpen = false;
 	bool rightPanelOpen = false;
+	bool isGameRunning = false;
 	int playerLevel = 1;
 	int playerExp = 0;
 	int playerNextExp = 0;

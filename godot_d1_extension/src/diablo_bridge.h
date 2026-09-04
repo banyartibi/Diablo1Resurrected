@@ -58,6 +58,7 @@ public:
 	Array get_belt_items() const;
 	void set_vanilla_hud_hidden(bool hidden);
 	bool is_vanilla_hud_hidden() const;
+	bool is_game_running() const;
 	Ref<ImageTexture> get_spell_icon_texture(int spell_id, int spell_type);
 
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap

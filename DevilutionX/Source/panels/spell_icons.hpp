@@ -52,6 +52,7 @@ void DrawSmallSpellIconBorder(const Surface &out, Point position);
  */
 void SetSpellTrans(SpellType t);
 
+bool HasLargeSpellIcons();
 void LoadLargeSpellIcons();
 void FreeLargeSpellIcons();
 
