@@ -358,17 +358,7 @@ std::vector<uint8_t> LoadDevilutionXAsset(const char *path)
 	if (path == nullptr || path[0] == '\0')
 		return {};
 
-	std::string foundPath = path;
-	AssetRef ref = FindAsset(foundPath.c_str());
-	if (!ref.ok()) {
-		std::string alt = path;
-		for (char &c : alt) if (c == '/') c = '\\';
-		ref = FindAsset(alt.c_str());
-		if (!ref.ok()) {
-			for (char &c : alt) if (c == '\\') c = '/';
-			ref = FindAsset(alt.c_str());
-		}
-	}
+	AssetRef ref = FindAsset(path);
 	if (!ref.ok())
 		return {};
 

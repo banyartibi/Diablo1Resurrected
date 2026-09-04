@@ -119,6 +119,10 @@ func _ready():
 		camera.fov = 60.0
 		camera.position = Vector3(0, 0, 7.8)
 		camera.rotation_degrees = Vector3.ZERO
+		var listener = AudioListener3D.new()
+		listener.name = "D1AudioListener3D"
+		camera.add_child(listener)
+		listener.make_current()
 		
 	setup_osd()
 	apply_upscaler_mode()

@@ -96,7 +96,7 @@ struct AssetRef {
 	// An MPQ file reference:
 	MpqArchive *archive = nullptr;
 	uint32_t fileNumber;
-	const char *filename;
+	std::string filename;
 
 	// Alternatively, a direct SDL_RWops handle:
 	SDL_RWops *directHandle = nullptr;
@@ -106,7 +106,7 @@ struct AssetRef {
 	AssetRef(AssetRef &&other) noexcept
 	    : archive(other.archive)
 	    , fileNumber(other.fileNumber)
-	    , filename(other.filename)
+	    , filename(std::move(other.filename))
 	    , directHandle(other.directHandle)
 	{
 		other.directHandle = nullptr;
@@ -118,7 +118,7 @@ struct AssetRef {
 			SDL_RWclose(directHandle);
 		archive = other.archive;
 		fileNumber = other.fileNumber;
-		filename = other.filename;
+		filename = std::move(other.filename);
 		directHandle = other.directHandle;
 		other.directHandle = nullptr;
 		return *this;

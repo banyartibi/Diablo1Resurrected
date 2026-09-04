@@ -54,7 +54,16 @@ SDL_RWops *OpenOptionalRWops(const std::string &path)
 
 bool FindMpqFile(const char *filename, MpqArchive **archive, uint32_t *fileNumber)
 {
-	const MpqArchive::FileHash fileHash = MpqArchive::CalculateFileHash(filename);
+	std::string mpqName;
+	const char *query = filename;
+	if (std::strchr(filename, '/') != nullptr) {
+		mpqName = filename;
+		for (char &c : mpqName) {
+			if (c == '/') c = '\\';
+		}
+		query = mpqName.c_str();
+	}
+	const MpqArchive::FileHash fileHash = MpqArchive::CalculateFileHash(query);
 	const auto at = [=](std::optional<MpqArchive> &src) -> bool {
 		if (src && src->GetFileNumber(fileHash, *fileNumber)) {
 			*archive = &(*src);
@@ -153,8 +162,12 @@ AssetRef FindAsset(const char *filename)
 	}
 
 	// Look for the file in all the MPQ archives:
-	if (FindMpqFile(filename, &result.archive, &result.fileNumber)) {
-		result.filename = filename;
+	std::string mpqName = filename;
+	for (char &c : mpqName) {
+		if (c == '/') c = '\\';
+	}
+	if (FindMpqFile(mpqName.c_str(), &result.archive, &result.fileNumber)) {
+		result.filename = std::move(mpqName);
 		return result;
 	}
 
@@ -178,7 +191,7 @@ AssetHandle OpenAsset(AssetRef &&ref, bool threadsafe)
 	return AssetHandle { OpenFile(ref.path, "rb") };
 #else
 	if (ref.archive != nullptr)
-		return AssetHandle { SDL_RWops_FromMpqFile(*ref.archive, ref.fileNumber, ref.filename, threadsafe) };
+		return AssetHandle { SDL_RWops_FromMpqFile(*ref.archive, ref.fileNumber, ref.filename.c_str(), threadsafe) };
 	if (ref.directHandle != nullptr) {
 		// Transfer handle ownership:
 		SDL_RWops *handle = ref.directHandle;
