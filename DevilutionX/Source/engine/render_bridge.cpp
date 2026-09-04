@@ -16,6 +16,7 @@
 #include "levels/gendung.h"
 #include "diablo.h"
 #include "utils/paths.h"
+#include "engine/assets.hpp"
 
 namespace devilution {
 
@@ -314,6 +315,76 @@ void RequestDevilutionXQuit()
 {
 	g_D1EngineQuitRequested = true;
 	g_DiabloThreadRunning = false;
+}
+
+namespace {
+std::mutex g_AudioEventMutex;
+std::vector<D1AudioEvent> g_AudioEventQueue;
+} // namespace
+
+void PushDevilutionXAudioEvent(D1AudioEvent::Type type, const char *path, int32_t volume, int32_t pan, int32_t tileX, int32_t tileY, bool hasPos)
+{
+	std::lock_guard<std::mutex> lock(g_AudioEventMutex);
+	D1AudioEvent ev;
+	ev.type = type;
+	ev.path[0] = '\0';
+	if (path != nullptr) {
+		std::strncpy(ev.path, path, sizeof(ev.path) - 1);
+		ev.path[sizeof(ev.path) - 1] = '\0';
+	}
+	ev.volume = volume;
+	ev.pan = pan;
+	ev.tileX = tileX;
+	ev.tileY = tileY;
+	ev.hasPos = hasPos;
+	g_AudioEventQueue.push_back(ev);
+}
+
+size_t PopDevilutionXAudioEvents(D1AudioEvent *outEvents, size_t maxEvents)
+{
+	std::lock_guard<std::mutex> lock(g_AudioEventMutex);
+	if (outEvents == nullptr || maxEvents == 0 || g_AudioEventQueue.empty())
+		return 0;
+	size_t count = std::min(maxEvents, g_AudioEventQueue.size());
+	for (size_t i = 0; i < count; ++i) {
+		outEvents[i] = g_AudioEventQueue[i];
+	}
+	g_AudioEventQueue.erase(g_AudioEventQueue.begin(), g_AudioEventQueue.begin() + count);
+	return count;
+}
+
+std::vector<uint8_t> LoadDevilutionXAsset(const char *path)
+{
+	if (path == nullptr || path[0] == '\0')
+		return {};
+
+	std::string foundPath = path;
+	AssetRef ref = FindAsset(foundPath.c_str());
+	if (!ref.ok()) {
+		std::string alt = path;
+		for (char &c : alt) if (c == '/') c = '\\';
+		ref = FindAsset(alt.c_str());
+		if (!ref.ok()) {
+			for (char &c : alt) if (c == '\\') c = '/';
+			ref = FindAsset(alt.c_str());
+		}
+	}
+	if (!ref.ok())
+		return {};
+
+	size_t sz = ref.size();
+	if (sz == 0)
+		return {};
+
+	AssetHandle handle = OpenAsset(std::move(ref));
+	if (!handle.ok())
+		return {};
+
+	std::vector<uint8_t> buffer(sz);
+	if (!handle.read(buffer.data(), sz))
+		return {};
+
+	return buffer;
 }
 
 } // namespace devilution

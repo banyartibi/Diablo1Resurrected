@@ -32,6 +32,7 @@ enum _music_id : uint8_t {
 
 struct TSnd {
 	uint32_t start_tc;
+	std::string soundPath;
 
 #ifndef NOSOUND
 	SoundSample DSB;

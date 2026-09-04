@@ -15,6 +15,7 @@
 #include "player.h"
 #include "utils/stdcompat/algorithm.hpp"
 #include "utils/str_cat.hpp"
+#include "engine/render_bridge.hpp"
 
 namespace devilution {
 
@@ -999,6 +1000,20 @@ void PlaySfxPriv(TSFX *pSFX, bool loc, Point position)
 		return;
 	}
 	if (!gbSndInited || !gbSoundOn || gbBufferMsgs != 0) {
+		return;
+	}
+
+	if (pSFX == nullptr || pSFX->pszName == nullptr) {
+		return;
+	}
+
+	if (gbGodotBridgeActive) {
+		int lVolume = 0;
+		int lPan = 0;
+		if (loc) {
+			CalculateSoundPosition(position, &lVolume, &lPan);
+		}
+		PushDevilutionXAudioEvent(D1AudioEvent::SFX_PLAY, pSFX->pszName, lVolume, lPan, position.x, position.y, loc);
 		return;
 	}
 

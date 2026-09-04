@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <atomic>
+#include <vector>
 #include <SDL.h>
 
 namespace devilution {
@@ -89,6 +90,25 @@ extern std::atomic<bool> g_DiabloThreadRunning;
 bool IsDevilutionXRunning();
 bool IsDevilutionXQuitRequested();
 void RequestDevilutionXQuit();
+
+// Native Godot Audio Interception
+struct D1AudioEvent {
+	enum Type : uint32_t {
+		MUSIC_PLAY = 1,
+		MUSIC_STOP = 2,
+		SFX_PLAY = 3,
+	} type;
+	char path[128];
+	int32_t volume;
+	int32_t pan;
+	int32_t tileX;
+	int32_t tileY;
+	bool hasPos;
+};
+
+void PushDevilutionXAudioEvent(D1AudioEvent::Type type, const char *path, int32_t volume = 0, int32_t pan = 0, int32_t tileX = 0, int32_t tileY = 0, bool hasPos = false);
+size_t PopDevilutionXAudioEvents(D1AudioEvent *outEvents, size_t maxEvents);
+std::vector<uint8_t> LoadDevilutionXAsset(const char *path);
 
 } // namespace devilution
 

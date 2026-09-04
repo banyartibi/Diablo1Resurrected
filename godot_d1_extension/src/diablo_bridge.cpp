@@ -42,6 +42,11 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_frame_height"), &DiabloBridge::get_frame_height);
 	ClassDB::bind_method(D_METHOD("get_frame_id"), &DiabloBridge::get_frame_id);
 	ClassDB::bind_method(D_METHOD("update_image_texture", "texture"), &DiabloBridge::update_image_texture);
+
+	// Audio & Asset Interception
+	ClassDB::bind_method(D_METHOD("poll_audio_events"), &DiabloBridge::poll_audio_events);
+	ClassDB::bind_method(D_METHOD("get_asset_bytes", "path"), &DiabloBridge::get_asset_bytes);
+	ClassDB::bind_method(D_METHOD("load_wav_stream", "path", "loop"), &DiabloBridge::load_wav_stream, DEFVAL(false));
 }
 
 DiabloBridge::DiabloBridge() {
@@ -215,4 +220,46 @@ bool DiabloBridge::update_image_texture(Ref<ImageTexture> p_texture) {
 
 	p_texture->set_image(img);
 	return true;
+}
+
+Array DiabloBridge::poll_audio_events() {
+	devilution::D1AudioEvent events[64];
+	size_t count = devilution::PopDevilutionXAudioEvents(events, 64);
+	Array result;
+	for (size_t i = 0; i < count; ++i) {
+		Dictionary d;
+		d["type"] = (int)events[i].type; // 1 = MUSIC_PLAY, 2 = MUSIC_STOP, 3 = SFX_PLAY
+		d["path"] = String(events[i].path);
+		d["volume"] = events[i].volume;
+		d["pan"] = events[i].pan;
+		d["tile_x"] = events[i].tileX;
+		d["tile_y"] = events[i].tileY;
+		d["has_pos"] = events[i].hasPos;
+		result.push_back(d);
+	}
+	return result;
+}
+
+PackedByteArray DiabloBridge::get_asset_bytes(const String &path) {
+	CharString cs = path.utf8();
+	std::vector<uint8_t> bytes = devilution::LoadDevilutionXAsset(cs.get_data());
+	PackedByteArray pba;
+	if (!bytes.empty()) {
+		pba.resize(bytes.size());
+		std::memcpy(pba.ptrw(), bytes.data(), bytes.size());
+	}
+	return pba;
+}
+
+Ref<AudioStreamWAV> DiabloBridge::load_wav_stream(const String &path, bool loop) {
+	PackedByteArray pba = get_asset_bytes(path);
+	if (pba.is_empty()) {
+		return Ref<AudioStreamWAV>();
+	}
+
+	Ref<AudioStreamWAV> stream = AudioStreamWAV::load_from_buffer(pba);
+	if (stream.is_valid() && loop) {
+		stream->set_loop_mode(AudioStreamWAV::LOOP_FORWARD);
+	}
+	return stream;
 }

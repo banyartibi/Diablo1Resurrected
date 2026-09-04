@@ -83,6 +83,8 @@ var fps_label: Label
 var fps_timer: float = 0.0
 var frame_counter: int = 0
 var current_fps: int = 0
+const AudioManagerScript = preload("res://scripts/audio_manager.gd")
+var audio_mgr: Node = null
 
 func _ready():
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
@@ -96,6 +98,11 @@ func _ready():
 		var mpq_dir = "/home/biti/.local/share/diasurgical/devilution"
 		diablo_bridge.call_deferred("init_engine", mpq_dir)
 		print("[Godot-D1 Bridge] GDExtension DiabloBridge started directly in-process!")
+		
+		audio_mgr = AudioManagerScript.new()
+		audio_mgr.name = "D1AudioManager"
+		add_child(audio_mgr)
+		audio_mgr.init(diablo_bridge, self)
 	
 	if not hero_light:
 		hero_light = get_node_or_null("HeroTorchLight")
@@ -280,6 +287,13 @@ func _process(delta: float):
 			print("[Godot-D1 Bridge] DevilutionX engine requested exit. Terminating Godot process cleanly...")
 			get_tree().quit()
 			return
+
+		# Poll and process native Godot audio events
+		if audio_mgr and diablo_bridge.has_method("poll_audio_events"):
+			var audio_events = diablo_bridge.poll_audio_events()
+			if audio_events.size() > 0:
+				var player_tile = diablo_bridge.get_player_tile_pos() if diablo_bridge.has_method("get_player_tile_pos") else Vector2i(25, 25)
+				audio_mgr.process_audio_events(audio_events, player_tile)
 
 		if diablo_bridge.is_engine_ready():
 			if not had_connected:

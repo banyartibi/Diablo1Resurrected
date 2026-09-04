@@ -24,6 +24,7 @@
 #include "engine/render/clx_render.hpp"
 #include "engine/sound_position.hpp"
 #include "engine/world_tile.hpp"
+#include "engine/render_bridge.hpp"
 #include "init.h"
 #include "levels/crypt.h"
 #include "levels/drlg_l4.h"
@@ -4336,6 +4337,13 @@ void PlayEffect(Monster &monster, MonsterSound mode)
 	int lPan = 0;
 	if (!CalculateSoundPosition(monster.position.tile, &lVolume, &lPan))
 		return;
+
+	if (gbGodotBridgeActive) {
+		if (!snd->soundPath.empty()) {
+			PushDevilutionXAudioEvent(D1AudioEvent::SFX_PLAY, snd->soundPath.c_str(), lVolume, lPan, monster.position.tile.x, monster.position.tile.y, true);
+		}
+		return;
+	}
 
 	snd_play_snd(snd, lVolume, lPan);
 }

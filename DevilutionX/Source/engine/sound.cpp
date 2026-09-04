@@ -23,6 +23,7 @@
 #include "utils/stdcompat/shared_ptr_array.hpp"
 #include "utils/str_cat.hpp"
 #include "utils/stubs.h"
+#include "engine/render_bridge.hpp"
 
 namespace devilution {
 
@@ -174,6 +175,14 @@ void snd_play_snd(TSnd *pSnd, int lVolume, int lPan)
 		return;
 	}
 
+	if (gbGodotBridgeActive) {
+		if (!pSnd->soundPath.empty()) {
+			PushDevilutionXAudioEvent(D1AudioEvent::SFX_PLAY, pSnd->soundPath.c_str(), lVolume, lPan, 0, 0, false);
+		}
+		pSnd->start_tc = tc;
+		return;
+	}
+
 	SoundSample *sound = &pSnd->DSB;
 	if (sound->IsPlaying()) {
 		sound = DuplicateSound(*sound);
@@ -189,8 +198,12 @@ std::unique_ptr<TSnd> sound_file_load(const char *path, bool stream)
 {
 	auto snd = std::make_unique<TSnd>();
 	snd->start_tc = SDL_GetTicks() - 80 - 1;
+	if (path != nullptr)
+		snd->soundPath = path;
 #ifndef NOSOUND
-	LoadAudioFile(path, stream, /*errorDialog=*/true, snd->DSB);
+	if (!gbGodotBridgeActive) {
+		LoadAudioFile(path, stream, /*errorDialog=*/true, snd->DSB);
+	}
 #endif
 	return snd;
 }
@@ -211,6 +224,11 @@ void snd_init()
 	sgOptions.Audio.musicVolume.SetValue(CapVolume(*sgOptions.Audio.musicVolume));
 	gbMusicOn = *sgOptions.Audio.musicVolume > VOLUME_MIN;
 
+	if (gbGodotBridgeActive) {
+		gbSndInited = true;
+		return;
+	}
+
 	// Initialize the SDL_audiolib library. Set the output sample rate to
 	// 22kHz, the audio format to 16-bit signed, use 2 output channels
 	// (stereo), and a 2KiB output buffer.
@@ -227,6 +245,11 @@ void snd_init()
 
 void snd_deinit()
 {
+	if (gbGodotBridgeActive) {
+		gbSndInited = false;
+		return;
+	}
+
 	if (gbSndInited) {
 		Aulib::quit();
 		duplicateSoundsMutex = std::nullopt;
@@ -259,6 +282,9 @@ _music_id GetLevelMusic(dungeon_type dungeonType)
 
 void music_stop()
 {
+	if (gbGodotBridgeActive) {
+		PushDevilutionXAudioEvent(D1AudioEvent::MUSIC_STOP, "");
+	}
 	music.Release();
 	sgnMusicTrack = NUM_MUSIC;
 }
@@ -275,6 +301,12 @@ void music_start(_music_id nTrack)
 		trackPath = SpawnMusicTracks[nTrack];
 	else
 		trackPath = MusicTracks[nTrack];
+
+	if (gbGodotBridgeActive) {
+		PushDevilutionXAudioEvent(D1AudioEvent::MUSIC_PLAY, trackPath);
+		sgnMusicTrack = nTrack;
+		return;
+	}
 
 #ifdef DISABLE_STREAMING_MUSIC
 	const bool stream = false;

@@ -4,12 +4,15 @@
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
+#include <godot_cpp/classes/audio_stream_wav.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector2i.hpp>
 #include <godot_cpp/variant/string.hpp>
+#include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 
 namespace godot {
 
@@ -61,6 +64,11 @@ public:
 	int get_frame_height() const;
 	int get_frame_id() const;
 	bool update_image_texture(Ref<ImageTexture> p_texture);
+
+	// Audio & Asset Interception
+	Array poll_audio_events();
+	PackedByteArray get_asset_bytes(const String &path);
+	Ref<AudioStreamWAV> load_wav_stream(const String &path, bool loop = false);
 };
 
 } // namespace godot
