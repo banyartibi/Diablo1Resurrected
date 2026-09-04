@@ -51,9 +51,36 @@ static_assert(sizeof(D1BridgeHeader) == 4096, "D1BridgeHeader must be exactly 40
 
 extern bool gbGodotBridgeActive;
 
+struct D1EngineData {
+	uint32_t frameId = 0;
+	int width = 2560;
+	int height = 1440;
+	int playerTileX = 25;
+	int playerTileY = 25;
+	float playerNormX = 0.5f;
+	float playerNormY = 0.52f;
+	int playerHp = 100;
+	int playerMaxHp = 100;
+	int playerMana = 50;
+	int playerMaxMana = 50;
+	int playerGold = 0;
+	int playerClass = 0;
+	int currentLevel = 0;
+	int dungeonType = 0;
+	bool leftPanelOpen = false;
+	bool rightPanelOpen = false;
+};
+
+extern D1EngineData g_D1EngineData;
+
 void InitGodotBridge(int width, int height);
 void ExportGodotFrame(const SDL_Surface *surface);
 void PollGodotBridgeInput();
 void CleanupGodotBridge();
+
+void StartDevilutionXThread(const char *basePath);
+void PushDevilutionXInput(uint32_t type, uint32_t code, uint32_t state, int32_t x, int32_t y);
+bool CopyD1FrameBytes(uint8_t *dest, size_t maxBytes, uint32_t *outFrameId, int *outW, int *outH);
+void CopyD1DungeonGrid(int32_t *dest, size_t maxTiles);
 
 } // namespace devilution

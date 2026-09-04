@@ -13,6 +13,8 @@ Makefile
 tools/
 extension_api.json
 .godot/
+godot-cpp/
+godot_d1_extension/build/
 *.import
 
 # Proprietary Blizzard game data files

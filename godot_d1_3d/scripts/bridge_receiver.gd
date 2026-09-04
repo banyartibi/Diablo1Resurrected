@@ -27,6 +27,8 @@ var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Refle
 var playfield_zoom: float = 1.0
 var left_panel_open: bool = false
 var right_panel_open: bool = false
+var diablo_bridge = null
+var use_gdextension: bool = false
 
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
@@ -86,6 +88,14 @@ func _ready():
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	DisplayServer.window_move_to_foreground()
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED)
+	
+	if ClassDB.class_exists("DiabloBridge"):
+		diablo_bridge = ClassDB.instantiate("DiabloBridge")
+		add_child(diablo_bridge)
+		use_gdextension = true
+		var mpq_dir = "/home/biti/.local/share/diasurgical/devilution"
+		diablo_bridge.init_engine(mpq_dir)
+		print("[Godot-D1 Bridge] GDExtension DiabloBridge started directly in-process!")
 	
 	if not hero_light:
 		hero_light = get_node_or_null("HeroTorchLight")
@@ -259,6 +269,26 @@ func _process(delta: float):
 		if osd_timer <= 0.0 and osd_label:
 			osd_label.text = ""
 			
+	if use_gdextension and diablo_bridge != null:
+		if diablo_bridge.is_engine_ready():
+			had_connected = true
+			var cur_frame_id = diablo_bridge.get_frame_id()
+			if cur_frame_id != last_frame_id:
+				last_frame_id = cur_frame_id
+				var pixel_bytes = diablo_bridge.get_frame_bytes()
+				d1_width = diablo_bridge.get_frame_width()
+				d1_height = diablo_bridge.get_frame_height()
+				if pixel_bytes.size() == d1_width * d1_height * 4:
+					update_frame_texture(d1_width, d1_height, pixel_bytes)
+					
+			var new_left = diablo_bridge.is_left_panel_open()
+			var new_right = diablo_bridge.is_right_panel_open()
+			if new_left != left_panel_open or new_right != right_panel_open:
+				left_panel_open = new_left
+				right_panel_open = new_right
+				update_shader_params()
+		return
+			
 	if not FileAccess.file_exists("/dev/shm/d1_godot_frame"):
 		if had_connected:
 			get_tree().quit()
@@ -331,22 +361,26 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var mapped_y = norm_y
 	
 	if playfield_zoom > 1.001 and norm_y < hud_boundary:
+		var norm_play_y = norm_y / hud_boundary
 		var center_x = 0.5
-		var center_y = hud_boundary * 0.5
+		var center_y = 0.5
 		mapped_x = center_x + (norm_x - center_x) / playfield_zoom
-		mapped_y = center_y + (norm_y - center_y) / playfield_zoom
+		var scaled_play_y = center_y + (norm_play_y - center_y) / playfield_zoom
+		mapped_y = scaled_play_y * hud_boundary
 		
-	return Vector2i(int(mapped_x * d1_width), int(mapped_y * d1_height))
+	var game_x = int(clamp(mapped_x * float(d1_width), 0.0, float(d1_width - 1)))
+	var game_y = int(clamp(mapped_y * float(d1_height), 0.0, float(d1_height - 1)))
+	return Vector2i(game_x, game_y)
 
 func _input(event: InputEvent):
-	if event is InputEventKey and event.pressed and not event.is_echo():
+	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_F4:
 			vsync_enabled = !vsync_enabled
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED)
-			show_osd("[F4] V-Sync: " + ("ON (Screen Refresh Rate Limit)" if vsync_enabled else "OFF (Uncapped Max FPS)"))
+			show_osd("V-Sync [F4]: " + ("ENABLED (144Hz Smooth)" if vsync_enabled else "DISABLED (Uncapped FPS)"))
 			return
 		elif event.keycode == KEY_F5:
-			current_hdr_level = (current_hdr_level + 1) % hdr_names.size()
+			current_hdr_level = (current_hdr_level + 1) % hdr_multipliers.size()
 			update_shader_params()
 			show_osd(hdr_names[current_hdr_level])
 			return
@@ -387,7 +421,7 @@ func _input(event: InputEvent):
 			show_osd("[F12] Dungeon Floor: " + ("Wet & Reflective Cobblestone (Glossy Puddles ON)" if wet_floor else "Dry Dusty Stone Surface (OFF)"))
 			return
 
-	if not FileAccess.file_exists("/dev/shm/d1_godot_frame"):
+	if not use_gdextension and not FileAccess.file_exists("/dev/shm/d1_godot_frame"):
 		return
 		
 	var vp_size = get_viewport().get_visible_rect().size
@@ -426,6 +460,10 @@ func _input(event: InputEvent):
 		send_input_to_d1(3, key, state, 0, 0)
 
 func send_input_to_d1(msg_type: int, code: int, state: int, x: int, y: int):
+	if use_gdextension and diablo_bridge != null:
+		diablo_bridge.send_input(msg_type, code, state, x, y)
+		return
+
 	var file = FileAccess.open("/dev/shm/d1_godot_frame", FileAccess.READ_WRITE)
 	if not file:
 		return
