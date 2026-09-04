@@ -94,7 +94,7 @@ func _ready():
 		add_child(diablo_bridge)
 		use_gdextension = true
 		var mpq_dir = "/home/biti/.local/share/diasurgical/devilution"
-		diablo_bridge.init_engine(mpq_dir)
+		diablo_bridge.call_deferred("init_engine", mpq_dir)
 		print("[Godot-D1 Bridge] GDExtension DiabloBridge started directly in-process!")
 	
 	if not hero_light:

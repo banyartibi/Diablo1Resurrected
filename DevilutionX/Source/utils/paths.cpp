@@ -117,6 +117,12 @@ const std::string &ConfigPath()
 const std::string &AssetsPath()
 {
 	if (!assetsPath) {
+		const char *envAssets = std::getenv("D1_ASSETS_DIR");
+		if (envAssets != nullptr && envAssets[0] != '\0') {
+			assetsPath.emplace(envAssets);
+			AddTrailingSlash(*assetsPath);
+			return *assetsPath;
+		}
 #if __EMSCRIPTEN__
 		assetsPath.emplace("assets/");
 #elif defined(NXDK)

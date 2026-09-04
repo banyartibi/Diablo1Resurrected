@@ -15,6 +15,7 @@
 #include "player.h"
 #include "levels/gendung.h"
 #include "diablo.h"
+#include "utils/paths.h"
 
 namespace devilution {
 
@@ -216,6 +217,12 @@ void StartDevilutionXThread(const char *basePath)
 		char *argv[] = { arg0, arg1, arg2.data(), arg3, arg4.data(), arg5, nullptr };
 		int argc = 6;
 
+		const char *envA = std::getenv("D1_ASSETS_DIR");
+		if (envA != nullptr && envA[0] != '\0') {
+			devilution::paths::SetAssetsPath(envA);
+		} else {
+			devilution::paths::SetAssetsPath("/home/biti/antigravity/magical-bell/assets/");
+		}
 		devilution::DiabloMain(argc, argv);
 		g_DiabloThreadRunning = false;
 	});

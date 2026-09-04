@@ -24,6 +24,11 @@ mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 # 2. Setup runtime library paths for GDExtension (SDL2, BZip2, Vulkan)
 export LD_LIBRARY_PATH="$DIR/DevilutionX/build/_deps/sdl2-build:$DIR/DevilutionX/build/3rdParty/bzip2:$DIR/godot_d1_3d/bin:$LD_LIBRARY_PATH"
 export LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0:$LD_PRELOAD"
+if [ -d "$DIR/assets" ]; then
+    export D1_ASSETS_DIR="$DIR/assets"
+else
+    export D1_ASSETS_DIR="$DIR/DevilutionX/build/assets"
+fi
 
 # 3. Clean old SHM if any from legacy runs
 rm -f /dev/shm/d1_godot_frame
