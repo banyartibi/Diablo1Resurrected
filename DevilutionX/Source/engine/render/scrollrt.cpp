@@ -1363,8 +1363,10 @@ void DrawView(const Surface &out, Point startPosition)
 	doom_draw(out);
 	DrawInfoBox(out);
 	control_update_life_mana(); // Update life/mana totals before rendering any portion of the flask.
-	DrawLifeFlaskUpper(out);
-	DrawManaFlaskUpper(out);
+	if (!gbHideVanillaHUD) {
+		DrawLifeFlaskUpper(out);
+		DrawManaFlaskUpper(out);
+	}
 }
 
 /**
@@ -1853,12 +1855,12 @@ void DrawAndBlit()
 	const Rectangle &mainPanel = GetMainPanel();
 
 	if (gnScreenWidth > mainPanel.size.width || IsRedrawEverything()) {
-		drawHealth = true;
-		drawMana = true;
-		drawControlButtons = true;
-		drawBelt = true;
+		drawHealth = !gbHideVanillaHUD;
+		drawMana = !gbHideVanillaHUD;
+		drawControlButtons = !gbHideVanillaHUD;
+		drawBelt = !gbHideVanillaHUD;
 		drawInfoBox = false;
-		drawCtrlPan = true;
+		drawCtrlPan = !gbHideVanillaHUD;
 		hgt = gnScreenHeight;
 	} else if (IsRedrawViewport()) {
 		drawInfoBox = true;
@@ -1892,11 +1894,13 @@ void DrawAndBlit()
 	if (drawChatInput) {
 		DrawTalkPan(out);
 	}
-	DrawXPBar(out);
-	if (*sgOptions.Gameplay.showHealthValues)
-		DrawFlaskValues(out, { mainPanel.position.x + 134, mainPanel.position.y + 28 }, MyPlayer->_pHitPoints >> 6, MyPlayer->_pMaxHP >> 6);
-	if (*sgOptions.Gameplay.showManaValues)
-		DrawFlaskValues(out, { mainPanel.position.x + mainPanel.size.width - 138, mainPanel.position.y + 28 }, MyPlayer->_pMana >> 6, MyPlayer->_pMaxMana >> 6);
+	if (!gbHideVanillaHUD) {
+		DrawXPBar(out);
+		if (*sgOptions.Gameplay.showHealthValues)
+			DrawFlaskValues(out, { mainPanel.position.x + 134, mainPanel.position.y + 28 }, MyPlayer->_pHitPoints >> 6, MyPlayer->_pMaxHP >> 6);
+		if (*sgOptions.Gameplay.showManaValues)
+			DrawFlaskValues(out, { mainPanel.position.x + mainPanel.size.width - 138, mainPanel.position.y + 28 }, MyPlayer->_pMana >> 6, MyPlayer->_pMaxMana >> 6);
+	}
 
 	DrawCursor(out);
 

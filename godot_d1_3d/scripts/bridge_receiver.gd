@@ -29,6 +29,9 @@ var left_panel_open: bool = false
 var right_panel_open: bool = false
 var diablo_bridge = null
 var use_gdextension: bool = false
+var modern_hud_scene = preload("res://scenes/hud/diablo4_hud.tscn")
+var modern_hud = null
+var modern_hud_enabled: bool = true     # Default: Modern Diablo IV Native CanvasLayer HUD
 
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
@@ -128,8 +131,15 @@ func _ready():
 	apply_upscaler_mode()
 	update_fog_mode()
 	update_torch_light()
+
+	# Initialize Diablo IV Native CanvasLayer Modern HUD
+	modern_hud = modern_hud_scene.instantiate()
+	add_child(modern_hud)
+	modern_hud.visible = modern_hud_enabled
+	if diablo_bridge:
+		modern_hud.set_bridge(diablo_bridge)
 	
-	show_osd("Diablo 1 Resurrected | Dark Gothic + 8K Catmull + Music Active | F4: V-Sync | F12: Wet Floor", 4.0)
+	show_osd("Diablo 1 Resurrected | Modern D4 HUD Active [H] | F4: V-Sync | F12: Wet Floor", 4.0)
 	print("[Godot-D1 Bridge] Receiver initialized with user defaults. Dark Gothic, 8K Spline & Panel Shield active.")
 
 func _notification(what: int):
@@ -140,7 +150,7 @@ func _notification(what: int):
 
 func setup_osd():
 	var canvas = CanvasLayer.new()
-	canvas.layer = 100
+	canvas.layer = 150
 	add_child(canvas)
 	
 	osd_label = Label.new()
@@ -239,6 +249,7 @@ func update_shader_params():
 		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 		shader_material.set_shader_parameter("left_panel_open", left_panel_open)
 		shader_material.set_shader_parameter("right_panel_open", right_panel_open)
+		shader_material.set_shader_parameter("hide_vanilla_hud", modern_hud_enabled)
 
 func update_fog_mode():
 	if world_env and world_env.environment:
@@ -297,6 +308,10 @@ func _process(delta: float):
 			if not had_connected:
 				had_connected = true
 				print("[Godot-D1 Bridge] In-Process Engine Connected! Streaming live frames to 3D Viewport.")
+				if modern_hud:
+					modern_hud.set_bridge(diablo_bridge)
+				if modern_hud_enabled:
+					diablo_bridge.set_vanilla_hud_hidden(true)
 			var cur_frame_id = diablo_bridge.get_frame_id()
 			if cur_frame_id != last_frame_id:
 				last_frame_id = cur_frame_id
@@ -386,7 +401,9 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var pixel_x = norm_x * float(d1_width)
 	var pixel_y = norm_y * float(d1_height)
 	
-	var in_hud = (pixel_x >= main_x and pixel_x <= main_x + 640.0 and pixel_y >= (panel_base_y - 13.0))
+	var in_hud = false
+	if not modern_hud_enabled:
+		in_hud = (pixel_x >= main_x and pixel_x <= main_x + 640.0 and pixel_y >= (panel_base_y - 13.0))
 	var in_left = left_panel_open and (pixel_x <= 320.0 and pixel_y < panel_base_y)
 	var in_right = right_panel_open and (pixel_x >= float(d1_width) - 320.0 and pixel_y < panel_base_y)
 	var in_ui = in_hud or in_left or in_right
@@ -396,7 +413,7 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	
 	if not in_ui and playfield_zoom > 1.001:
 		var center_x = 0.5
-		var center_y = panel_base_y * 0.5 / float(d1_height)
+		var center_y = 0.5 if modern_hud_enabled else (panel_base_y * 0.5 / float(d1_height))
 		mapped_x = center_x + (norm_x - center_x) / playfield_zoom
 		mapped_y = center_y + (norm_y - center_y) / playfield_zoom
 		
@@ -404,9 +421,18 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var game_y = int(clamp(mapped_y * float(d1_height), 0.0, float(d1_height - 1)))
 	return Vector2i(game_x, game_y)
 
-func _input(event: InputEvent):
+func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_F4:
+		if event.keycode == KEY_H:
+			modern_hud_enabled = !modern_hud_enabled
+			if modern_hud:
+				modern_hud.visible = modern_hud_enabled
+			if diablo_bridge:
+				diablo_bridge.set_vanilla_hud_hidden(modern_hud_enabled)
+			update_shader_params()
+			show_osd("[H] HUD Mode: " + ("Modern Diablo IV CanvasLayer (Forward+ Vulkan)" if modern_hud_enabled else "Classic 1996 Panel (Vanilla)"))
+			return
+		elif event.keycode == KEY_F4:
 			vsync_enabled = !vsync_enabled
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED)
 			show_osd("V-Sync [F4]: " + ("ENABLED (144Hz Smooth)" if vsync_enabled else "DISABLED (Uncapped FPS)"))

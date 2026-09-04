@@ -1,0 +1,599 @@
+[gd_scene load_steps=18 format=3 uid="uid://d4hudscene001"]
+
+[ext_resource type="Script" path="res://scenes/hud/diablo4_hud.gd" id="1_hud"]
+[ext_resource type="Shader" path="res://shaders/liquid_globe.gdshader" id="2_liquid"]
+[ext_resource type="Shader" path="res://shaders/globe_frame.gdshader" id="3_frame"]
+[ext_resource type="Shader" path="res://shaders/action_slot.gdshader" id="4_slot"]
+[ext_resource type="Shader" path="res://shaders/potion_icon.gdshader" id="5_potion"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_life"]
+shader = ExtResource("2_liquid")
+shader_parameter/fill_amount = 1.0
+shader_parameter/liquid_color_primary = Color(0.88, 0.04, 0.08, 1)
+shader_parameter/liquid_color_deep = Color(0.22, 0.01, 0.02, 1)
+shader_parameter/liquid_color_surface = Color(1, 0.35, 0.35, 1)
+shader_parameter/glow_color = Color(2.2, 0.15, 0.15, 1)
+shader_parameter/slosh_speed = 2.8
+shader_parameter/slosh_amplitude = 0.035
+shader_parameter/bubble_intensity = 1.5
+shader_parameter/glass_rim_opacity = 0.65
+shader_parameter/specular_intensity = 1.1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mana"]
+shader = ExtResource("2_liquid")
+shader_parameter/fill_amount = 1.0
+shader_parameter/liquid_color_primary = Color(0.06, 0.4, 0.95, 1)
+shader_parameter/liquid_color_deep = Color(0.01, 0.06, 0.25, 1)
+shader_parameter/liquid_color_surface = Color(0.35, 0.75, 1, 1)
+shader_parameter/glow_color = Color(0.2, 0.8, 2.4, 1)
+shader_parameter/slosh_speed = 2.8
+shader_parameter/slosh_amplitude = 0.035
+shader_parameter/bubble_intensity = 1.5
+shader_parameter/glass_rim_opacity = 0.65
+shader_parameter/specular_intensity = 1.1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_life_frame"]
+shader = ExtResource("3_frame")
+shader_parameter/metal_color_base = Color(0.12, 0.11, 0.12, 1)
+shader_parameter/metal_color_trim = Color(0.65, 0.52, 0.28, 1)
+shader_parameter/metal_color_highlight = Color(0.95, 0.85, 0.6, 1)
+shader_parameter/is_mana_side = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mana_frame"]
+shader = ExtResource("3_frame")
+shader_parameter/metal_color_base = Color(0.12, 0.11, 0.12, 1)
+shader_parameter/metal_color_trim = Color(0.65, 0.52, 0.28, 1)
+shader_parameter/metal_color_highlight = Color(0.95, 0.85, 0.6, 1)
+shader_parameter/is_mana_side = 1.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_slot_pri"]
+shader = ExtResource("4_slot")
+shader_parameter/border_color = Color(0.55, 0.45, 0.25, 1)
+shader_parameter/glow_color = Color(0, 0, 0, 0)
+shader_parameter/bg_color = Color(0.06, 0.05, 0.07, 0.95)
+shader_parameter/border_thickness = 0.06
+shader_parameter/corner_cut = 0.08
+shader_parameter/is_active = false
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_slot_sec"]
+shader = ExtResource("4_slot")
+shader_parameter/border_color = Color(0.3, 0.5, 0.8, 1)
+shader_parameter/glow_color = Color(0.2, 0.6, 1.5, 1)
+shader_parameter/bg_color = Color(0.06, 0.05, 0.07, 0.95)
+shader_parameter/border_thickness = 0.06
+shader_parameter/corner_cut = 0.08
+shader_parameter/is_active = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_slot_pot"]
+shader = ExtResource("4_slot")
+shader_parameter/border_color = Color(0.35, 0.32, 0.28, 1)
+shader_parameter/glow_color = Color(0, 0, 0, 0)
+shader_parameter/bg_color = Color(0.06, 0.05, 0.07, 0.95)
+shader_parameter/border_thickness = 0.05
+shader_parameter/corner_cut = 0.07
+shader_parameter/is_active = false
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pot1"]
+shader = ExtResource("5_potion")
+shader_parameter/potion_type = 1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pot2"]
+shader = ExtResource("5_potion")
+shader_parameter/potion_type = 1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pot3"]
+shader = ExtResource("5_potion")
+shader_parameter/potion_type = 3
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pot4"]
+shader = ExtResource("5_potion")
+shader_parameter/potion_type = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_bg"]
+bg_color = Color(0.05, 0.05, 0.06, 0.9)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_fill"]
+bg_color = Color(0.95, 0.65, 0.12, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.85, 0.3, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[node name="Diablo4HUD" type="CanvasLayer"]
+layer = 100
+script = ExtResource("1_hud")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -480.0
+offset_top = -175.0
+offset_right = 480.0
+offset_bottom = -5.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="HBox" type="HBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="LifeContainer" type="Control" parent="Root/HBox"]
+custom_minimum_size = Vector2(160, 160)
+layout_mode = 2
+
+[node name="LifeGlobe" type="ColorRect" parent="Root/HBox/LifeContainer"]
+material = SubResource("ShaderMaterial_life")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -75.0
+offset_top = -75.0
+offset_right = 75.0
+offset_bottom = 75.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="LifeFrame" type="ColorRect" parent="Root/HBox/LifeContainer"]
+material = SubResource("ShaderMaterial_life_frame")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -80.0
+offset_top = -80.0
+offset_right = 80.0
+offset_bottom = 80.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="LifeLabel" type="Label" parent="Root/HBox/LifeContainer"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -60.0
+offset_top = -12.0
+offset_right = 60.0
+offset_bottom = 12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 4
+theme_override_font_sizes/font_size = 15
+text = "100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LifeTooltipArea" type="Control" parent="Root/HBox/LifeContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+tooltip_text = "Life: 100 / 100"
+
+[node name="CenterPanel" type="VBoxContainer" parent="Root/HBox"]
+custom_minimum_size = Vector2(580, 160)
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 2
+
+[node name="UtilityButtons" type="HBoxContainer" parent="Root/HBox/CenterPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="BtnChar" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
+custom_minimum_size = Vector2(80, 24)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "[C] Hero"
+
+[node name="BtnInv" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
+custom_minimum_size = Vector2(80, 24)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "[I] Inv"
+
+[node name="BtnQuest" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
+custom_minimum_size = Vector2(80, 24)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "[Q] Quests"
+
+[node name="BtnMap" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
+custom_minimum_size = Vector2(80, 24)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "[Tab] Map"
+
+[node name="BtnMenu" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
+custom_minimum_size = Vector2(80, 24)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "[Esc] Menu"
+
+[node name="ActionBar" type="HBoxContainer" parent="Root/HBox/CenterPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="PrimarySlot" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_pri")
+custom_minimum_size = Vector2(54, 54)
+layout_mode = 2
+tooltip_text = "Primary Attack (LMB)"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/PrimarySlot"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = 30.0
+offset_bottom = 18.0
+theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "LMB"
+
+[node name="Icon" type="Label" parent="Root/HBox/CenterPanel/ActionBar/PrimarySlot"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -12.0
+offset_top = -14.0
+offset_right = 12.0
+offset_bottom = 14.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 20
+text = "⚔"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Potion1" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_pot")
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+tooltip_text = "Potion Slot 1"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion1"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = 16.0
+offset_bottom = 18.0
+theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "1"
+
+[node name="PotionIcon" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar/Potion1"]
+material = SubResource("ShaderMaterial_pot1")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -18.0
+offset_top = -18.0
+offset_right = 18.0
+offset_bottom = 18.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CountLabel" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion1"]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "1"
+
+[node name="Potion2" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_pot")
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+tooltip_text = "Potion Slot 2"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion2"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = 16.0
+offset_bottom = 18.0
+theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "2"
+
+[node name="PotionIcon" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar/Potion2"]
+material = SubResource("ShaderMaterial_pot2")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -18.0
+offset_top = -18.0
+offset_right = 18.0
+offset_bottom = 18.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CountLabel" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion2"]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "1"
+
+[node name="Potion3" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_pot")
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+tooltip_text = "Potion Slot 3"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion3"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = 16.0
+offset_bottom = 18.0
+theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "3"
+
+[node name="PotionIcon" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar/Potion3"]
+material = SubResource("ShaderMaterial_pot3")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -18.0
+offset_top = -18.0
+offset_right = 18.0
+offset_bottom = 18.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CountLabel" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion3"]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "1"
+
+[node name="Potion4" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_pot")
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+tooltip_text = "Potion Slot 4"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion4"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = 16.0
+offset_bottom = 18.0
+theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "4"
+
+[node name="PotionIcon" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar/Potion4"]
+material = SubResource("ShaderMaterial_pot4")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -18.0
+offset_top = -18.0
+offset_right = 18.0
+offset_bottom = 18.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CountLabel" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion4"]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "1"
+
+[node name="SecondarySlot" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_sec")
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+tooltip_text = "Secondary Spell (RMB)"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/SecondarySlot"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = 32.0
+offset_bottom = 18.0
+theme_override_colors/font_color = Color(0.9, 0.85, 0.7, 1)
+theme_override_font_sizes/font_size = 10
+text = "RMB"
+
+[node name="Icon" type="TextureRect" parent="Root/HBox/CenterPanel/ActionBar/SecondarySlot"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -24.0
+offset_top = -24.0
+offset_right = 24.0
+offset_bottom = 24.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="XPContainer" type="HBoxContainer" parent="Root/HBox/CenterPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="LevelLabel" type="Label" parent="Root/HBox/CenterPanel/XPContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+theme_override_font_sizes/font_size = 12
+text = "Lv 1"
+
+[node name="XPBar" type="ProgressBar" parent="Root/HBox/CenterPanel/XPContainer"]
+custom_minimum_size = Vector2(400, 8)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_styles/background = SubResource("StyleBoxFlat_xp_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_xp_fill")
+value = 35.0
+show_percentage = false
+
+[node name="GoldLabel" type="Label" parent="Root/HBox/CenterPanel/XPContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+theme_override_font_sizes/font_size = 12
+text = "0 G"
+
+[node name="ManaContainer" type="Control" parent="Root/HBox"]
+custom_minimum_size = Vector2(160, 160)
+layout_mode = 2
+
+[node name="ManaGlobe" type="ColorRect" parent="Root/HBox/ManaContainer"]
+material = SubResource("ShaderMaterial_mana")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -75.0
+offset_top = -75.0
+offset_right = 75.0
+offset_bottom = 75.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ManaFrame" type="ColorRect" parent="Root/HBox/ManaContainer"]
+material = SubResource("ShaderMaterial_mana_frame")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -80.0
+offset_top = -80.0
+offset_right = 80.0
+offset_bottom = 80.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ManaLabel" type="Label" parent="Root/HBox/ManaContainer"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -60.0
+offset_top = -12.0
+offset_right = 60.0
+offset_bottom = 12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 4
+theme_override_font_sizes/font_size = 15
+text = "50 / 50"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ManaTooltipArea" type="Control" parent="Root/HBox/ManaContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+tooltip_text = "Mana: 50 / 50"

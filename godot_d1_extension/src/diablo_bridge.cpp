@@ -28,6 +28,15 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_dungeon_type"), &DiabloBridge::get_dungeon_type);
 	ClassDB::bind_method(D_METHOD("is_left_panel_open"), &DiabloBridge::is_left_panel_open);
 	ClassDB::bind_method(D_METHOD("is_right_panel_open"), &DiabloBridge::is_right_panel_open);
+	ClassDB::bind_method(D_METHOD("get_player_level"), &DiabloBridge::get_player_level);
+	ClassDB::bind_method(D_METHOD("get_player_xp"), &DiabloBridge::get_player_xp);
+	ClassDB::bind_method(D_METHOD("get_player_next_xp"), &DiabloBridge::get_player_next_xp);
+	ClassDB::bind_method(D_METHOD("get_player_spell"), &DiabloBridge::get_player_spell);
+	ClassDB::bind_method(D_METHOD("get_player_spell_type"), &DiabloBridge::get_player_spell_type);
+	ClassDB::bind_method(D_METHOD("get_belt_items"), &DiabloBridge::get_belt_items);
+	ClassDB::bind_method(D_METHOD("set_vanilla_hud_hidden", "hidden"), &DiabloBridge::set_vanilla_hud_hidden);
+	ClassDB::bind_method(D_METHOD("is_vanilla_hud_hidden"), &DiabloBridge::is_vanilla_hud_hidden);
+	ClassDB::bind_method(D_METHOD("get_spell_icon_texture", "spell_id", "spell_type"), &DiabloBridge::get_spell_icon_texture);
 
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
@@ -133,6 +142,62 @@ bool DiabloBridge::is_left_panel_open() const {
 
 bool DiabloBridge::is_right_panel_open() const {
 	return devilution::g_D1EngineData.rightPanelOpen;
+}
+
+int DiabloBridge::get_player_level() const {
+	return devilution::g_D1EngineData.playerLevel;
+}
+
+int DiabloBridge::get_player_xp() const {
+	return devilution::g_D1EngineData.playerExp;
+}
+
+int DiabloBridge::get_player_next_xp() const {
+	return devilution::g_D1EngineData.playerNextExp;
+}
+
+int DiabloBridge::get_player_spell() const {
+	return devilution::g_D1EngineData.playerSpell;
+}
+
+int DiabloBridge::get_player_spell_type() const {
+	return devilution::g_D1EngineData.playerSpellType;
+}
+
+Array DiabloBridge::get_belt_items() const {
+	Array items;
+	for (int i = 0; i < 8; ++i) {
+		Dictionary d;
+		d["slot"] = i;
+		d["type"] = devilution::g_D1EngineData.beltTypes[i];
+		d["count"] = devilution::g_D1EngineData.beltCounts[i];
+		items.push_back(d);
+	}
+	return items;
+}
+
+void DiabloBridge::set_vanilla_hud_hidden(bool hidden) {
+	devilution::SetVanillaHUDHidden(hidden);
+}
+
+bool DiabloBridge::is_vanilla_hud_hidden() const {
+	return devilution::gbHideVanillaHUD;
+}
+
+Ref<ImageTexture> DiabloBridge::get_spell_icon_texture(int spell_id, int spell_type) {
+	std::vector<uint8_t> rgba = devilution::GetSpellIconRgba(spell_id, spell_type);
+	if (rgba.empty())
+		return Ref<ImageTexture>();
+
+	PackedByteArray pba;
+	pba.resize(rgba.size());
+	std::memcpy(pba.ptrw(), rgba.data(), rgba.size());
+
+	Ref<Image> img = Image::create_from_data(56, 56, false, Image::FORMAT_RGBA8, pba);
+	if (img.is_null())
+		return Ref<ImageTexture>();
+
+	return ImageTexture::create_from_image(img);
 }
 
 PackedInt32Array DiabloBridge::get_dungeon_grid() const {

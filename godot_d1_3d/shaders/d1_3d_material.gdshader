@@ -12,6 +12,7 @@ uniform float hdr_glow_mult : hint_range(0.0, 4.0) = 3.0;  // 0.0: OFF, 1.0, 2.0
 uniform bool wet_floor = true;                             // Wet cobblestone PBR reflections & specular gloss
 uniform bool left_panel_open = false;                      // Character sheet / Quest window open
 uniform bool right_panel_open = false;                     // Inventory / Spellbook open
+uniform bool hide_vanilla_hud = true;                      // Modern Diablo IV HUD active (full-screen playfield)
 
 // Strict Torch, Fire & Spell Detection (Guaranteed 0% false positives on UI windows & inventory)
 bool is_fire_or_magic(vec3 col) {
@@ -208,18 +209,21 @@ void fragment() {
     vec2 pixel_pos = UV * tex_size;
 
     // 1. Bottom Main Control Panel:
-    // Base rectangular panel is 128px high (tex_size.y - 128.0)
-    bool in_hud_base = (pixel_pos.x >= main_panel_x && pixel_pos.x <= (main_panel_x + 640.0) && pixel_pos.y >= panel_base_y);
-    // The two glass globes protrude 13px higher into the playfield with smooth circular curvature:
-    float dx_life = (pixel_pos.x - (main_panel_x + 138.5)) / 29.5;
-    float dy_life = (panel_base_y - pixel_pos.y) / 13.0;
-    bool in_life_dome = (pixel_pos.y >= (panel_base_y - 13.0) && pixel_pos.y < panel_base_y && (dx_life * dx_life + dy_life * dy_life <= 1.05));
+    bool in_main_panel = false;
+    if (!hide_vanilla_hud) {
+        // Base rectangular panel is 128px high (tex_size.y - 128.0)
+        bool in_hud_base = (pixel_pos.x >= main_panel_x && pixel_pos.x <= (main_panel_x + 640.0) && pixel_pos.y >= panel_base_y);
+        // The two glass globes protrude 13px higher into the playfield with smooth circular curvature:
+        float dx_life = (pixel_pos.x - (main_panel_x + 138.5)) / 29.5;
+        float dy_life = (panel_base_y - pixel_pos.y) / 13.0;
+        bool in_life_dome = (pixel_pos.y >= (panel_base_y - 13.0) && pixel_pos.y < panel_base_y && (dx_life * dx_life + dy_life * dy_life <= 1.05));
 
-    float dx_mana = (pixel_pos.x - (main_panel_x + 504.5)) / 29.5;
-    float dy_mana = (panel_base_y - pixel_pos.y) / 13.0;
-    bool in_mana_dome = (pixel_pos.y >= (panel_base_y - 13.0) && pixel_pos.y < panel_base_y && (dx_mana * dx_mana + dy_mana * dy_mana <= 1.05));
+        float dx_mana = (pixel_pos.x - (main_panel_x + 504.5)) / 29.5;
+        float dy_mana = (panel_base_y - pixel_pos.y) / 13.0;
+        bool in_mana_dome = (pixel_pos.y >= (panel_base_y - 13.0) && pixel_pos.y < panel_base_y && (dx_mana * dx_mana + dy_mana * dy_mana <= 1.05));
 
-    bool in_main_panel = in_hud_base || in_life_dome || in_mana_dome;
+        in_main_panel = in_hud_base || in_life_dome || in_mana_dome;
+    }
 
     // 2. Left UI Panel (Character Sheet / Quest Log)
     bool in_left_panel = left_panel_open && (pixel_pos.x <= 320.0 && pixel_pos.y < panel_base_y);
@@ -231,10 +235,10 @@ void fragment() {
 
     // Seamless Full-Screen Playfield Zoom (for 2.5x and 3.0x ultra-close views):
     // The playfield scales smoothly and continuously around the player hero!
-    // The HUD panel stays pinned 1:1 at the bottom center.
+    // The HUD panel stays pinned 1:1 at the bottom center when vanilla HUD is visible.
     vec2 sample_uv = UV;
     if (!in_ui && playfield_zoom > 1.001) {
-        vec2 playfield_center = vec2(0.5, panel_base_y * 0.5 / tex_size.y);
+        vec2 playfield_center = hide_vanilla_hud ? vec2(0.5, 0.5) : vec2(0.5, panel_base_y * 0.5 / tex_size.y);
         sample_uv = playfield_center + (UV - playfield_center) / playfield_zoom;
     }
 

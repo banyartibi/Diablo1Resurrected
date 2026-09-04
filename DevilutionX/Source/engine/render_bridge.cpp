@@ -17,11 +17,22 @@
 #include "diablo.h"
 #include "utils/paths.h"
 #include "engine/assets.hpp"
+#include "panels/spell_icons.hpp"
+#include "engine/palette.h"
+#include "engine/surface.hpp"
+#include "items.h"
+#include "inv.h"
 
 namespace devilution {
 
 bool gbGodotBridgeActive = true;
+bool gbHideVanillaHUD = false;
 D1EngineData g_D1EngineData;
+
+void SetVanillaHUDHidden(bool hidden)
+{
+	gbHideVanillaHUD = hidden;
+}
 
 namespace {
 int g_ShmFd = -1;
@@ -97,6 +108,29 @@ void ExportGodotFrame(const SDL_Surface *surface)
 			g_D1EngineData.playerMaxMana = MyPlayer->_pMaxMana >> 6;
 			g_D1EngineData.playerGold = MyPlayer->_pGold;
 			g_D1EngineData.playerClass = static_cast<int>(MyPlayer->_pClass);
+			g_D1EngineData.playerLevel = MyPlayer->_pLevel;
+			g_D1EngineData.playerExp = MyPlayer->_pExperience;
+			g_D1EngineData.playerNextExp = MyPlayer->_pNextExper;
+			g_D1EngineData.playerSpell = static_cast<int>(MyPlayer->_pRSpell);
+			g_D1EngineData.playerSpellType = static_cast<int>(MyPlayer->_pRSplType);
+
+			for (size_t i = 0; i < 8; ++i) {
+				if (i < sizeof(MyPlayer->SpdList) / sizeof(MyPlayer->SpdList[0]) && !MyPlayer->SpdList[i].isEmpty()) {
+					const Item &item = MyPlayer->SpdList[i];
+					int type = 7;
+					if (item._iMiscId == IMISC_HEAL) type = 1;
+					else if (item._iMiscId == IMISC_FULLHEAL) type = 2;
+					else if (item._iMiscId == IMISC_MANA) type = 3;
+					else if (item._iMiscId == IMISC_FULLMANA) type = 4;
+					else if (item._iMiscId == IMISC_REJUV) type = 5;
+					else if (item._iMiscId == IMISC_FULLREJUV) type = 6;
+					g_D1EngineData.beltTypes[i] = type;
+					g_D1EngineData.beltCounts[i] = 1;
+				} else {
+					g_D1EngineData.beltTypes[i] = 0;
+					g_D1EngineData.beltCounts[i] = 0;
+				}
+			}
 		}
 
 		g_D1EngineData.currentLevel = currlevel;
@@ -383,6 +417,34 @@ std::vector<uint8_t> LoadDevilutionXAsset(const char *path)
 		return {};
 
 	return buffer;
+}
+
+std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
+{
+	std::vector<uint8_t> rgba(56 * 56 * 4, 0);
+	if (spellId < 0 || spellId > static_cast<int>(SpellID::LAST))
+		return rgba;
+
+	OwnedSurface surface(56, 56);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+	SetSpellTrans(static_cast<SpellType>(spellType));
+	DrawLargeSpellIcon(surface, { 0, 55 }, static_cast<SpellID>(spellId));
+
+	for (int y = 0; y < 56; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		uint8_t *dst = rgba.data() + (y * 56 * 4);
+		for (int x = 0; x < 56; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = system_palette[idx];
+				dst[x * 4 + 0] = c.r;
+				dst[x * 4 + 1] = c.g;
+				dst[x * 4 + 2] = c.b;
+				dst[x * 4 + 3] = 255;
+			}
+		}
+	}
+	return rgba;
 }
 
 } // namespace devilution

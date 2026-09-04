@@ -71,9 +71,19 @@ struct D1EngineData {
 	int dungeonType = 0;
 	bool leftPanelOpen = false;
 	bool rightPanelOpen = false;
+	int playerLevel = 1;
+	int playerExp = 0;
+	int playerNextExp = 0;
+	int playerSpell = 0;
+	int playerSpellType = 0;
+	int beltTypes[8] = { 0 };
+	int beltCounts[8] = { 0 };
 };
 
 extern D1EngineData g_D1EngineData;
+extern bool gbHideVanillaHUD;
+void SetVanillaHUDHidden(bool hidden);
+std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType);
 
 void InitGodotBridge(int width, int height);
 void ExportGodotFrame(const SDL_Surface *surface);
