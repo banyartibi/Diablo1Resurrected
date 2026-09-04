@@ -250,6 +250,11 @@ func update_shader_params():
 		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 		shader_material.set_shader_parameter("left_panel_open", left_panel_open)
 		shader_material.set_shader_parameter("right_panel_open", right_panel_open)
+		if diablo_bridge and diablo_bridge.has_method("get_left_panel_rect"):
+			var lp = diablo_bridge.get_left_panel_rect()
+			var rp = diablo_bridge.get_right_panel_rect()
+			shader_material.set_shader_parameter("left_panel_rect", Vector4(lp.position.x, lp.position.y, lp.size.x, lp.size.y))
+			shader_material.set_shader_parameter("right_panel_rect", Vector4(rp.position.x, rp.position.y, rp.size.x, rp.size.y))
 		shader_material.set_shader_parameter("hide_vanilla_hud", modern_hud_enabled and last_is_ingame)
 
 func update_fog_mode():
@@ -407,8 +412,16 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var in_hud = false
 	if not (modern_hud_enabled and last_is_ingame):
 		in_hud = (pixel_x >= main_x and pixel_x <= main_x + 640.0 and pixel_y >= (panel_base_y - 13.0))
-	var in_left = left_panel_open and (pixel_x <= 320.0 and pixel_y < panel_base_y)
-	var in_right = right_panel_open and (pixel_x >= float(d1_width) - 320.0 and pixel_y < panel_base_y)
+	var in_left = false
+	var in_right = false
+	if diablo_bridge and diablo_bridge.has_method("get_left_panel_rect"):
+		var lp = diablo_bridge.get_left_panel_rect()
+		var rp = diablo_bridge.get_right_panel_rect()
+		in_left = left_panel_open and (pixel_x >= lp.position.x and pixel_x <= lp.position.x + lp.size.x and pixel_y >= lp.position.y and pixel_y <= lp.position.y + lp.size.y)
+		in_right = right_panel_open and (pixel_x >= rp.position.x and pixel_x <= rp.position.x + rp.size.x and pixel_y >= rp.position.y and pixel_y <= rp.position.y + rp.size.y)
+	else:
+		in_left = left_panel_open and (pixel_x <= 320.0 and pixel_y < panel_base_y)
+		in_right = right_panel_open and (pixel_x >= float(d1_width) - 320.0 and pixel_y < panel_base_y)
 	var in_ui = in_hud or in_left or in_right
 	
 	var mapped_x = norm_x

@@ -50,6 +50,8 @@ public:
 	int get_dungeon_type() const;
 	bool is_left_panel_open() const;
 	bool is_right_panel_open() const;
+	Rect2 get_left_panel_rect() const;
+	Rect2 get_right_panel_rect() const;
 	int get_player_level() const;
 	int get_player_xp() const;
 	int get_player_next_xp() const;

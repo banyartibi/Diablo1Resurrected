@@ -79,6 +79,15 @@ struct D1EngineData {
 	int playerSpellType = 0;
 	int beltTypes[8] = { 0 };
 	int beltCounts[8] = { 0 };
+	char beltNames[8][64] = { { 0 } };
+	int leftPanelX = 0;
+	int leftPanelY = 0;
+	int leftPanelW = 320;
+	int leftPanelH = 352;
+	int rightPanelX = 0;
+	int rightPanelY = 0;
+	int rightPanelW = 320;
+	int rightPanelH = 352;
 };
 
 extern D1EngineData g_D1EngineData;

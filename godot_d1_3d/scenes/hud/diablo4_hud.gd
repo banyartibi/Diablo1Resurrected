@@ -15,6 +15,7 @@ const TEX_HEAL = preload("res://assets/hud/potion_heal.png")
 const TEX_MANA = preload("res://assets/hud/potion_mana.png")
 const TEX_REJUV = preload("res://assets/hud/potion_rejuv.png")
 const TEX_SCROLL = preload("res://assets/hud/scroll.png")
+const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 
 # Action Bar
 @onready var action_bar: Control = $Root/HBox/CenterPanel/VBox/ActionBar
@@ -296,17 +297,16 @@ func update_secondary_spell():
 	var spell_type = diablo_bridge.get_player_spell_type()
 
 	if spell_id <= 0:
-		if current_spell_id != spell_id:
-			current_spell_id = spell_id
-			current_spell_type = spell_type
-			if secondary_icon:
-				secondary_icon.texture = null
-				secondary_icon.visible = false
-			if secondary_slot:
-				secondary_slot.tooltip_text = "Select Skill / Spell [S]\nClick or press 'S' to open Speedbook."
+		current_spell_id = spell_id
+		current_spell_type = spell_type
+		if secondary_icon:
+			secondary_icon.texture = null
+			secondary_icon.visible = false
+		if secondary_slot:
+			secondary_slot.tooltip_text = "Select Skill / Spell [S]\nClick or press 'S' to open Speedbook."
 		return
 
-	# If spell changed OR if we don't have a valid texture yet (e.g. at game startup):
+	# If spell changed OR if secondary_icon doesn't have a valid texture yet:
 	if spell_id != current_spell_id or spell_type != current_spell_type or (secondary_icon and secondary_icon.texture == null):
 		var tex = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
 		if tex != null:
@@ -321,6 +321,11 @@ func update_secondary_spell():
 
 			if secondary_slot:
 				secondary_slot.tooltip_text = "%s (%s) [RMB]\nClick or press 'S' to change active spell." % [spell_name, type_name]
+		else:
+			# Palette not ready yet: do not show a black box!
+			if secondary_icon:
+				secondary_icon.texture = null
+				secondary_icon.visible = false
 
 func update_belt_potions():
 	var belt = diablo_bridge.get_belt_items()
@@ -329,6 +334,7 @@ func update_belt_potions():
 		var slot = potion_slots[i]
 		var type = item.get("type", 0)
 		var count = item.get("count", 0)
+		var item_name = item.get("name", "")
 
 		var icon = slot.get_node_or_null("ItemIcon") as TextureRect
 		var count_lbl = slot.get_node_or_null("CountLabel") as Label
@@ -347,6 +353,9 @@ func update_belt_potions():
 				8:
 					icon.texture = TEX_SCROLL
 					icon.visible = true
+				9:
+					icon.texture = TEX_OIL
+					icon.visible = true
 				7:
 					icon.texture = TEX_REJUV
 					icon.visible = true
@@ -363,16 +372,24 @@ func update_belt_potions():
 				count_lbl.visible = false
 
 		var tip = ""
-		match type:
-			1: tip = "Potion of Healing (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-			2: tip = "Potion of Full Healing (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-			3: tip = "Potion of Mana (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-			4: tip = "Potion of Full Mana (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-			5: tip = "Potion of Rejuvenation (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-			6: tip = "Potion of Full Rejuvenation (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-			7: tip = "Elixir (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink elixir" % [i + 1, i + 1]
-			8: tip = "Scroll (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Cast scroll" % [i + 1, i + 1]
-			_: tip = "Empty Belt Slot %d\n[LMB] Place item from cursor" % (i + 1)
+		if item_name != "":
+			var action_str = "Drink potion"
+			if type == 8: action_str = "Cast scroll"
+			elif type == 9: action_str = "Use oil"
+			elif type == 7: action_str = "Drink elixir"
+			tip = "%s (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] %s" % [item_name, i + 1, i + 1, action_str]
+		else:
+			match type:
+				1: tip = "Potion of Healing (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+				2: tip = "Potion of Full Healing (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+				3: tip = "Potion of Mana (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+				4: tip = "Potion of Full Mana (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+				5: tip = "Potion of Rejuvenation (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+				6: tip = "Potion of Full Rejuvenation (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+				7: tip = "Elixir (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink elixir" % [i + 1, i + 1]
+				8: tip = "Scroll (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Cast scroll" % [i + 1, i + 1]
+				9: tip = "Oil (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Use oil" % [i + 1, i + 1]
+				_: tip = "Empty Belt Slot %d\n[LMB] Place item from cursor" % (i + 1)
 		slot.tooltip_text = tip
 
 func format_number(n: int) -> String:

@@ -128,12 +128,16 @@ void ExportGodotFrame(const SDL_Surface *surface)
 					else if (item._iMiscId == IMISC_FULLMANA) type = 4;
 					else if (item._iMiscId == IMISC_REJUV) type = 5;
 					else if (item._iMiscId == IMISC_FULLREJUV) type = 6;
+					else if (item._iMiscId > IMISC_OILFIRST && item._iMiscId < IMISC_OILLAST) type = 9;
 					else if (item.isScroll()) type = 8;
 					g_D1EngineData.beltTypes[i] = type;
 					g_D1EngineData.beltCounts[i] = 1;
+					std::strncpy(g_D1EngineData.beltNames[i], item._iIName, 63);
+					g_D1EngineData.beltNames[i][63] = '\0';
 				} else {
 					g_D1EngineData.beltTypes[i] = 0;
 					g_D1EngineData.beltCounts[i] = 0;
+					g_D1EngineData.beltNames[i][0] = '\0';
 				}
 			}
 		}
@@ -142,6 +146,18 @@ void ExportGodotFrame(const SDL_Surface *surface)
 		g_D1EngineData.dungeonType = leveltype;
 		g_D1EngineData.leftPanelOpen = IsLeftPanelOpen();
 		g_D1EngineData.rightPanelOpen = IsRightPanelOpen();
+		const Rectangle &lp = GetLeftPanel();
+		g_D1EngineData.leftPanelX = lp.position.x;
+		g_D1EngineData.leftPanelY = lp.position.y;
+		g_D1EngineData.leftPanelW = lp.size.width;
+		g_D1EngineData.leftPanelH = lp.size.height;
+
+		const Rectangle &rp = GetRightPanel();
+		g_D1EngineData.rightPanelX = rp.position.x;
+		g_D1EngineData.rightPanelY = rp.position.y;
+		g_D1EngineData.rightPanelW = rp.size.width;
+		g_D1EngineData.rightPanelH = rp.size.height;
+
 		g_D1EngineData.isGameRunning = gbRunGame;
 
 		size_t reqBytes = static_cast<size_t>(srcSurface->w) * srcSurface->h * 4;
@@ -475,6 +491,17 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 	if (!gbRunGame || spellId <= 0 || spellId > static_cast<int>(SpellID::LAST))
 		return {};
 
+	// Check if palette has actual colors loaded (not all black during fade-in or boot)
+	bool paletteReady = false;
+	for (int i = 1; i < 256; ++i) {
+		if (system_palette[i].r > 20 || system_palette[i].g > 20 || system_palette[i].b > 20) {
+			paletteReady = true;
+			break;
+		}
+	}
+	if (!paletteReady)
+		return {};
+
 	if (!HasLargeSpellIcons()) {
 		LoadLargeSpellIcons();
 		if (!HasLargeSpellIcons())
@@ -499,8 +526,10 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 		for (int x = 0; x < 56; ++x) {
 			uint8_t idx = src[x];
 			if (idx != 0) {
-				hasPixels = true;
 				SDL_Color c = system_palette[idx];
+				if (c.r > 10 || c.g > 10 || c.b > 10) {
+					hasPixels = true;
+				}
 				dst[x * 4 + 0] = c.r;
 				dst[x * 4 + 1] = c.g;
 				dst[x * 4 + 2] = c.b;

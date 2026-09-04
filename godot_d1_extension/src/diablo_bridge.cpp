@@ -28,6 +28,8 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_dungeon_type"), &DiabloBridge::get_dungeon_type);
 	ClassDB::bind_method(D_METHOD("is_left_panel_open"), &DiabloBridge::is_left_panel_open);
 	ClassDB::bind_method(D_METHOD("is_right_panel_open"), &DiabloBridge::is_right_panel_open);
+	ClassDB::bind_method(D_METHOD("get_left_panel_rect"), &DiabloBridge::get_left_panel_rect);
+	ClassDB::bind_method(D_METHOD("get_right_panel_rect"), &DiabloBridge::get_right_panel_rect);
 	ClassDB::bind_method(D_METHOD("get_player_level"), &DiabloBridge::get_player_level);
 	ClassDB::bind_method(D_METHOD("get_player_xp"), &DiabloBridge::get_player_xp);
 	ClassDB::bind_method(D_METHOD("get_player_next_xp"), &DiabloBridge::get_player_next_xp);
@@ -148,6 +150,24 @@ bool DiabloBridge::is_right_panel_open() const {
 	return devilution::g_D1EngineData.rightPanelOpen;
 }
 
+Rect2 DiabloBridge::get_left_panel_rect() const {
+	return Rect2(
+		devilution::g_D1EngineData.leftPanelX,
+		devilution::g_D1EngineData.leftPanelY,
+		devilution::g_D1EngineData.leftPanelW,
+		devilution::g_D1EngineData.leftPanelH
+	);
+}
+
+Rect2 DiabloBridge::get_right_panel_rect() const {
+	return Rect2(
+		devilution::g_D1EngineData.rightPanelX,
+		devilution::g_D1EngineData.rightPanelY,
+		devilution::g_D1EngineData.rightPanelW,
+		devilution::g_D1EngineData.rightPanelH
+	);
+}
+
 int DiabloBridge::get_player_level() const {
 	return devilution::g_D1EngineData.playerLevel;
 }
@@ -175,6 +195,7 @@ Array DiabloBridge::get_belt_items() const {
 		d["slot"] = i;
 		d["type"] = devilution::g_D1EngineData.beltTypes[i];
 		d["count"] = devilution::g_D1EngineData.beltCounts[i];
+		d["name"] = String::utf8(devilution::g_D1EngineData.beltNames[i]);
 		items.push_back(d);
 	}
 	return items;

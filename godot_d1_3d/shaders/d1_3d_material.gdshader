@@ -12,13 +12,16 @@ uniform float hdr_glow_mult : hint_range(0.0, 4.0) = 3.0;  // 0.0: OFF, 1.0, 2.0
 uniform bool wet_floor = true;                             // Wet cobblestone PBR reflections & specular gloss
 uniform bool left_panel_open = false;                      // Character sheet / Quest window open
 uniform bool right_panel_open = false;                     // Inventory / Spellbook open
+uniform vec4 left_panel_rect = vec4(0.0, 0.0, 320.0, 352.0);
+uniform vec4 right_panel_rect = vec4(320.0, 0.0, 320.0, 352.0);
 uniform bool hide_vanilla_hud = true;                      // Modern Diablo IV HUD active (full-screen playfield)
 
 // Strict Torch, Fire & Spell Detection (Guaranteed 0% false positives on UI windows & inventory)
 bool is_fire_or_magic(vec3 col) {
     // 1. Explicitly reject parchment, stone UI panels, light grays, and UI gold borders
-    // UI parchment has high blue (> 0.22) or nearly equal red and green
-    if (col.b > 0.22) return false;
+    // UI panel borders have yellowish tan / gold with r and g close to each other
+    if (col.b > 0.20) return false;
+    if (col.r > 0.35 && col.g > 0.35 && (col.r - col.g) < 0.22) return false;
     if (abs(col.r - col.g) < 0.08 && col.r > 0.45) return false;
 
     // 2. Real dungeon fire: intensely rich red/amber with very low blue
@@ -225,10 +228,15 @@ void fragment() {
         in_main_panel = in_hud_base || in_life_dome || in_mana_dome;
     }
 
-    // 2. Left UI Panel (Character Sheet / Quest Log)
-    bool in_left_panel = left_panel_open && (pixel_pos.x <= 320.0 && pixel_pos.y < panel_base_y);
+    // 2. Left UI Panel (Character Sheet / Quest Log / Stash)
+    bool in_left_panel = left_panel_open &&
+        (pixel_pos.x >= (left_panel_rect.x - 6.0) && pixel_pos.x <= (left_panel_rect.x + left_panel_rect.z + 6.0) &&
+         pixel_pos.y >= (left_panel_rect.y - 6.0) && pixel_pos.y <= (left_panel_rect.y + left_panel_rect.w + 6.0));
+
     // 3. Right UI Panel (Inventory / Spellbook)
-    bool in_right_panel = right_panel_open && (pixel_pos.x >= (tex_size.x - 320.0) && pixel_pos.y < panel_base_y);
+    bool in_right_panel = right_panel_open &&
+        (pixel_pos.x >= (right_panel_rect.x - 6.0) && pixel_pos.x <= (right_panel_rect.x + right_panel_rect.z + 6.0) &&
+         pixel_pos.y >= (right_panel_rect.y - 6.0) && pixel_pos.y <= (right_panel_rect.y + right_panel_rect.w + 6.0));
 
     // Combined UI mask: ONLY true UI panels are masked; playfield ground behind/beside HUD gets full shaders!
     bool in_ui = in_main_panel || in_left_panel || in_right_panel;
