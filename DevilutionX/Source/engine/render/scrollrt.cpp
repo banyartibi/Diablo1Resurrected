@@ -85,9 +85,13 @@ void CycleZoomMode()
 		CurrentZoomMode = ZoomMode::Balanced_1_5x;
 	else if (CurrentZoomMode == ZoomMode::Balanced_1_5x)
 		CurrentZoomMode = ZoomMode::Zoomed_2x;
+	else if (CurrentZoomMode == ZoomMode::Zoomed_2x)
+		CurrentZoomMode = ZoomMode::UltraClose_2_5x;
+	else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x)
+		CurrentZoomMode = ZoomMode::MacroClose_3x;
 	else
 		CurrentZoomMode = ZoomMode::Normal;
-	sgOptions.Graphics.zoom.SetValue(CurrentZoomMode == ZoomMode::Zoomed_2x);
+	sgOptions.Graphics.zoom.SetValue(CurrentZoomMode != ZoomMode::Normal);
 	CalcViewportGeometry();
 }
 
@@ -95,26 +99,30 @@ void ZoomInMode()
 {
 	if (CurrentZoomMode == ZoomMode::Normal) {
 		CurrentZoomMode = ZoomMode::Balanced_1_5x;
-		sgOptions.Graphics.zoom.SetValue(false);
-		CalcViewportGeometry();
 	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 		CurrentZoomMode = ZoomMode::Zoomed_2x;
-		sgOptions.Graphics.zoom.SetValue(true);
-		CalcViewportGeometry();
+	} else if (CurrentZoomMode == ZoomMode::Zoomed_2x) {
+		CurrentZoomMode = ZoomMode::UltraClose_2_5x;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		CurrentZoomMode = ZoomMode::MacroClose_3x;
 	}
+	sgOptions.Graphics.zoom.SetValue(CurrentZoomMode != ZoomMode::Normal);
+	CalcViewportGeometry();
 }
 
 void ZoomOutMode()
 {
-	if (CurrentZoomMode == ZoomMode::Zoomed_2x) {
+	if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		CurrentZoomMode = ZoomMode::UltraClose_2_5x;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		CurrentZoomMode = ZoomMode::Zoomed_2x;
+	} else if (CurrentZoomMode == ZoomMode::Zoomed_2x) {
 		CurrentZoomMode = ZoomMode::Balanced_1_5x;
-		sgOptions.Graphics.zoom.SetValue(false);
-		CalcViewportGeometry();
 	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 		CurrentZoomMode = ZoomMode::Normal;
-		sgOptions.Graphics.zoom.SetValue(false);
-		CalcViewportGeometry();
 	}
+	sgOptions.Graphics.zoom.SetValue(CurrentZoomMode != ZoomMode::Normal);
+	CalcViewportGeometry();
 }
 
 namespace {
@@ -1095,6 +1103,64 @@ void Zoom(const Surface &out)
 	}
 }
 
+void Zoom2_5x(const Surface &out)
+{
+	int vw = out.w();
+	int vh = out.h();
+	if (vw <= 0 || vh <= 0)
+		return;
+
+	int viewportWidth = vw;
+	int viewportOffsetX = 0;
+	if (CanPanelsCoverView()) {
+		if (IsLeftPanelOpen()) {
+			viewportWidth -= SidePanelSize.width;
+			viewportOffsetX = SidePanelSize.width;
+		} else if (IsRightPanelOpen()) {
+			viewportWidth -= SidePanelSize.width;
+		}
+	}
+
+	for (int y = vh - 1; y >= 0; --y) {
+		int sy = (y * 2) / 5;
+		uint8_t *dstRow = out.at(viewportOffsetX, y);
+		const uint8_t *srcRow = out.at(0, sy);
+		for (int x = viewportWidth - 1; x >= 0; --x) {
+			int sx = (x * 2) / 5;
+			dstRow[x] = srcRow[sx];
+		}
+	}
+}
+
+void Zoom3x(const Surface &out)
+{
+	int vw = out.w();
+	int vh = out.h();
+	if (vw <= 0 || vh <= 0)
+		return;
+
+	int viewportWidth = vw;
+	int viewportOffsetX = 0;
+	if (CanPanelsCoverView()) {
+		if (IsLeftPanelOpen()) {
+			viewportWidth -= SidePanelSize.width;
+			viewportOffsetX = SidePanelSize.width;
+		} else if (IsRightPanelOpen()) {
+			viewportWidth -= SidePanelSize.width;
+		}
+	}
+
+	for (int y = vh - 1; y >= 0; --y) {
+		int sy = y / 3;
+		uint8_t *dstRow = out.at(viewportOffsetX, y);
+		const uint8_t *srcRow = out.at(0, sy);
+		for (int x = viewportWidth - 1; x >= 0; --x) {
+			int sx = x / 3;
+			dstRow[x] = srcRow[sx];
+		}
+	}
+}
+
 Displacement tileOffset;
 Displacement tileShift;
 int tileColums;
@@ -1158,7 +1224,11 @@ void DrawGame(const Surface &fullOut, Point position, Displacement offset)
 	    ? fullOut.subregionY(0, gnViewportHeight)
 	    : (CurrentZoomMode == ZoomMode::Balanced_1_5x)
 	    ? fullOut.subregionY(0, (gnViewportHeight * 2 + 2) / 3)
-	    : fullOut.subregionY(0, (gnViewportHeight + 1) / 2);
+	    : (CurrentZoomMode == ZoomMode::Zoomed_2x)
+	    ? fullOut.subregionY(0, (gnViewportHeight + 1) / 2)
+	    : (CurrentZoomMode == ZoomMode::UltraClose_2_5x)
+	    ? fullOut.subregionY(0, (gnViewportHeight * 2 + 4) / 5)
+	    : fullOut.subregionY(0, (gnViewportHeight + 2) / 3);
 
 	int columns = tileColums;
 	int rows = tileRows;
@@ -1207,6 +1277,10 @@ void DrawGame(const Surface &fullOut, Point position, Displacement offset)
 		Zoom1_5x(fullOut.subregionY(0, gnViewportHeight));
 	} else if (CurrentZoomMode == ZoomMode::Zoomed_2x) {
 		Zoom(fullOut.subregionY(0, gnViewportHeight));
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		Zoom2_5x(fullOut.subregionY(0, gnViewportHeight));
+	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		Zoom3x(fullOut.subregionY(0, gnViewportHeight));
 	}
 
 #ifdef DUN_RENDER_STATS
@@ -1330,7 +1404,7 @@ void DrawView(const Surface &out, Point startPosition)
 		DrawStash(out);
 	}
 	DrawLevelUpIcon(out);
-	if (ShowUniqueItemInfoBox) {
+	if (ShowUniqueItemInfoBox && !gbHideVanillaHUD) {
 		DrawUniqueInfo(out);
 	}
 	if (qtextflag) {
@@ -1621,6 +1695,10 @@ int RowsCoveredByPanel()
 		rows /= 2;
 	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 		rows = (rows * 2 + 2) / 3;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		rows = (rows * 2 + 4) / 5;
+	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		rows = (rows + 2) / 3;
 	}
 
 	return rows;
@@ -1640,9 +1718,15 @@ void CalcTileOffset(int *offsetX, int *offsetY)
 	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 		x = ((screenWidth * 2) / 3) % TILE_WIDTH;
 		y = ((viewportHeight * 2) / 3) % TILE_HEIGHT;
-	} else {
+	} else if (CurrentZoomMode == ZoomMode::Zoomed_2x) {
 		x = (screenWidth / 2) % TILE_WIDTH;
 		y = (viewportHeight / 2) % TILE_HEIGHT;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		x = ((screenWidth * 2) / 5) % TILE_WIDTH;
+		y = ((viewportHeight * 2) / 5) % TILE_HEIGHT;
+	} else {
+		x = (screenWidth / 3) % TILE_WIDTH;
+		y = (viewportHeight / 3) % TILE_HEIGHT;
 	}
 
 	if (x != 0)
@@ -1680,6 +1764,12 @@ void TilesInView(int *rcolumns, int *rrows)
 	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 		columns = (columns * 2 + 2) / 3;
 		rows = (rows * 2 + 2) / 3;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		columns = (columns * 2 + 4) / 5;
+		rows = (rows * 2 + 4) / 5;
+	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		columns = (columns + 2) / 3;
+		rows = (rows + 2) / 3;
 	}
 
 	*rcolumns = columns;
@@ -1696,6 +1786,12 @@ void CalcViewportGeometry()
 	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 		divisor = 3;
 		multiplier = 2;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		divisor = 5;
+		multiplier = 2;
+	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		divisor = 3;
+		multiplier = 1;
 	}
 
 	const int screenWidth = (GetScreenWidth() * multiplier) / divisor;
@@ -1708,6 +1804,10 @@ void CalcViewportGeometry()
 		playerPosition.y += TILE_HEIGHT / 4;
 	else if (CurrentZoomMode == ZoomMode::Balanced_1_5x)
 		playerPosition.y += TILE_HEIGHT / 6;
+	else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x)
+		playerPosition.y += (TILE_HEIGHT * 3) / 10;
+	else if (CurrentZoomMode == ZoomMode::MacroClose_3x)
+		playerPosition.y += TILE_HEIGHT / 3;
 
 	const int tilesToTop = (playerPosition.y + TILE_HEIGHT - 1) / TILE_HEIGHT;
 	const int tilesToLeft = (playerPosition.x + TILE_WIDTH - 1) / TILE_WIDTH;

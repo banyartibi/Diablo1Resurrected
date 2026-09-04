@@ -70,6 +70,7 @@ public:
 	Dictionary get_hover_item_info() const;
 	Array get_available_spells() const;
 	void select_spell(int spell_id, int spell_type);
+	int get_zoom_mode() const;
 
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap
 	PackedInt32Array get_dungeon_grid() const;

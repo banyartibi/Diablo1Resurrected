@@ -219,6 +219,7 @@ void ExportGodotFrame(const SDL_Surface *surface)
 		}
 
 		g_D1EngineData.isGameRunning = gbRunGame;
+		g_D1EngineData.zoomMode = static_cast<int>(CurrentZoomMode);
 
 		size_t reqBytes = static_cast<size_t>(srcSurface->w) * srcSurface->h * 4;
 		if (g_D1InternalFrame.size() != reqBytes) {
@@ -240,7 +241,7 @@ void ExportGodotFrame(const SDL_Surface *surface)
 		hdr->timestamp = SDL_GetTicks();
 		hdr->playerNormX = 0.50f;
 		hdr->playerNormY = 0.52f;
-		hdr->zoomMode = (CurrentZoomMode == ZoomMode::Zoomed_2x) ? 3 : (CurrentZoomMode == ZoomMode::Balanced_1_5x ? 2 : 1);
+		hdr->zoomMode = static_cast<int32_t>(CurrentZoomMode) + 1;
 		hdr->torchCount = 0;
 
 		// Export UI Panel States (Character sheet, Inventory, Quest log, Spellbook)

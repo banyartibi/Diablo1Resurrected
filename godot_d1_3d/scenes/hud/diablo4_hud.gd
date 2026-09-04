@@ -636,13 +636,6 @@ func update_item_tooltip():
 
 	var info = diablo_bridge.get_hover_item_info()
 	var is_inv: bool = info.get("is_inventory", false)
-	# Only display the modern Diablo IV popup tooltip for items in the inventory!
-	# Ground items and world objects already have their names visible naturally in the world.
-	if not is_inv:
-		if item_tooltip and item_tooltip.visible:
-			item_tooltip.visible = false
-		return
-
 	var item_name: String = info.get("name", "")
 	if item_name.strip_edges() == "":
 		if item_tooltip and item_tooltip.visible:

@@ -28,6 +28,7 @@
 #include "engine/render/clx_render.hpp"
 #include "engine/render/primitive_render.hpp"
 #include "engine/render/text_render.hpp"
+#include "engine/render_bridge.hpp"
 #include "init.h"
 #include "inv_iterators.hpp"
 #include "levels/town.h"
@@ -3983,8 +3984,17 @@ void PrintItemDetails(const Item &item)
 	}
 	if (item._iMagical == ITEM_QUALITY_UNIQUE) {
 		AddPanelString(_("unique item"));
-		ShowUniqueItemInfoBox = true;
-		curruitem = item;
+		if (gbHideVanillaHUD) {
+			const UniqueItem &uitem = UniqueItems[item._iUid];
+			for (const auto &power : uitem.powers) {
+				if (power.type == IPL_INVALID)
+					break;
+				AddPanelString(PrintItemPower(power.type, item));
+			}
+		} else {
+			ShowUniqueItemInfoBox = true;
+			curruitem = item;
+		}
 	}
 	PrintItemInfo(item);
 }

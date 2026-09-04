@@ -14,9 +14,11 @@
 namespace devilution {
 
 enum class ZoomMode {
-	Normal = 0,      // 1.0x (Wide)
+	Normal = 0,        // 1.0x (Wide)
 	Balanced_1_5x = 1, // 1.5x (Intermediate / Köztes)
-	Zoomed_2x = 2    // 2.0x (Close)
+	Zoomed_2x = 2,     // 2.0x (Close)
+	UltraClose_2_5x = 3, // 2.5x (Ultra Close)
+	MacroClose_3x = 4    // 3.0x (Macro Close)
 };
 
 extern ZoomMode CurrentZoomMode;

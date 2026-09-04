@@ -372,6 +372,12 @@ void CheckCursMove()
 	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 		sx = (sx * 2) / 3;
 		sy = (sy * 2) / 3;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		sx = (sx * 2) / 5;
+		sy = (sy * 2) / 5;
+	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		sx /= 3;
+		sy /= 3;
 	}
 
 	// Adjust by player offset and tile grid alignment
@@ -425,6 +431,10 @@ void CheckCursMove()
 		sy -= TILE_HEIGHT / 4;
 	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 		sy -= TILE_HEIGHT / 6;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		sy -= (TILE_HEIGHT * 3) / 10;
+	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		sy -= TILE_HEIGHT / 3;
 	}
 
 	int tx = sx / TILE_WIDTH;

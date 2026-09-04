@@ -129,6 +129,11 @@ void AddItemToLabelQueue(int id, Point position)
 	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 		position.x = (position.x * 3) / 2;
 		position.y = (position.y * 3) / 2;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		position.x = (position.x * 5) / 2;
+		position.y = (position.y * 5) / 2;
+	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		position *= 3;
 	}
 	position.x -= nameWidth / 2;
 	position.y -= LabelHeight();

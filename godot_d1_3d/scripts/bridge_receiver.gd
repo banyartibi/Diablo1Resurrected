@@ -187,32 +187,17 @@ func show_osd(text: String, duration: float = 2.5):
 		osd_timer = duration
 
 func apply_zoom_step(old_step: int, new_step: int):
-	# Camera FOV stays 60.0 ALWAYS! The HUD stays 100% visible and pinned!
 	if camera:
 		camera.fov = 60.0
 		
-	# Target D1 native zoom level:
-	# 0: Normal (1.0x)
-	# 1: Balanced (1.5x)
-	# 2+: Zoomed (2.0x)
-	var old_d1 = 0 if old_step == 0 else (1 if old_step == 1 else 2)
-	var new_d1 = 0 if new_step == 0 else (1 if new_step == 1 else 2)
-	
-	if new_d1 > old_d1:
-		for i in range(new_d1 - old_d1):
+	if new_step > old_step:
+		for i in range(new_step - old_step):
 			send_input_to_d1(4, 0, 0, 0, 0) # D1 ZoomInMode
-	elif new_d1 < old_d1:
-		for i in range(old_d1 - new_d1):
+	elif new_step < old_step:
+		for i in range(old_step - new_step):
 			send_input_to_d1(5, 0, 0, 0, 0) # D1 ZoomOutMode
 			
-	# Apply continuous playfield zoom for 2.5x and 3.0x ultra close views
-	if new_step <= 2:
-		playfield_zoom = 1.0
-	elif new_step == 3:
-		playfield_zoom = 1.25 # 2.0x * 1.25 = 2.5x Ultra Close
-	elif new_step == 4:
-		playfield_zoom = 1.50 # 2.0x * 1.50 = 3.0x Macro Close
-		
+	playfield_zoom = 1.0 # Native D1 engine scaling for all 5 steps!
 	update_shader_params()
 	show_osd("[Zoom] " + zoom_step_names[new_step], 1.2)
 
@@ -338,6 +323,10 @@ func _process(delta: float):
 				speedbook_open = new_speedbook
 				last_is_ingame = is_ingame
 				update_shader_params()
+			if diablo_bridge.has_method("get_zoom_mode"):
+				var cur_zoom = diablo_bridge.get_zoom_mode()
+				if cur_zoom >= 0 and cur_zoom < zoom_step_names.size() and cur_zoom != current_zoom_step:
+					current_zoom_step = cur_zoom
 		return
 			
 	if not FileAccess.file_exists("/dev/shm/d1_godot_frame"):
@@ -406,50 +395,8 @@ func update_frame_texture(w: int, h: int, bytes: PackedByteArray):
 func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var norm_x = screen_pos.x / vp_size.x
 	var norm_y = screen_pos.y / vp_size.y
-	
-	var main_x = (float(d1_width) - 640.0) * 0.5
-	var panel_base_y = float(d1_height) - 128.0
-	var pixel_x = norm_x * float(d1_width)
-	var pixel_y = norm_y * float(d1_height)
-	
-	var in_hud = false
-	if not (modern_hud_enabled and last_is_ingame):
-		in_hud = (pixel_x >= main_x and pixel_x <= main_x + 640.0 and pixel_y >= (panel_base_y - 13.0))
-	var in_left = false
-	var in_right = false
-	var in_speedbook = false
-	if diablo_bridge and diablo_bridge.has_method("get_left_panel_rect"):
-		var lp = diablo_bridge.get_left_panel_rect()
-		var rp = diablo_bridge.get_right_panel_rect()
-		in_left = left_panel_open and (pixel_x >= lp.position.x and pixel_x <= lp.position.x + lp.size.x and pixel_y >= lp.position.y and pixel_y <= lp.position.y + lp.size.y)
-		in_right = right_panel_open and (pixel_x >= rp.position.x and pixel_x <= rp.position.x + rp.size.x and pixel_y >= rp.position.y and pixel_y <= rp.position.y + rp.size.y)
-	else:
-		in_left = left_panel_open and (pixel_x <= 320.0 and pixel_y < panel_base_y)
-		in_right = right_panel_open and (pixel_x >= float(d1_width) - 320.0 and pixel_y < panel_base_y)
-	if not (modern_hud_enabled and last_is_ingame) and diablo_bridge and diablo_bridge.has_method("get_speedbook_rect"):
-		var sb = diablo_bridge.get_speedbook_rect()
-		in_speedbook = speedbook_open and (pixel_x >= sb.position.x and pixel_x <= sb.position.x + sb.size.x and pixel_y >= sb.position.y and pixel_y <= sb.position.y + sb.size.y)
-	var in_ui = in_hud or in_left or in_right or in_speedbook
-	
-	var mapped_x = norm_x
-	var mapped_y = norm_y
-	
-	if not in_ui and playfield_zoom > 1.001:
-		var center_x = 0.5
-		if right_panel_open and not left_panel_open:
-			center_x = 0.25
-		elif left_panel_open and not right_panel_open:
-			center_x = 0.75
-		var center_y = 0.5 if (modern_hud_enabled and last_is_ingame) else (panel_base_y * 0.5 / float(d1_height))
-		mapped_x = center_x + (norm_x - center_x) / playfield_zoom
-		mapped_y = center_y + (norm_y - center_y) / playfield_zoom
-		if right_panel_open and not left_panel_open:
-			mapped_x = clampf(mapped_x, 0.0, 319.0 / float(d1_width))
-		elif left_panel_open and not right_panel_open:
-			mapped_x = clampf(mapped_x, 320.0 / float(d1_width), 1.0)
-		
-	var game_x = int(clamp(mapped_x * float(d1_width), 0.0, float(d1_width - 1)))
-	var game_y = int(clamp(mapped_y * float(d1_height), 0.0, float(d1_height - 1)))
+	var game_x = int(clamp(norm_x * float(d1_width), 0.0, float(d1_width - 1)))
+	var game_y = int(clamp(norm_y * float(d1_height), 0.0, float(d1_height - 1)))
 	return Vector2i(game_x, game_y)
 
 func _unhandled_input(event: InputEvent):

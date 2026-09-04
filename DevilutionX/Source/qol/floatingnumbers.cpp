@@ -184,6 +184,11 @@ void DrawFloatingNumbers(const Surface &out, Point viewPosition, Displacement of
 		} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
 			worldOffset.deltaX = (worldOffset.deltaX * 3) / 2;
 			worldOffset.deltaY = (worldOffset.deltaY * 3) / 2;
+		} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+			worldOffset.deltaX = (worldOffset.deltaX * 5) / 2;
+			worldOffset.deltaY = (worldOffset.deltaY * 5) / 2;
+		} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+			worldOffset *= 3;
 		}
 
 		Point screenPosition { worldOffset.deltaX, worldOffset.deltaY };

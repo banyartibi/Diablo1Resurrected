@@ -100,6 +100,7 @@ struct D1EngineData {
 	bool isInventoryHover = false;
 	int hoverMouseX = 0;
 	int hoverMouseY = 0;
+	int zoomMode = 2; // 0=1.0x, 1=1.5x, 2=2.0x, 3=2.5x, 4=3.0x
 };
 
 struct AvailableSpellItem {

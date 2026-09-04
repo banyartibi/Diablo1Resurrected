@@ -29,6 +29,7 @@
 #include "gamemenu.h"
 #include "init.h"
 #include "inv.h"
+#include "items.h"
 #include "inv_iterators.hpp"
 #include "levels/setmaps.h"
 #include "levels/trigs.h"
@@ -1183,9 +1184,21 @@ void UpdateInfoText()
 			InfoColor = myPlayer.HoldItem.getTextColor();
 		}
 	} else {
-		if (pcursitem != -1)
-			GetItemStr(Items[pcursitem]);
-		else if (ObjectUnderCursor != nullptr)
+		if (pcursitem != -1) {
+			auto &itm = Items[pcursitem];
+			if (itm._itype == ItemType::Gold) {
+				int nGold = itm._ivalue;
+				InfoString = fmt::format(fmt::runtime(ngettext("{:s} gold piece", "{:s} gold pieces", nGold)), FormatInteger(nGold));
+			} else {
+				InfoColor = itm.getTextColor();
+				InfoString = itm.getName();
+				if (itm._iIdentified) {
+					PrintItemDetails(itm);
+				} else {
+					PrintItemDur(itm);
+				}
+			}
+		} else if (ObjectUnderCursor != nullptr)
 			GetObjectStr(*ObjectUnderCursor);
 		if (pcursmonst != -1) {
 			if (leveltype != DTYPE_TOWN) {

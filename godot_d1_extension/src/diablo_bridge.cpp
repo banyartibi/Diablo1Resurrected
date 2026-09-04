@@ -48,6 +48,7 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_hover_item_info"), &DiabloBridge::get_hover_item_info);
 	ClassDB::bind_method(D_METHOD("get_available_spells"), &DiabloBridge::get_available_spells);
 	ClassDB::bind_method(D_METHOD("select_spell", "spell_id", "spell_type"), &DiabloBridge::select_spell);
+	ClassDB::bind_method(D_METHOD("get_zoom_mode"), &DiabloBridge::get_zoom_mode);
 
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
@@ -288,6 +289,10 @@ Array DiabloBridge::get_available_spells() const {
 
 void DiabloBridge::select_spell(int spell_id, int spell_type) {
 	devilution::SelectSpell(spell_id, spell_type);
+}
+
+int DiabloBridge::get_zoom_mode() const {
+	return devilution::g_D1EngineData.zoomMode;
 }
 
 PackedInt32Array DiabloBridge::get_dungeon_grid() const {
