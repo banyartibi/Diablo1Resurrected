@@ -243,28 +243,22 @@ void fragment() {
     // (Checked across playfield, strictly excluding HUD and UI panels)
     bool is_flame = (hdr_glow_mult > 0.05) && (!in_ui) && is_fire_or_magic(raw_pixel);
 
-    // Measure natural Diablo light level (luma) of the raw tile
-    const vec3 luma_weights = vec3(0.299, 0.587, 0.114);
-    float raw_luma = dot(raw_pixel, luma_weights);
-
-    // Occlusion mask: 0.0 in pitch-black void and deep unlit dungeon walls/shadows, 1.0 in lit areas.
-    // In Diablo 1, pitch-black void is < 0.018, transition shadow is 0.018-0.075, lit tile is > 0.075.
-    float diablo_light_mask = smoothstep(0.018, 0.075, raw_luma);
-
     // 3D Normal Mapping & Tactile Albedo Relief
     float gx = 0.0;
     float gy = 0.0;
     float relief_shading = 1.0;
 
     if (relief_mode > 0 && !is_flame && !in_ui) {
-        float l_tl = dot(texture(d1_texture, sample_uv + vec2(-1.0, -1.0) * texel_size).bgr, luma_weights);
-        float l_tc = dot(texture(d1_texture, sample_uv + vec2( 0.0, -1.0) * texel_size).bgr, luma_weights);
-        float l_tr = dot(texture(d1_texture, sample_uv + vec2( 1.0, -1.0) * texel_size).bgr, luma_weights);
-        float l_ml = dot(texture(d1_texture, sample_uv + vec2(-1.0,  0.0) * texel_size).bgr, luma_weights);
-        float l_mr = dot(texture(d1_texture, sample_uv + vec2( 1.0,  0.0) * texel_size).bgr, luma_weights);
-        float l_bl = dot(texture(d1_texture, sample_uv + vec2(-1.0,  1.0) * texel_size).bgr, luma_weights);
-        float l_bc = dot(texture(d1_texture, sample_uv + vec2( 0.0,  1.0) * texel_size).bgr, luma_weights);
-        float l_br = dot(texture(d1_texture, sample_uv + vec2( 1.0,  1.0) * texel_size).bgr, luma_weights);
+        const vec3 luma = vec3(0.299, 0.587, 0.114);
+
+        float l_tl = dot(texture(d1_texture, sample_uv + vec2(-1.0, -1.0) * texel_size).bgr, luma);
+        float l_tc = dot(texture(d1_texture, sample_uv + vec2( 0.0, -1.0) * texel_size).bgr, luma);
+        float l_tr = dot(texture(d1_texture, sample_uv + vec2( 1.0, -1.0) * texel_size).bgr, luma);
+        float l_ml = dot(texture(d1_texture, sample_uv + vec2(-1.0,  0.0) * texel_size).bgr, luma);
+        float l_mr = dot(texture(d1_texture, sample_uv + vec2( 1.0,  0.0) * texel_size).bgr, luma);
+        float l_bl = dot(texture(d1_texture, sample_uv + vec2(-1.0,  1.0) * texel_size).bgr, luma);
+        float l_bc = dot(texture(d1_texture, sample_uv + vec2( 0.0,  1.0) * texel_size).bgr, luma);
+        float l_br = dot(texture(d1_texture, sample_uv + vec2( 1.0,  1.0) * texel_size).bgr, luma);
 
         gx = (l_tr + 2.0 * l_mr + l_br) - (l_tl + 2.0 * l_ml + l_bl);
         gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);
@@ -275,12 +269,12 @@ void fragment() {
         else if (relief_mode == 3) mult = 2.6;
         else if (relief_mode == 4) mult = 4.0;
 
-        float strength = bump_strength * mult * diablo_light_mask;
+        float strength = bump_strength * mult;
         vec3 normal_tangent = normalize(vec3(-gx * strength, -gy * strength, 1.0));
         NORMAL = (VIEW_MATRIX * vec4(normal_tangent, 0.0)).xyz;
 
-        // Tactile directional light relief directly in albedo (masked by Diablo light):
-        relief_shading = mix(1.0, clamp(1.0 + (-gx * 0.7 - gy * 0.7) * (mult * 0.22), 0.65, 1.40), diablo_light_mask);
+        // Tactile directional light relief directly in albedo:
+        relief_shading = clamp(1.0 + (-gx * 0.7 - gy * 0.7) * (mult * 0.22), 0.65, 1.40);
     }
 
     if (is_flame) {
@@ -301,27 +295,22 @@ void fragment() {
         }
     }
 
-    // Shadow & Void Occlusion: In deep unlit void, enforce pure black with zero specular/diffuse reflection
-    if (!in_ui && raw_luma < 0.02) {
-        ALBEDO = vec3(0.0);
-    }
-
     // Wet Cobblestone Floor: Deep water-absorbed stone color + glossy puddle reflections
     if (wet_floor && !in_ui) {
         float edge_val = clamp(length(vec2(gx, gy)) * 1.6, 0.0, 1.0);
-        // Low crevice areas accumulate water into glossy puddles (STRICTLY on lit stone, NOT in dark void!)
-        float puddle_mask = clamp(1.0 - edge_val * 1.5, 0.0, 1.0) * diablo_light_mask;
+        // Low crevice areas accumulate water into glossy puddles
+        float puddle_mask = clamp(1.0 - edge_val * 1.5, 0.0, 1.0);
         
-        // Wet stone is naturally darker and richer in saturation on lit areas
-        ALBEDO = mix(ALBEDO, ALBEDO * 0.80, 0.65 * diablo_light_mask);
+        // Wet stone is naturally darker and richer in saturation
+        ALBEDO = mix(ALBEDO, ALBEDO * 0.80, 0.65);
         
-        // Puddles reflect light with smooth PBR specular gloss; unlit areas stay completely matte
-        ROUGHNESS = mix(0.98, 0.18, puddle_mask);
-        SPECULAR = mix(0.0, 0.65, puddle_mask);
+        // Puddles reflect light with smooth PBR specular gloss
+        ROUGHNESS = mix(0.70, 0.18, puddle_mask);
+        SPECULAR = mix(0.08, 0.65, puddle_mask);
     } else {
         // Dry, dusty stone floor: completely matte
-        ROUGHNESS = 0.98;
-        SPECULAR = 0.0;
+        ROUGHNESS = 0.95;
+        SPECULAR = 0.01;
     }
 
     METALLIC = 0.0;
