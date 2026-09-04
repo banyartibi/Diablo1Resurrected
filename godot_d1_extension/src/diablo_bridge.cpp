@@ -30,6 +30,8 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_right_panel_open"), &DiabloBridge::is_right_panel_open);
 	ClassDB::bind_method(D_METHOD("get_left_panel_rect"), &DiabloBridge::get_left_panel_rect);
 	ClassDB::bind_method(D_METHOD("get_right_panel_rect"), &DiabloBridge::get_right_panel_rect);
+	ClassDB::bind_method(D_METHOD("is_speedbook_open"), &DiabloBridge::is_speedbook_open);
+	ClassDB::bind_method(D_METHOD("get_speedbook_rect"), &DiabloBridge::get_speedbook_rect);
 	ClassDB::bind_method(D_METHOD("get_player_level"), &DiabloBridge::get_player_level);
 	ClassDB::bind_method(D_METHOD("get_player_xp"), &DiabloBridge::get_player_xp);
 	ClassDB::bind_method(D_METHOD("get_player_next_xp"), &DiabloBridge::get_player_next_xp);
@@ -165,6 +167,19 @@ Rect2 DiabloBridge::get_right_panel_rect() const {
 		devilution::g_D1EngineData.rightPanelY,
 		devilution::g_D1EngineData.rightPanelW,
 		devilution::g_D1EngineData.rightPanelH
+	);
+}
+
+bool DiabloBridge::is_speedbook_open() const {
+	return devilution::g_D1EngineData.isSpeedbookOpen;
+}
+
+Rect2 DiabloBridge::get_speedbook_rect() const {
+	return Rect2(
+		devilution::g_D1EngineData.speedbookX,
+		devilution::g_D1EngineData.speedbookY,
+		devilution::g_D1EngineData.speedbookW,
+		devilution::g_D1EngineData.speedbookH
 	);
 }
 

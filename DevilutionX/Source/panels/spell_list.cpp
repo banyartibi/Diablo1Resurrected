@@ -204,7 +204,7 @@ std::vector<SpellListItem> GetSpellListItems()
 	const Point mainPanelPosition = GetMainPanel().position;
 
 	int x = mainPanelPosition.x + 12 + SPLICONLENGTH * SPLROWICONLS;
-	int y = mainPanelPosition.y - (gbHideVanillaHUD ? 70 : 17);
+	int y = mainPanelPosition.y - (gbHideVanillaHUD ? 80 : 17);
 
 	for (auto i : enum_values<SpellType>()) {
 		Player &myPlayer = *MyPlayer;

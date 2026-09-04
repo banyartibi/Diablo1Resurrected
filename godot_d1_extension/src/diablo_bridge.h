@@ -52,6 +52,8 @@ public:
 	bool is_right_panel_open() const;
 	Rect2 get_left_panel_rect() const;
 	Rect2 get_right_panel_rect() const;
+	bool is_speedbook_open() const;
+	Rect2 get_speedbook_rect() const;
 	int get_player_level() const;
 	int get_player_xp() const;
 	int get_player_next_xp() const;

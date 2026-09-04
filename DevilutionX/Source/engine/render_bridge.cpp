@@ -158,6 +158,20 @@ void ExportGodotFrame(const SDL_Surface *surface)
 		g_D1EngineData.rightPanelW = rp.size.width;
 		g_D1EngineData.rightPanelH = rp.size.height;
 
+		g_D1EngineData.isSpeedbookOpen = spselflag;
+		if (spselflag) {
+			const Rectangle &mp = GetMainPanel();
+			g_D1EngineData.speedbookX = mp.position.x;
+			g_D1EngineData.speedbookY = mp.position.y - 320;
+			g_D1EngineData.speedbookW = 640;
+			g_D1EngineData.speedbookH = 320 + mp.size.height;
+		} else {
+			g_D1EngineData.speedbookX = 0;
+			g_D1EngineData.speedbookY = 0;
+			g_D1EngineData.speedbookW = 0;
+			g_D1EngineData.speedbookH = 0;
+		}
+
 		g_D1EngineData.isGameRunning = gbRunGame;
 
 		size_t reqBytes = static_cast<size_t>(srcSurface->w) * srcSurface->h * 4;
@@ -491,10 +505,11 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 	if (!gbRunGame || spellId <= 0 || spellId > static_cast<int>(SpellID::LAST))
 		return {};
 
-	// Check if palette has actual colors loaded (not all black during fade-in or boot)
+	// Check if un-faded logical/orig palette is loaded with valid colors
+	const auto &pal = (logical_palette[PAL16_YELLOW].r > 50 || logical_palette[PAL16_BLUE].b > 50) ? logical_palette : orig_palette;
 	bool paletteReady = false;
-	for (int i = 1; i < 256; ++i) {
-		if (system_palette[i].r > 20 || system_palette[i].g > 20 || system_palette[i].b > 20) {
+	for (int i = 128; i < 256; ++i) {
+		if (pal[i].r > 80 || pal[i].g > 80 || pal[i].b > 80) {
 			paletteReady = true;
 			break;
 		}
@@ -526,8 +541,8 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 		for (int x = 0; x < 56; ++x) {
 			uint8_t idx = src[x];
 			if (idx != 0) {
-				SDL_Color c = system_palette[idx];
-				if (c.r > 10 || c.g > 10 || c.b > 10) {
+				SDL_Color c = pal[idx];
+				if (c.r > 30 || c.g > 30 || c.b > 30) {
 					hasPixels = true;
 				}
 				dst[x * 4 + 0] = c.r;

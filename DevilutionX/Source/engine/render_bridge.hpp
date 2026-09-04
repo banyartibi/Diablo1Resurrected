@@ -88,6 +88,11 @@ struct D1EngineData {
 	int rightPanelY = 0;
 	int rightPanelW = 320;
 	int rightPanelH = 352;
+	bool isSpeedbookOpen = false;
+	int speedbookX = 0;
+	int speedbookY = 0;
+	int speedbookW = 0;
+	int speedbookH = 0;
 };
 
 extern D1EngineData g_D1EngineData;

@@ -233,6 +233,7 @@ mouse_filter = 2
 [node name="BtnChar" type="Button" parent="Root/HBox/CenterPanel/VBox/UtilityButtons"]
 custom_minimum_size = Vector2(74, 22)
 layout_mode = 2
+focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
@@ -244,6 +245,7 @@ text = "[C] Hero"
 [node name="BtnInv" type="Button" parent="Root/HBox/CenterPanel/VBox/UtilityButtons"]
 custom_minimum_size = Vector2(74, 22)
 layout_mode = 2
+focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
@@ -255,6 +257,7 @@ text = "[I] Inv"
 [node name="BtnQuest" type="Button" parent="Root/HBox/CenterPanel/VBox/UtilityButtons"]
 custom_minimum_size = Vector2(74, 22)
 layout_mode = 2
+focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
@@ -266,6 +269,7 @@ text = "[Q] Quests"
 [node name="BtnMap" type="Button" parent="Root/HBox/CenterPanel/VBox/UtilityButtons"]
 custom_minimum_size = Vector2(74, 22)
 layout_mode = 2
+focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
@@ -277,6 +281,7 @@ text = "[Tab] Map"
 [node name="BtnMenu" type="Button" parent="Root/HBox/CenterPanel/VBox/UtilityButtons"]
 custom_minimum_size = Vector2(74, 22)
 layout_mode = 2
+focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")

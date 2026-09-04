@@ -106,17 +106,17 @@ const SPELL_NAMES = {
 }
 
 const SPELL_TYPE_NAMES = {
-	0: "Spell",
-	1: "Scroll",
-	2: "Staff",
-	3: "Skill"
+	0: "Skill",
+	1: "Spell",
+	2: "Scroll",
+	3: "Staff / Charges"
 }
 
 const SPELL_TYPE_COLORS = {
-	0: Color(0.2, 0.65, 1.8, 1.0),   # Arcane Cyan/Blue
-	1: Color(1.8, 1.4, 0.25, 1.0),   # Ancient Gold
-	2: Color(1.8, 0.55, 0.1, 1.0),   # Fiery Orange
-	3: Color(1.2, 1.25, 1.4, 1.0)    # Silver Steel
+	0: Color(1.2, 1.25, 1.4, 1.0),   # Skill: Silver Steel / Golden
+	1: Color(0.2, 0.65, 1.8, 1.0),   # Spell: Arcane Cyan/Blue
+	2: Color(1.8, 1.4, 0.25, 1.0),   # Scroll: Ancient Gold
+	3: Color(1.8, 0.55, 0.1, 1.0)    # Charges: Fiery Orange
 }
 
 func _ready():
@@ -127,7 +127,16 @@ func _ready():
 	if secondary_slot and secondary_slot.material is ShaderMaterial:
 		secondary_slot_mat = secondary_slot.material as ShaderMaterial
 
+	# Disable all keyboard focus grabbing on HUD elements so TAB key always toggles automap!
+	_disable_focus_recursive(self)
+
 	setup_button_events()
+
+func _disable_focus_recursive(node: Node):
+	if node is Control:
+		node.focus_mode = Control.FOCUS_NONE
+	for child in node.get_children():
+		_disable_focus_recursive(child)
 
 func set_bridge(bridge):
 	diablo_bridge = bridge
@@ -168,18 +177,23 @@ func setup_button_events():
 	var btn_menu = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnMenu
 
 	if btn_char:
+		btn_char.focus_mode = Control.FOCUS_NONE
 		btn_char.mouse_filter = Control.MOUSE_FILTER_STOP
 		btn_char.pressed.connect(func(): send_key(KEY_C))
 	if btn_inv:
+		btn_inv.focus_mode = Control.FOCUS_NONE
 		btn_inv.mouse_filter = Control.MOUSE_FILTER_STOP
 		btn_inv.pressed.connect(func(): send_key(KEY_I))
 	if btn_quest:
+		btn_quest.focus_mode = Control.FOCUS_NONE
 		btn_quest.mouse_filter = Control.MOUSE_FILTER_STOP
 		btn_quest.pressed.connect(func(): send_key(KEY_Q))
 	if btn_map:
+		btn_map.focus_mode = Control.FOCUS_NONE
 		btn_map.mouse_filter = Control.MOUSE_FILTER_STOP
 		btn_map.pressed.connect(func(): send_key(KEY_TAB))
 	if btn_menu:
+		btn_menu.focus_mode = Control.FOCUS_NONE
 		btn_menu.mouse_filter = Control.MOUSE_FILTER_STOP
 		btn_menu.pressed.connect(func(): send_key(KEY_ESCAPE))
 
