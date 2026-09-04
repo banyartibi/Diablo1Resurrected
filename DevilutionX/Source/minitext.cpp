@@ -63,28 +63,33 @@ void LoadText(string_view text)
  */
 uint32_t CalculateTextSpeed(int nSFX)
 {
-	const int numLines = TextLines.size();
+	const int numLines = std::max<int>(1, TextLines.size());
 
 #ifndef NOSOUND
 	Uint32 sfxFrames = GetSFXLength(nSFX);
+	if (sfxFrames == 0) {
+		sfxFrames = numLines * 3000;
+	}
 #else
 	// Sound is disabled -- estimate length from the number of lines.
 	Uint32 sfxFrames = numLines * 3000;
 #endif
-	assert(sfxFrames != 0);
 
 	uint32_t textHeight = LineHeight * numLines;
 	textHeight += LineHeight * 5; // adjust so when speaker is done two line are left
-	assert(textHeight != 0);
+	if (textHeight == 0)
+		textHeight = 1;
 
-	return sfxFrames / textHeight;
+	uint32_t speed = sfxFrames / textHeight;
+	return std::max<uint32_t>(1, speed);
 }
 
 int CalculateTextPosition()
 {
 	uint32_t currTime = SDL_GetTicks();
+	uint32_t speed = std::max<uint32_t>(1, qtextSpd);
 
-	int y = (currTime - ScrollStart) / qtextSpd - 260;
+	int y = (currTime - ScrollStart) / speed - 260;
 
 	int textHeight = LineHeight * TextLines.size();
 	if (y >= textHeight)

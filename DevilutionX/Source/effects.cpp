@@ -16,6 +16,7 @@
 #include "utils/stdcompat/algorithm.hpp"
 #include "utils/str_cat.hpp"
 #include "engine/render_bridge.hpp"
+#include "engine/assets.hpp"
 
 namespace devilution {
 
@@ -1229,9 +1230,34 @@ void effects_play_sound(_sfx_id id)
 
 int GetSFXLength(int nSFX)
 {
+	if (gbGodotBridgeActive) {
+		if (sgSFX[nSFX].pszName != nullptr) {
+			AssetRef ref = FindAsset(sgSFX[nSFX].pszName);
+			if (ref.ok()) {
+				size_t sz = ref.size();
+				if (sz > 44) {
+					AssetHandle handle = OpenAsset(std::move(ref), /*threadsafe=*/true);
+					if (handle.ok()) {
+						uint8_t hdr[44];
+						if (handle.read(hdr, 44)) {
+							uint32_t byteRate = *reinterpret_cast<uint32_t *>(&hdr[28]);
+							if (byteRate > 0) {
+								return static_cast<int>((sz - 44) * 1000ULL / byteRate);
+							}
+						}
+					}
+					return static_cast<int>((sz - 44) * 1000ULL / 44100);
+				}
+			}
+		}
+		return 0;
+	}
+
 	if (sgSFX[nSFX].pSnd == nullptr)
 		sgSFX[nSFX].pSnd = sound_file_load(sgSFX[nSFX].pszName,
 		    /*stream=*/AllowStreaming && (sgSFX[nSFX].bFlags & sfx_STREAM) != 0);
+	if (sgSFX[nSFX].pSnd == nullptr)
+		return 0;
 	return sgSFX[nSFX].pSnd->DSB.GetLength();
 }
 
