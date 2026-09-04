@@ -1361,7 +1361,9 @@ void DrawView(const Surface &out, Point startPosition)
 	DrawPlrMsg(out);
 	gmenu_draw(out);
 	doom_draw(out);
-	DrawInfoBox(out);
+	if (!gbHideVanillaHUD || !gbRunGame) {
+		DrawInfoBox(out);
+	}
 	control_update_life_mana(); // Update life/mana totals before rendering any portion of the flask.
 	if (!gbHideVanillaHUD || !gbRunGame) {
 		DrawLifeFlaskUpper(out);
@@ -1874,14 +1876,9 @@ void DrawAndBlit()
 
 	nthread_UpdateProgressToNextGameTick();
 
+	DrawView(out, ViewPosition);
 	if (drawCtrlPan) {
 		DrawCtrlPan(out);
-	}
-	if (drawControlButtons) {
-		DrawCtrlBtns(out);
-	}
-	if (drawInfoBox) {
-		DrawInfoBox(out);
 	}
 	if (drawHealth) {
 		DrawLifeFlaskLower(out);
@@ -1890,6 +1887,9 @@ void DrawAndBlit()
 		DrawManaFlaskLower(out);
 
 		DrawSpell(out);
+	}
+	if (drawControlButtons) {
+		DrawCtrlBtns(out);
 	}
 	if (drawBelt) {
 		DrawInvBelt(out);
