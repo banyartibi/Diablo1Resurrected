@@ -224,11 +224,6 @@ void snd_init()
 	sgOptions.Audio.musicVolume.SetValue(CapVolume(*sgOptions.Audio.musicVolume));
 	gbMusicOn = *sgOptions.Audio.musicVolume > VOLUME_MIN;
 
-	if (gbGodotBridgeActive) {
-		gbSndInited = true;
-		return;
-	}
-
 	// Initialize the SDL_audiolib library. Set the output sample rate to
 	// 22kHz, the audio format to 16-bit signed, use 2 output channels
 	// (stereo), and a 2KiB output buffer.
@@ -245,11 +240,6 @@ void snd_init()
 
 void snd_deinit()
 {
-	if (gbGodotBridgeActive) {
-		gbSndInited = false;
-		return;
-	}
-
 	if (gbSndInited) {
 		Aulib::quit();
 		duplicateSoundsMutex = std::nullopt;

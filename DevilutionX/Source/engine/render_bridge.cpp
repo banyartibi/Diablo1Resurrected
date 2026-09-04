@@ -376,7 +376,7 @@ std::vector<uint8_t> LoadDevilutionXAsset(const char *path)
 	if (sz == 0)
 		return {};
 
-	AssetHandle handle = OpenAsset(std::move(ref));
+	AssetHandle handle = OpenAsset(std::move(ref), /*threadsafe=*/true);
 	if (!handle.ok())
 		return {};
 

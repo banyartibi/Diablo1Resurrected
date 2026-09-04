@@ -217,14 +217,14 @@ bool SVidPlayBegin(const char *filename, int flags)
 	// 0x800000 // Edge detection
 	// 0x200800 // Clear FB
 
-	SDL_RWops *videoStream = OpenAssetAsSdlRwOps(filename);
+	SDL_RWops *videoStream = OpenAssetAsSdlRwOps(filename, /*threadsafe=*/true);
 	SVidHandle = Smacker_Open(videoStream);
 	if (!SVidHandle.isValid) {
 		return false;
 	}
 
 #ifndef NOSOUND
-	const bool enableAudio = (flags & 0x1000000) == 0 && !gbGodotBridgeActive && Aulib::sampleRate() > 0;
+	const bool enableAudio = (flags & 0x1000000) == 0 && Aulib::sampleRate() > 0;
 
 	auto audioInfo = Smacker_GetAudioTrackDetails(SVidHandle, 0);
 	LogVerbose(LogCategory::Audio, "SVid audio depth={} channels={} rate={}", audioInfo.bitsPerSample, audioInfo.nChannels, audioInfo.sampleRate);

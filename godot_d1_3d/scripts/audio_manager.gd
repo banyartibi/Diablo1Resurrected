@@ -147,11 +147,16 @@ func stop_music() -> void:
 	current_music_path = ""
 	if music_tween and music_tween.is_valid():
 		music_tween.kill()
+		music_tween = null
+	var is_a_playing = music_player_a and music_player_a.playing
+	var is_b_playing = music_player_b and music_player_b.playing
+	if not is_a_playing and not is_b_playing:
+		return
 	music_tween = create_tween().set_parallel(true)
-	if music_player_a and music_player_a.playing:
+	if is_a_playing:
 		music_tween.tween_property(music_player_a, "volume_db", -80.0, 0.6).set_trans(Tween.TRANS_SINE)
 		music_tween.chain().tween_callback(music_player_a.stop)
-	if music_player_b and music_player_b.playing:
+	if is_b_playing:
 		music_tween.tween_property(music_player_b, "volume_db", -80.0, 0.6).set_trans(Tween.TRANS_SINE)
 		music_tween.chain().tween_callback(music_player_b.stop)
 

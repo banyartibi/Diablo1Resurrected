@@ -1,6 +1,7 @@
 #include "mpq/mpq_reader.hpp"
 
 #include <cstdint>
+#include <mutex>
 
 #include <libmpq/mpq.h>
 
@@ -8,8 +9,11 @@
 
 namespace devilution {
 
+static std::recursive_mutex g_MpqReaderMutex;
+
 std::optional<MpqArchive> MpqArchive::Open(const char *path, int32_t &error)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	mpq_archive_s *archive;
 	error = libmpq__archive_open(&archive, path, -1);
 	if (error != 0) {
@@ -22,6 +26,7 @@ std::optional<MpqArchive> MpqArchive::Open(const char *path, int32_t &error)
 
 std::optional<MpqArchive> MpqArchive::Clone(int32_t &error)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	mpq_archive_s *copy;
 	error = libmpq__archive_dup(archive_, path_.c_str(), &copy);
 	if (error != 0)
@@ -43,6 +48,7 @@ MpqArchive::FileHash MpqArchive::CalculateFileHash(const char *filename)
 
 MpqArchive &MpqArchive::operator=(MpqArchive &&other) noexcept
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	path_ = std::move(other.path_);
 	if (archive_ != nullptr)
 		libmpq__archive_close(archive_);
@@ -53,17 +59,20 @@ MpqArchive &MpqArchive::operator=(MpqArchive &&other) noexcept
 
 MpqArchive::~MpqArchive()
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	if (archive_ != nullptr)
 		libmpq__archive_close(archive_);
 }
 
 bool MpqArchive::GetFileNumber(MpqArchive::FileHash fileHash, uint32_t &fileNumber)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	return libmpq__file_number_from_hash(archive_, fileHash[0], fileHash[1], fileHash[2], &fileNumber) == 0;
 }
 
 std::unique_ptr<byte[]> MpqArchive::ReadFile(const char *filename, std::size_t &fileSize, int32_t &error)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	std::unique_ptr<byte[]> result;
 	std::uint32_t fileNumber;
 	error = libmpq__file_number(archive_, filename, &fileNumber);
@@ -105,6 +114,7 @@ std::unique_ptr<byte[]> MpqArchive::ReadFile(const char *filename, std::size_t &
 
 int32_t MpqArchive::ReadBlock(uint32_t fileNumber, uint32_t blockNumber, uint8_t *out, uint32_t outSize)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	std::vector<std::uint8_t> &tmpBuf = GetTemporaryBuffer(outSize);
 	return libmpq__block_read_with_temporary_buffer(
 	    archive_, fileNumber, blockNumber, out, static_cast<libmpq__off_t>(outSize),
@@ -114,6 +124,7 @@ int32_t MpqArchive::ReadBlock(uint32_t fileNumber, uint32_t blockNumber, uint8_t
 
 std::size_t MpqArchive::GetUnpackedFileSize(uint32_t fileNumber, int32_t &error)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	libmpq__off_t unpackedSize;
 	error = libmpq__file_size_unpacked(archive_, fileNumber, &unpackedSize);
 	return unpackedSize;
@@ -121,6 +132,7 @@ std::size_t MpqArchive::GetUnpackedFileSize(uint32_t fileNumber, int32_t &error)
 
 uint32_t MpqArchive::GetNumBlocks(uint32_t fileNumber, int32_t &error)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	uint32_t numBlocks;
 	error = libmpq__file_blocks(archive_, fileNumber, &numBlocks);
 	return numBlocks;
@@ -128,17 +140,20 @@ uint32_t MpqArchive::GetNumBlocks(uint32_t fileNumber, int32_t &error)
 
 int32_t MpqArchive::OpenBlockOffsetTable(uint32_t fileNumber, const char *filename)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	return libmpq__block_open_offset_with_filename(archive_, fileNumber, filename);
 }
 
 int32_t MpqArchive::CloseBlockOffsetTable(uint32_t fileNumber)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	return libmpq__block_close_offset(archive_, fileNumber);
 }
 
 // Requires the block offset table to be open
 std::size_t MpqArchive::GetBlockSize(uint32_t fileNumber, uint32_t blockNumber, int32_t &error)
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	libmpq__off_t blockSize;
 	error = libmpq__block_size_unpacked(archive_, fileNumber, blockNumber, &blockSize);
 	return blockSize;
@@ -146,6 +161,7 @@ std::size_t MpqArchive::GetBlockSize(uint32_t fileNumber, uint32_t blockNumber, 
 
 bool MpqArchive::HasFile(const char *filename) const
 {
+	std::lock_guard<std::recursive_mutex> lock(g_MpqReaderMutex);
 	std::uint32_t fileNumber;
 	int32_t error = libmpq__file_number(archive_, filename, &fileNumber);
 	return error == 0;
