@@ -271,7 +271,9 @@ func _process(delta: float):
 			
 	if use_gdextension and diablo_bridge != null:
 		if diablo_bridge.is_engine_ready():
-			had_connected = true
+			if not had_connected:
+				had_connected = true
+				print("[Godot-D1 Bridge] In-Process Engine Connected! Streaming live frames to 3D Viewport.")
 			var cur_frame_id = diablo_bridge.get_frame_id()
 			if cur_frame_id != last_frame_id:
 				last_frame_id = cur_frame_id

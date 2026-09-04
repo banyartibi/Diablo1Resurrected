@@ -59,16 +59,29 @@ void InitGodotBridge(int width, int height)
 
 void ExportGodotFrame(const SDL_Surface *surface)
 {
-	if (!gbGodotBridgeActive || surface == nullptr || surface->pixels == nullptr)
+	if (!gbGodotBridgeActive || surface == nullptr || surface->pixels == nullptr || surface->w <= 0 || surface->h <= 0)
 		return;
+
+	const SDL_Surface *srcSurface = surface;
+	SDL_Surface *converted = nullptr;
+
+	if (surface->format == nullptr || surface->format->BytesPerPixel != 4) {
+		converted = SDL_ConvertSurfaceFormat(const_cast<SDL_Surface *>(surface), SDL_PIXELFORMAT_ARGB8888, 0);
+		if (converted != nullptr && converted->pixels != nullptr) {
+			srcSurface = converted;
+		} else {
+			if (converted != nullptr) SDL_FreeSurface(converted);
+			return;
+		}
+	}
 
 	// 1. Update In-Process Direct Engine Data (Zero IPC!)
 	{
 		std::lock_guard<std::mutex> lock(g_D1FrameMutex);
 		g_BridgeFrameCount++;
 		g_D1EngineData.frameId = g_BridgeFrameCount;
-		g_D1EngineData.width = surface->w;
-		g_D1EngineData.height = surface->h;
+		g_D1EngineData.width = srcSurface->w;
+		g_D1EngineData.height = srcSurface->h;
 		g_D1EngineData.playerNormX = 0.50f;
 		g_D1EngineData.playerNormY = 0.52f;
 
@@ -88,22 +101,22 @@ void ExportGodotFrame(const SDL_Surface *surface)
 		g_D1EngineData.leftPanelOpen = IsLeftPanelOpen();
 		g_D1EngineData.rightPanelOpen = IsRightPanelOpen();
 
-		size_t reqBytes = static_cast<size_t>(surface->w) * surface->h * 4;
+		size_t reqBytes = static_cast<size_t>(srcSurface->w) * srcSurface->h * 4;
 		if (g_D1InternalFrame.size() != reqBytes) {
 			g_D1InternalFrame.resize(reqBytes);
 		}
-		std::memcpy(g_D1InternalFrame.data(), surface->pixels, reqBytes);
+		std::memcpy(g_D1InternalFrame.data(), srcSurface->pixels, reqBytes);
 	}
 
 	// 2. Also write to POSIX SHM for backward compatibility
-	InitGodotBridge(surface->w, surface->h);
+	InitGodotBridge(srcSurface->w, srcSurface->h);
 	if (g_ShmMapped != nullptr) {
 		D1BridgeHeader *hdr = static_cast<D1BridgeHeader *>(g_ShmMapped);
 		hdr->magic = 0x44315242; // "D1RB"
 		hdr->version = 1;
-		hdr->width = surface->w;
-		hdr->height = surface->h;
-		hdr->pitch = surface->pitch;
+		hdr->width = srcSurface->w;
+		hdr->height = srcSurface->h;
+		hdr->pitch = srcSurface->pitch;
 		hdr->frameId = g_BridgeFrameCount;
 		hdr->timestamp = SDL_GetTicks();
 		hdr->playerNormX = 0.50f;
@@ -117,9 +130,13 @@ void ExportGodotFrame(const SDL_Surface *surface)
 
 		// Copy pixels directly to shared memory
 		uint8_t *dstPixels = static_cast<uint8_t *>(g_ShmMapped) + sizeof(D1BridgeHeader);
-		std::memcpy(dstPixels, surface->pixels, surface->w * surface->h * 4);
+		std::memcpy(dstPixels, srcSurface->pixels, srcSurface->w * srcSurface->h * 4);
 
 		hdr->readyFlag = 1;
+	}
+
+	if (converted != nullptr) {
+		SDL_FreeSurface(converted);
 	}
 }
 

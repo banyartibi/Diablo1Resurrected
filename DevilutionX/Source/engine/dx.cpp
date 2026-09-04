@@ -98,8 +98,10 @@ void LimitFrameRate()
 void dx_init()
 {
 #ifndef USE_SDL1
-	SDL_RaiseWindow(ghMainWnd);
-	SDL_ShowWindow(ghMainWnd);
+	if (std::getenv("D1_MINIMIZE_WINDOW") == nullptr) {
+		SDL_RaiseWindow(ghMainWnd);
+		SDL_ShowWindow(ghMainWnd);
+	}
 #endif
 
 	palette_init();
@@ -286,6 +288,10 @@ void RenderPresent()
 	if (!gbActive && !gbGodotBridgeActive) {
 		LimitFrameRate();
 		return;
+	}
+
+	if (gbGodotBridgeActive && surface != nullptr && surface->pixels != nullptr) {
+		ExportGodotFrame(surface);
 	}
 
 	if (Vulkan_IsActive()) {
