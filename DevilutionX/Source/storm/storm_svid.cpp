@@ -13,6 +13,7 @@
 #include "engine/assets.hpp"
 #include "engine/dx.h"
 #include "engine/palette.h"
+#include "engine/render_bridge.hpp"
 #include "options.h"
 #include "utils/aulib.hpp"
 #include "utils/display.h"
@@ -223,7 +224,7 @@ bool SVidPlayBegin(const char *filename, int flags)
 	}
 
 #ifndef NOSOUND
-	const bool enableAudio = (flags & 0x1000000) == 0;
+	const bool enableAudio = (flags & 0x1000000) == 0 && !gbGodotBridgeActive && Aulib::sampleRate() > 0;
 
 	auto audioInfo = Smacker_GetAudioTrackDetails(SVidHandle, 0);
 	LogVerbose(LogCategory::Audio, "SVid audio depth={} channels={} rate={}", audioInfo.bitsPerSample, audioInfo.nChannels, audioInfo.sampleRate);

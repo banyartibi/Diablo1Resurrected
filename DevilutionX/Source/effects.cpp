@@ -1215,6 +1215,13 @@ void effects_play_sound(_sfx_id id)
 	}
 
 	TSFX &sfx = sgSFX[id];
+	if (gbGodotBridgeActive) {
+		if (sfx.pszName != nullptr) {
+			PushDevilutionXAudioEvent(D1AudioEvent::SFX_PLAY, sfx.pszName, 0, 0, 0, 0, false);
+		}
+		return;
+	}
+
 	if (sfx.pSnd != nullptr && !sfx.pSnd->isPlaying()) {
 		snd_play_snd(sfx.pSnd.get(), 0, 0);
 	}
