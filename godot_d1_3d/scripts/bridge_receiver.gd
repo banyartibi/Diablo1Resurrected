@@ -121,6 +121,12 @@ func _ready():
 	show_osd("Diablo 1 Resurrected | Dark Gothic + 8K Catmull + Music Active | F4: V-Sync | F12: Wet Floor", 4.0)
 	print("[Godot-D1 Bridge] Receiver initialized with user defaults. Dark Gothic, 8K Spline & Panel Shield active.")
 
+func _notification(what: int):
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if use_gdextension and diablo_bridge != null:
+			diablo_bridge.quit_engine()
+		get_tree().quit()
+
 func setup_osd():
 	var canvas = CanvasLayer.new()
 	canvas.layer = 100
@@ -270,6 +276,11 @@ func _process(delta: float):
 			osd_label.text = ""
 			
 	if use_gdextension and diablo_bridge != null:
+		if diablo_bridge.is_quit_requested() or (had_connected and not diablo_bridge.is_engine_running()):
+			print("[Godot-D1 Bridge] DevilutionX engine requested exit. Terminating Godot process cleanly...")
+			get_tree().quit()
+			return
+
 		if diablo_bridge.is_engine_ready():
 			if not had_connected:
 				had_connected = true

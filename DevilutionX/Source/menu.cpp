@@ -15,6 +15,7 @@
 #include "pfile.h"
 #include "storm/storm_net.hpp"
 #include "utils/language.h"
+#include "engine/render_bridge.hpp"
 
 namespace devilution {
 
@@ -180,6 +181,7 @@ void mainmenu_loop()
 			break;
 		case MAINMENU_EXIT_DIABLO:
 			mainmenu_wait_for_button_sound();
+			g_D1EngineQuitRequested = true;
 			done = true;
 			break;
 		case MAINMENU_SETTINGS:

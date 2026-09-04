@@ -9,6 +9,9 @@
 #include <fmt/format.h>
 
 #include <config.h>
+#ifndef _WIN32
+#include <pthread.h>
+#endif
 
 #include "DiabloUI/selstart.h"
 #include "automap.h"
@@ -2479,6 +2482,13 @@ void diablo_quit(int exitStatus)
 	FreeGameMem();
 	music_stop();
 	DiabloDeinit();
+	g_D1EngineQuitRequested = true;
+	g_DiabloThreadRunning = false;
+	if (gbGodotBridgeActive) {
+#ifndef _WIN32
+		pthread_exit(nullptr);
+#endif
+	}
 	exit(exitStatus);
 }
 

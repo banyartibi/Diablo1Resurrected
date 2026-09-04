@@ -11,6 +11,9 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("init_engine", "mpq_dir"), &DiabloBridge::init_engine);
 	ClassDB::bind_method(D_METHOD("step_tick"), &DiabloBridge::step_tick);
 	ClassDB::bind_method(D_METHOD("is_engine_ready"), &DiabloBridge::is_engine_ready);
+	ClassDB::bind_method(D_METHOD("is_engine_running"), &DiabloBridge::is_engine_running);
+	ClassDB::bind_method(D_METHOD("is_quit_requested"), &DiabloBridge::is_quit_requested);
+	ClassDB::bind_method(D_METHOD("quit_engine"), &DiabloBridge::quit_engine);
 
 	// Player Stats & Status
 	ClassDB::bind_method(D_METHOD("get_player_tile_pos"), &DiabloBridge::get_player_tile_pos);
@@ -65,6 +68,18 @@ void DiabloBridge::step_tick() {
 
 bool DiabloBridge::is_engine_ready() const {
 	return devilution::g_D1EngineData.frameId > 0;
+}
+
+bool DiabloBridge::is_engine_running() const {
+	return devilution::IsDevilutionXRunning();
+}
+
+bool DiabloBridge::is_quit_requested() const {
+	return devilution::IsDevilutionXQuitRequested();
+}
+
+void DiabloBridge::quit_engine() {
+	devilution::RequestDevilutionXQuit();
 }
 
 Vector2i DiabloBridge::get_player_tile_pos() const {

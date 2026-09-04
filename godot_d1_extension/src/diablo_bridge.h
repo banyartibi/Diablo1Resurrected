@@ -30,6 +30,9 @@ public:
 	bool init_engine(const String &mpq_dir);
 	void step_tick();
 	bool is_engine_ready() const;
+	bool is_engine_running() const;
+	bool is_quit_requested() const;
+	void quit_engine();
 
 	// Real-Time Direct Memory Access (Zero IPC, pure C++ memory pointers!)
 	Vector2i get_player_tile_pos() const;

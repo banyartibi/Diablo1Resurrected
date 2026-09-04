@@ -35,8 +35,10 @@ std::mutex g_DirectInputMutex;
 std::vector<D1InputMsg> g_DirectInputQueue;
 
 std::thread g_DiabloThread;
-std::atomic<bool> g_DiabloThreadRunning{false};
 } // namespace
+
+std::atomic<bool> g_DiabloThreadRunning{false};
+std::atomic<bool> g_D1EngineQuitRequested{false};
 
 void InitGodotBridge(int width, int height)
 {
@@ -298,4 +300,21 @@ void CleanupGodotBridge()
 	g_ShmTotalSize = 0;
 }
 
+bool IsDevilutionXRunning()
+{
+	return g_DiabloThreadRunning.load();
+}
+
+bool IsDevilutionXQuitRequested()
+{
+	return g_D1EngineQuitRequested.load();
+}
+
+void RequestDevilutionXQuit()
+{
+	g_D1EngineQuitRequested = true;
+	g_DiabloThreadRunning = false;
+}
+
 } // namespace devilution
+

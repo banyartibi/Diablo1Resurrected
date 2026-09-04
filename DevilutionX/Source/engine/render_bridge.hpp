@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 #include <SDL.h>
 
 namespace devilution {
@@ -83,4 +84,11 @@ void PushDevilutionXInput(uint32_t type, uint32_t code, uint32_t state, int32_t 
 bool CopyD1FrameBytes(uint8_t *dest, size_t maxBytes, uint32_t *outFrameId, int *outW, int *outH);
 void CopyD1DungeonGrid(int32_t *dest, size_t maxTiles);
 
+extern std::atomic<bool> g_D1EngineQuitRequested;
+extern std::atomic<bool> g_DiabloThreadRunning;
+bool IsDevilutionXRunning();
+bool IsDevilutionXQuitRequested();
+void RequestDevilutionXQuit();
+
 } // namespace devilution
+
