@@ -56,6 +56,8 @@ public:
 	int get_player_spell() const;
 	int get_player_spell_type() const;
 	Array get_belt_items() const;
+	void use_belt_slot(int slot_index);
+	void click_belt_slot(int slot_index);
 	void set_vanilla_hud_hidden(bool hidden);
 	bool is_vanilla_hud_hidden() const;
 	bool is_game_running() const;

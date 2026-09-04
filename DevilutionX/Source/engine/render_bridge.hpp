@@ -85,6 +85,8 @@ extern D1EngineData g_D1EngineData;
 extern bool gbHideVanillaHUD;
 void SetVanillaHUDHidden(bool hidden);
 std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType);
+void UseBeltSlot(int slotIndex);
+void ClickBeltSlot(int slotIndex);
 
 void InitGodotBridge(int width, int height);
 void ExportGodotFrame(const SDL_Surface *surface);

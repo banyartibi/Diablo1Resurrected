@@ -211,7 +211,7 @@ grow_vertical = 2
 mouse_filter = 2
 texture = ExtResource("3_center_bar")
 expand_mode = 1
-stretch_mode = 6
+stretch_mode = 0
 
 [node name="VBox" type="VBoxContainer" parent="Root/HBox/CenterPanel"]
 layout_mode = 1
@@ -776,7 +776,7 @@ custom_minimum_size = Vector2(8, 0)
 layout_mode = 2
 
 [node name="SecondarySlot" type="TextureRect" parent="Root/HBox/CenterPanel/VBox/ActionBar"]
-custom_minimum_size = Vector2(46, 46)
+custom_minimum_size = Vector2(50, 50)
 layout_mode = 2
 tooltip_text = "Active Spell / Skill (RMB) [S]"
 mouse_filter = 0
@@ -801,10 +801,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -15.0
-offset_top = -15.0
-offset_right = 15.0
-offset_bottom = 15.0
+offset_left = -18.0
+offset_top = -18.0
+offset_right = 18.0
+offset_bottom = 18.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2

@@ -135,11 +135,20 @@ func setup_button_events():
 	# Potion 1-8 clicks
 	for i in range(potion_slots.size()):
 		var slot = potion_slots[i]
-		var idx = i + 1
+		var idx = i
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP
 		slot.gui_input.connect(func(event: InputEvent):
-			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-				use_belt_slot(idx)
+			if event is InputEventMouseButton and event.pressed:
+				if event.button_index == MOUSE_BUTTON_LEFT:
+					# Left click: pick up / place / swap item (megfog és odébb rakhat)
+					if diablo_bridge and diablo_bridge.has_method("click_belt_slot"):
+						diablo_bridge.click_belt_slot(idx)
+				elif event.button_index == MOUSE_BUTTON_RIGHT:
+					# Right click: use item (jobb egér = use)
+					if diablo_bridge and diablo_bridge.has_method("use_belt_slot"):
+						diablo_bridge.use_belt_slot(idx)
+					else:
+						use_belt_slot(idx + 1)
 		)
 
 	# RMB secondary slot click (opens spell list/speedbook)
@@ -176,8 +185,11 @@ func setup_button_events():
 func use_belt_slot(slot_idx: int):
 	if not diablo_bridge:
 		return
-	var key = KEY_1 + (slot_idx - 1)
-	send_key(key)
+	if diablo_bridge.has_method("use_belt_slot"):
+		diablo_bridge.use_belt_slot(slot_idx - 1)
+	else:
+		var key = KEY_1 + (slot_idx - 1)
+		send_key(key)
 
 func toggle_speedbook():
 	if not diablo_bridge:
@@ -278,31 +290,37 @@ func update_xp_and_level():
 		xp_bar.tooltip_text = "Experience: %s / %s (%d%%)" % [format_number(xp), format_number(next_xp), int(ratio * 100.0)]
 
 func update_secondary_spell():
+	if not diablo_bridge:
+		return
 	var spell_id = diablo_bridge.get_player_spell()
 	var spell_type = diablo_bridge.get_player_spell_type()
 
-	if spell_id != current_spell_id or spell_type != current_spell_type:
-		current_spell_id = spell_id
-		current_spell_type = spell_type
-
-		if spell_id <= 0:
+	if spell_id <= 0:
+		if current_spell_id != spell_id:
+			current_spell_id = spell_id
+			current_spell_type = spell_type
 			if secondary_icon:
 				secondary_icon.texture = null
 				secondary_icon.visible = false
 			if secondary_slot:
 				secondary_slot.tooltip_text = "Select Skill / Spell [S]\nClick or press 'S' to open Speedbook."
-			return
+		return
 
+	# If spell changed OR if we don't have a valid texture yet (e.g. at game startup):
+	if spell_id != current_spell_id or spell_type != current_spell_type or (secondary_icon and secondary_icon.texture == null):
 		var tex = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
-		if secondary_icon:
-			secondary_icon.texture = tex
-			secondary_icon.visible = (tex != null)
+		if tex != null:
+			current_spell_id = spell_id
+			current_spell_type = spell_type
+			if secondary_icon:
+				secondary_icon.texture = tex
+				secondary_icon.visible = true
 
-		var spell_name = SPELL_NAMES.get(spell_id, "Spell #%d" % spell_id)
-		var type_name = SPELL_TYPE_NAMES.get(spell_type, "Skill")
+			var spell_name = SPELL_NAMES.get(spell_id, "Spell #%d" % spell_id)
+			var type_name = SPELL_TYPE_NAMES.get(spell_type, "Skill")
 
-		if secondary_slot:
-			secondary_slot.tooltip_text = "%s (%s) [RMB]\nClick or press 'S' to change active spell." % [spell_name, type_name]
+			if secondary_slot:
+				secondary_slot.tooltip_text = "%s (%s) [RMB]\nClick or press 'S' to change active spell." % [spell_name, type_name]
 
 func update_belt_potions():
 	var belt = diablo_bridge.get_belt_items()
@@ -346,15 +364,15 @@ func update_belt_potions():
 
 		var tip = ""
 		match type:
-			1: tip = "Potion of Healing (Belt %d) [Key %d]\nRestores health." % [i + 1, i + 1]
-			2: tip = "Potion of Full Healing (Belt %d) [Key %d]\nCompletely restores health." % [i + 1, i + 1]
-			3: tip = "Potion of Mana (Belt %d) [Key %d]\nRestores mana." % [i + 1, i + 1]
-			4: tip = "Potion of Full Mana (Belt %d) [Key %d]\nCompletely restores mana." % [i + 1, i + 1]
-			5: tip = "Potion of Rejuvenation (Belt %d) [Key %d]\nRestores health & mana." % [i + 1, i + 1]
-			6: tip = "Potion of Full Rejuvenation (Belt %d) [Key %d]\nCompletely restores health & mana." % [i + 1, i + 1]
-			7: tip = "Elixir (Belt %d) [Key %d]" % [i + 1, i + 1]
-			8: tip = "Scroll (Belt %d) [Key %d]\nClick or press '%d' to cast." % [i + 1, i + 1, i + 1]
-			_: tip = "Empty Belt Slot %d" % (i + 1)
+			1: tip = "Potion of Healing (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+			2: tip = "Potion of Full Healing (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+			3: tip = "Potion of Mana (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+			4: tip = "Potion of Full Mana (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+			5: tip = "Potion of Rejuvenation (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+			6: tip = "Potion of Full Rejuvenation (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
+			7: tip = "Elixir (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink elixir" % [i + 1, i + 1]
+			8: tip = "Scroll (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Cast scroll" % [i + 1, i + 1]
+			_: tip = "Empty Belt Slot %d\n[LMB] Place item from cursor" % (i + 1)
 		slot.tooltip_text = tip
 
 func format_number(n: int) -> String:

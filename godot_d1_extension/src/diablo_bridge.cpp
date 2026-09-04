@@ -34,6 +34,8 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_player_spell"), &DiabloBridge::get_player_spell);
 	ClassDB::bind_method(D_METHOD("get_player_spell_type"), &DiabloBridge::get_player_spell_type);
 	ClassDB::bind_method(D_METHOD("get_belt_items"), &DiabloBridge::get_belt_items);
+	ClassDB::bind_method(D_METHOD("use_belt_slot", "slot_index"), &DiabloBridge::use_belt_slot);
+	ClassDB::bind_method(D_METHOD("click_belt_slot", "slot_index"), &DiabloBridge::click_belt_slot);
 	ClassDB::bind_method(D_METHOD("set_vanilla_hud_hidden", "hidden"), &DiabloBridge::set_vanilla_hud_hidden);
 	ClassDB::bind_method(D_METHOD("is_vanilla_hud_hidden"), &DiabloBridge::is_vanilla_hud_hidden);
 	ClassDB::bind_method(D_METHOD("is_game_running"), &DiabloBridge::is_game_running);
@@ -176,6 +178,14 @@ Array DiabloBridge::get_belt_items() const {
 		items.push_back(d);
 	}
 	return items;
+}
+
+void DiabloBridge::use_belt_slot(int slot_index) {
+	devilution::UseBeltSlot(slot_index);
+}
+
+void DiabloBridge::click_belt_slot(int slot_index) {
+	devilution::ClickBeltSlot(slot_index);
 }
 
 void DiabloBridge::set_vanilla_hud_hidden(bool hidden) {

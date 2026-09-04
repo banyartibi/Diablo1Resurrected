@@ -22,6 +22,10 @@
 #include "engine/surface.hpp"
 #include "items.h"
 #include "inv.h"
+#include "msg.h"
+#include "cursor.h"
+#include "sound.h"
+#include "effects.h"
 
 namespace devilution {
 
@@ -418,16 +422,63 @@ std::vector<uint8_t> LoadDevilutionXAsset(const char *path)
 	return buffer;
 }
 
+void UseBeltSlot(int slotIndex)
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return;
+	if (slotIndex < 0 || slotIndex >= 8)
+		return;
+	Player &myPlayer = *MyPlayer;
+	if (!myPlayer.SpdList[slotIndex].isEmpty() && myPlayer.SpdList[slotIndex]._itype != ItemType::Gold) {
+		UseInvItem(INVITEM_BELT_FIRST + slotIndex);
+	}
+}
+
+void ClickBeltSlot(int slotIndex)
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return;
+	if (slotIndex < 0 || slotIndex >= 8)
+		return;
+	Player &player = *MyPlayer;
+	if (player._pmode > PM_WALK_SIDEWAYS)
+		return;
+
+	if (player.HoldItem.isEmpty()) {
+		// Pick up item from belt onto cursor
+		Item &beltItem = player.SpdList[slotIndex];
+		if (!beltItem.isEmpty()) {
+			player.HoldItem = beltItem;
+			player.RemoveSpdBarItem(slotIndex);
+			PlaySFX(IS_IGRAB);
+			NewCursor(player.HoldItem);
+			NetSendCmdChBeltItem(false, slotIndex);
+		}
+	} else {
+		// Place held item into belt slot or swap
+		if (CanBePlacedOnBelt(player.HoldItem)) {
+			if (player.SpdList[slotIndex].isEmpty()) {
+				player.SpdList[slotIndex] = player.HoldItem.pop();
+			} else {
+				std::swap(player.SpdList[slotIndex], player.HoldItem);
+			}
+			PlaySFX(ItemInvSnds[ItemCAnimTbl[player.SpdList[slotIndex]._iCurs]]);
+			NewCursor(player.HoldItem);
+			NetSendCmdChBeltItem(false, slotIndex);
+		}
+	}
+	CalcPlrInv(player, true);
+}
+
 std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 {
-	std::vector<uint8_t> rgba(56 * 56 * 4, 0);
-	if (!gbRunGame || spellId < 0 || spellId > static_cast<int>(SpellID::LAST))
-		return rgba;
+	if (!gbRunGame || spellId <= 0 || spellId > static_cast<int>(SpellID::LAST))
+		return {};
 
 	if (!HasLargeSpellIcons()) {
 		LoadLargeSpellIcons();
 		if (!HasLargeSpellIcons())
-			return rgba;
+			return {};
 	}
 
 	OwnedSurface surface(56, 56);
@@ -440,12 +491,15 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 	SetSpellTrans(st);
 	DrawLargeSpellIcon(surface, { 0, 55 }, static_cast<SpellID>(spellId));
 
+	bool hasPixels = false;
+	std::vector<uint8_t> rgba(56 * 56 * 4, 0);
 	for (int y = 0; y < 56; ++y) {
 		const uint8_t *src = surface.at(0, y);
 		uint8_t *dst = rgba.data() + (y * 56 * 4);
 		for (int x = 0; x < 56; ++x) {
 			uint8_t idx = src[x];
 			if (idx != 0) {
+				hasPixels = true;
 				SDL_Color c = system_palette[idx];
 				dst[x * 4 + 0] = c.r;
 				dst[x * 4 + 1] = c.g;
@@ -454,6 +508,9 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 			}
 		}
 	}
+	if (!hasPixels)
+		return {};
+
 	return rgba;
 }
 
