@@ -39,6 +39,7 @@ D1EngineData g_D1EngineData;
 void SetVanillaHUDHidden(bool hidden)
 {
 	gbHideVanillaHUD = hidden;
+	CalculatePanelAreas();
 }
 
 namespace {
@@ -641,7 +642,11 @@ std::vector<AvailableSpellItem> GetAvailableSpells()
 			string_view name = pgettext("spell", GetSpellData(splId).sNameText);
 			std::strncpy(item.name, name.data(), std::min(sizeof(item.name) - 1, name.size()));
 			item.name[std::min(sizeof(item.name) - 1, name.size())] = '\0';
-			item.manaCost = GetManaAmount(myPlayer, splId);
+			if (static_cast<SpellType>(i) == SpellType::Spell) {
+				item.manaCost = GetManaAmount(myPlayer, splId) >> 6;
+			} else {
+				item.manaCost = 0;
+			}
 
 			for (size_t t = 0; t < NumHotkeys; t++) {
 				if (myPlayer._pSplHotKey[t] == splId && myPlayer._pSplTHotKey[t] == static_cast<SpellType>(i)) {

@@ -43,10 +43,9 @@ const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 @onready var item_divider: ColorRect = $ItemTooltip/Margin/VBox/Divider
 @onready var item_stats_label: Label = $ItemTooltip/Margin/VBox/StatsLabel
 
-# Skill Selector (Speedbook)
+# Skill Selector (Speedbook Ribbon)
 @onready var skill_selector: PanelContainer = $SkillSelector
-@onready var skill_grid: HFlowContainer = $SkillSelector/Margin/VBox/Scroll/Grid
-@onready var skill_close_btn: Button = $SkillSelector/Margin/VBox/Header/CloseBtn
+@onready var skill_list: HBoxContainer = $SkillSelector/Margin/SkillList
 
 var diablo_bridge = null
 var current_spell_id: int = -1
@@ -203,9 +202,6 @@ func setup_button_events():
 				toggle_speedbook()
 		)
 
-	if skill_close_btn:
-		skill_close_btn.pressed.connect(func(): close_speedbook())
-
 	# Quick utility buttons
 	var btn_char = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnChar
 	var btn_inv = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnInv
@@ -288,6 +284,7 @@ func open_speedbook():
 	populate_speedbook()
 	if skill_selector:
 		skill_selector.visible = true
+		skill_selector.reset_size()
 
 func close_speedbook():
 	is_speedbook_showing = false
@@ -295,9 +292,9 @@ func close_speedbook():
 		skill_selector.visible = false
 
 func populate_speedbook():
-	if not skill_grid:
+	if not skill_list:
 		return
-	for child in skill_grid.get_children():
+	for child in skill_list.get_children():
 		child.queue_free()
 
 	if not diablo_bridge or not diablo_bridge.has_method("get_available_spells"):
@@ -311,7 +308,7 @@ func populate_speedbook():
 		empty_lbl.add_theme_color_override("font_color", Color(0.7, 0.65, 0.6))
 		empty_lbl.add_theme_font_size_override("font_size", 11)
 		empty_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		skill_grid.add_child(empty_lbl)
+		skill_list.add_child(empty_lbl)
 		return
 
 	for spell_info in spells:
@@ -322,12 +319,12 @@ func populate_speedbook():
 		var hotkey: String = spell_info.get("hotkey", "")
 
 		var btn = Button.new()
-		btn.custom_minimum_size = Vector2(46, 46)
+		btn.custom_minimum_size = Vector2(44, 44)
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 
 		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.10, 0.09, 0.12, 0.95)
+		sb.bg_color = Color(0.08, 0.07, 0.10, 0.95)
 		sb.set_corner_radius_all(3)
 		var is_current = (s_id == current_spell_id and s_type == current_spell_type)
 		if is_current:
@@ -338,7 +335,7 @@ func populate_speedbook():
 			sb.border_width_bottom = 2
 		else:
 			var border_c = SPELL_TYPE_COLORS.get(s_type, Color(0.45, 0.4, 0.3, 0.8))
-			sb.border_color = Color(border_c.r * 0.7, border_c.g * 0.7, border_c.b * 0.7, 0.8)
+			sb.border_color = Color(border_c.r * 0.75, border_c.g * 0.75, border_c.b * 0.75, 0.85)
 			sb.border_width_left = 1
 			sb.border_width_top = 1
 			sb.border_width_right = 1
@@ -357,7 +354,7 @@ func populate_speedbook():
 			tex_rect.texture = icon_tex
 			tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			tex_rect.custom_minimum_size = Vector2(36, 36)
+			tex_rect.custom_minimum_size = Vector2(38, 38)
 			tex_rect.anchors_preset = Control.PRESET_FULL_RECT
 			tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			btn.add_child(tex_rect)
@@ -368,25 +365,14 @@ func populate_speedbook():
 			hk_lbl.text = hotkey
 			hk_lbl.add_theme_font_size_override("font_size", 9)
 			hk_lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.4, 1.0))
-			hk_lbl.position = Vector2(2, 0)
+			hk_lbl.position = Vector2(3, 1)
 			hk_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			btn.add_child(hk_lbl)
 
-		# Mana cost label
-		if mana > 0:
-			var mana_lbl = Label.new()
-			mana_lbl.text = str(mana)
-			mana_lbl.add_theme_font_size_override("font_size", 9)
-			mana_lbl.add_theme_color_override("font_color", Color(0.4, 0.8, 1.0, 1.0))
-			mana_lbl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-			mana_lbl.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-			mana_lbl.grow_vertical = Control.GROW_DIRECTION_BEGIN
-			mana_lbl.position = Vector2(24, 28)
-			mana_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			btn.add_child(mana_lbl)
-
 		var type_str = SPELL_TYPE_NAMES.get(s_type, "Skill")
-		var tip = "%s (%s)\nMana Cost: %d" % [s_name, type_str, mana]
+		var tip = "%s (%s)" % [s_name, type_str]
+		if s_type == 1 and mana > 0:
+			tip += "\nMana Cost: %d" % mana
 		if hotkey != "":
 			tip += "\nHotkey: %s" % hotkey
 		btn.tooltip_text = tip
@@ -398,7 +384,7 @@ func populate_speedbook():
 			update_secondary_spell()
 		)
 
-		skill_grid.add_child(btn)
+		skill_list.add_child(btn)
 
 func get_sdl_key(keycode: int) -> int:
 	if keycode == KEY_ESCAPE: return 27
@@ -600,6 +586,43 @@ func update_belt_potions():
 				_: tip = "Empty Belt Slot %d\n[LMB] Place item from cursor" % (i + 1)
 		slot.tooltip_text = tip
 
+func format_item_stats(raw_stats: String) -> String:
+	if raw_stats.strip_edges() == "":
+		return ""
+	var lines = raw_stats.split("\n")
+	var result_lines: Array[String] = []
+	for l in lines:
+		var line = l.strip_edges()
+		if line.is_empty():
+			continue
+		var parts = line.split("  ")
+		for part in parts:
+			var p = part.strip_edges()
+			if p.is_empty():
+				continue
+			if " Dur: " in p:
+				var idx = p.find(" Dur: ")
+				var p1 = p.substr(0, idx).strip_edges()
+				var p2 = p.substr(idx + 1).strip_edges()
+				if not p1.is_empty(): result_lines.append(p1)
+				if not p2.is_empty(): result_lines.append(p2)
+			elif " Indestructible" in p:
+				var idx = p.find(" Indestructible")
+				var p1 = p.substr(0, idx).strip_edges()
+				var p2 = p.substr(idx + 1).strip_edges()
+				if not p1.is_empty(): result_lines.append(p1)
+				if not p2.is_empty(): result_lines.append(p2)
+			elif " Charges: " in p:
+				var idx = p.find(" Charges: ")
+				var p1 = p.substr(0, idx).strip_edges()
+				var p2 = p.substr(idx + 1).strip_edges()
+				if not p1.is_empty(): result_lines.append(p1)
+				if not p2.is_empty(): result_lines.append(p2)
+			else:
+				result_lines.append(p)
+
+	return "\n".join(result_lines)
+
 func update_item_tooltip():
 	if not diablo_bridge or not diablo_bridge.has_method("has_hover_item"):
 		if item_tooltip and item_tooltip.visible:
@@ -618,14 +641,15 @@ func update_item_tooltip():
 			item_tooltip.visible = false
 		return
 
-	var stats: String = info.get("stats", "")
+	var raw_stats: String = info.get("stats", "")
+	var stats: String = format_item_stats(raw_stats)
 	var quality: int = info.get("quality", 0)
 	var is_inv: bool = info.get("is_inventory", false)
 	var mouse_pos: Vector2i = info.get("mouse_pos", Vector2i.ZERO)
 
 	item_title_label.text = item_name
 	item_stats_label.text = stats
-	var has_stats = (stats.strip_edges() != "")
+	var has_stats = (stats != "")
 	item_stats_label.visible = has_stats
 	if item_divider:
 		item_divider.visible = has_stats

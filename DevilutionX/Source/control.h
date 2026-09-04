@@ -171,6 +171,11 @@ void CheckBtnUp();
 void FreeControlPan();
 
 /**
+ * Updates InfoString and InfoColor based on object, item, monster, or player under cursor.
+ */
+void UpdateInfoText();
+
+/**
  * Sets a string to be drawn in the info box and then draws it.
  */
 void DrawInfoBox(const Surface &out);

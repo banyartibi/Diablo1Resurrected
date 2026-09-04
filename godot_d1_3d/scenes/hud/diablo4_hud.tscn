@@ -236,6 +236,7 @@ offset_right = 15.0
 offset_bottom = 0.0
 grow_horizontal = 2
 grow_vertical = 2
+self_modulate = Color(1, 1, 1, 0.9)
 mouse_filter = 2
 texture = ExtResource("3_center_bar")
 expand_mode = 1
@@ -947,62 +948,26 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -210.0
-offset_top = -370.0
-offset_right = 210.0
-offset_bottom = -148.0
+offset_left = -220.0
+offset_top = -206.0
+offset_right = 220.0
+offset_bottom = -146.0
 grow_horizontal = 2
 grow_vertical = 0
+mouse_filter = 1
 theme_override_styles/panel = SubResource("StyleBoxFlat_skill_panel")
 
 [node name="Margin" type="MarginContainer" parent="SkillSelector"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
 
-[node name="VBox" type="VBoxContainer" parent="SkillSelector/Margin"]
+[node name="SkillList" type="HBoxContainer" parent="SkillSelector/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="Header" type="HBoxContainer" parent="SkillSelector/Margin/VBox"]
-layout_mode = 2
-
-[node name="Title" type="Label" parent="SkillSelector/Margin/VBox/Header"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.95, 0.82, 0.45, 1)
-theme_override_font_sizes/font_size = 12
-text = "Select Active Spell [RMB]"
-
-[node name="CloseBtn" type="Button" parent="SkillSelector/Margin/VBox/Header"]
-custom_minimum_size = Vector2(22, 20)
-layout_mode = 2
-focus_mode = 0
-theme_override_colors/font_color = Color(0.8, 0.75, 0.7, 1)
-theme_override_font_sizes/font_size = 10
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
-theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
-text = "✕"
-
-[node name="Divider" type="ColorRect" parent="SkillSelector/Margin/VBox"]
-custom_minimum_size = Vector2(0, 1)
-layout_mode = 2
-color = Color(0.45, 0.38, 0.25, 0.8)
-
-[node name="Scroll" type="ScrollContainer" parent="SkillSelector/Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="Grid" type="HFlowContainer" parent="SkillSelector/Margin/VBox/Scroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_constants/h_separation = 6
-theme_override_constants/v_separation = 6
+theme_override_constants/separation = 8
+alignment = 1
 
 [node name="ItemTooltip" type="PanelContainer" parent="."]
 visible = false

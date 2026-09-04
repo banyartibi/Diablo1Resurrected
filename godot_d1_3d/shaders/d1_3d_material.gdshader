@@ -244,8 +244,9 @@ void fragment() {
     // Seamless Full-Screen Playfield Zoom (for 2.5x and 3.0x ultra-close views):
     // The playfield scales smoothly and continuously around the player hero!
     // The HUD panel stays pinned 1:1 at the bottom center when vanilla HUD is visible.
+    // Suppressed when left or right panels are open (inventory, character sheet) to prevent duplicate panels!
     vec2 sample_uv = UV;
-    if (!in_ui && playfield_zoom > 1.001) {
+    if (!in_ui && playfield_zoom > 1.001 && !left_panel_open && !right_panel_open) {
         vec2 playfield_center = hide_vanilla_hud ? vec2(0.5, 0.5) : vec2(0.5, panel_base_y * 0.5 / tex_size.y);
         sample_uv = playfield_center + (UV - playfield_center) / playfield_zoom;
     }

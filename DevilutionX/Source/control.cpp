@@ -24,6 +24,7 @@
 #include "engine/render/clx_render.hpp"
 #include "engine/render/text_render.hpp"
 #include "engine/trn.hpp"
+#include "engine/render_bridge.hpp"
 #include "error.h"
 #include "gamemenu.h"
 #include "init.h"
@@ -685,7 +686,7 @@ void CalculatePanelAreas()
 	RightPanel.position.y = LeftPanel.position.y;
 
 	gnViewportHeight = gnScreenHeight;
-	if (gnScreenWidth <= MainPanel.size.width) {
+	if (gnScreenWidth <= MainPanel.size.width && !gbHideVanillaHUD) {
 		// Part of the screen is fully obscured by the UI
 		gnViewportHeight -= MainPanel.size.height;
 	}
@@ -1162,9 +1163,8 @@ void FreeControlPan()
 	FreeModifierHints();
 }
 
-void DrawInfoBox(const Surface &out)
+void UpdateInfoText()
 {
-	DrawPanelBox(out, { 177, 62, InfoBoxSize.width, InfoBoxSize.height }, GetMainPanel().position + InfoBoxTopLeft);
 	if (!panelflag && !trigflag && pcursinvitem == -1 && pcursstashitem == StashStruct::EmptyCell && !spselflag) {
 		InfoString = {};
 		InfoColor = UiFlags::ColorWhite;
@@ -1210,6 +1210,12 @@ void DrawInfoBox(const Surface &out)
 			AddPanelString(fmt::format(fmt::runtime(_("Hit Points {:d} of {:d}")), target._pHitPoints >> 6, target._pMaxHP >> 6));
 		}
 	}
+}
+
+void DrawInfoBox(const Surface &out)
+{
+	DrawPanelBox(out, { 177, 62, InfoBoxSize.width, InfoBoxSize.height }, GetMainPanel().position + InfoBoxTopLeft);
+	UpdateInfoText();
 	if (!InfoString.empty())
 		PrintInfo(out);
 }

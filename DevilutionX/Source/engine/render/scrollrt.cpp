@@ -9,6 +9,7 @@
 
 #include "DiabloUI/ui_flags.hpp"
 #include "automap.h"
+#include "control.h"
 #include "controls/plrctrls.h"
 #include "cursor.h"
 #include "dead.h"
@@ -1363,6 +1364,8 @@ void DrawView(const Surface &out, Point startPosition)
 	doom_draw(out);
 	if (!gbHideVanillaHUD || !gbRunGame) {
 		DrawInfoBox(out);
+	} else {
+		UpdateInfoText();
 	}
 	control_update_life_mana(); // Update life/mana totals before rendering any portion of the flask.
 	if (!gbHideVanillaHUD || !gbRunGame) {
