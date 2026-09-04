@@ -18,6 +18,7 @@
 #include "utils/language.h"
 #include "utils/str_cat.hpp"
 #include "utils/utf8.hpp"
+#include "engine/render_bridge.hpp"
 
 #define SPLROWICONLS 10
 
@@ -203,7 +204,7 @@ std::vector<SpellListItem> GetSpellListItems()
 	const Point mainPanelPosition = GetMainPanel().position;
 
 	int x = mainPanelPosition.x + 12 + SPLICONLENGTH * SPLROWICONLS;
-	int y = mainPanelPosition.y - 17;
+	int y = mainPanelPosition.y - (gbHideVanillaHUD ? 70 : 17);
 
 	for (auto i : enum_values<SpellType>()) {
 		Player &myPlayer = *MyPlayer;

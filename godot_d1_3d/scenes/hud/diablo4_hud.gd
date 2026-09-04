@@ -11,25 +11,30 @@ extends CanvasLayer
 @onready var mana_label: Label = $Root/HBox/ManaContainer/ManaLabel
 @onready var mana_tooltip: Control = $Root/HBox/ManaContainer/ManaTooltipArea
 
+const TEX_HEAL = preload("res://assets/hud/potion_heal.png")
+const TEX_MANA = preload("res://assets/hud/potion_mana.png")
+const TEX_REJUV = preload("res://assets/hud/potion_rejuv.png")
+const TEX_SCROLL = preload("res://assets/hud/scroll.png")
+
 # Action Bar
-@onready var action_bar: Control = $Root/HBox/CenterPanel/ActionBar
+@onready var action_bar: Control = $Root/HBox/CenterPanel/VBox/ActionBar
 @onready var potion_slots: Array[Control] = [
-	$Root/HBox/CenterPanel/ActionBar/Potion1,
-	$Root/HBox/CenterPanel/ActionBar/Potion2,
-	$Root/HBox/CenterPanel/ActionBar/Potion3,
-	$Root/HBox/CenterPanel/ActionBar/Potion4,
-	$Root/HBox/CenterPanel/ActionBar/Potion5,
-	$Root/HBox/CenterPanel/ActionBar/Potion6,
-	$Root/HBox/CenterPanel/ActionBar/Potion7,
-	$Root/HBox/CenterPanel/ActionBar/Potion8
+	$Root/HBox/CenterPanel/VBox/ActionBar/Potion1,
+	$Root/HBox/CenterPanel/VBox/ActionBar/Potion2,
+	$Root/HBox/CenterPanel/VBox/ActionBar/Potion3,
+	$Root/HBox/CenterPanel/VBox/ActionBar/Potion4,
+	$Root/HBox/CenterPanel/VBox/ActionBar/Potion5,
+	$Root/HBox/CenterPanel/VBox/ActionBar/Potion6,
+	$Root/HBox/CenterPanel/VBox/ActionBar/Potion7,
+	$Root/HBox/CenterPanel/VBox/ActionBar/Potion8
 ]
-@onready var secondary_slot: Control = $Root/HBox/CenterPanel/ActionBar/SecondarySlot
-@onready var secondary_icon: TextureRect = $Root/HBox/CenterPanel/ActionBar/SecondarySlot/Icon
+@onready var secondary_slot: Control = $Root/HBox/CenterPanel/VBox/ActionBar/SecondarySlot
+@onready var secondary_icon: TextureRect = $Root/HBox/CenterPanel/VBox/ActionBar/SecondarySlot/Icon
 
 # XP & Level
-@onready var xp_bar: ProgressBar = $Root/HBox/CenterPanel/XPContainer/XPBar
-@onready var level_label: Label = $Root/HBox/CenterPanel/XPContainer/LevelLabel
-@onready var gold_label: Label = $Root/HBox/CenterPanel/XPContainer/GoldLabel
+@onready var xp_bar: ProgressBar = $Root/HBox/CenterPanel/VBox/XPContainer/XPBar
+@onready var level_label: Label = $Root/HBox/CenterPanel/VBox/XPContainer/LevelLabel
+@onready var gold_label: Label = $Root/HBox/CenterPanel/VBox/XPContainer/GoldLabel
 
 var diablo_bridge = null
 var current_spell_id: int = -1
@@ -146,11 +151,11 @@ func setup_button_events():
 		)
 
 	# Quick utility buttons
-	var btn_char = $Root/HBox/CenterPanel/UtilityButtons/BtnChar
-	var btn_inv = $Root/HBox/CenterPanel/UtilityButtons/BtnInv
-	var btn_quest = $Root/HBox/CenterPanel/UtilityButtons/BtnQuest
-	var btn_map = $Root/HBox/CenterPanel/UtilityButtons/BtnMap
-	var btn_menu = $Root/HBox/CenterPanel/UtilityButtons/BtnMenu
+	var btn_char = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnChar
+	var btn_inv = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnInv
+	var btn_quest = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnQuest
+	var btn_map = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnMap
+	var btn_menu = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnMenu
 
 	if btn_char:
 		btn_char.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -280,27 +285,24 @@ func update_secondary_spell():
 		current_spell_id = spell_id
 		current_spell_type = spell_type
 
+		if spell_id <= 0:
+			if secondary_icon:
+				secondary_icon.texture = null
+				secondary_icon.visible = false
+			if secondary_slot:
+				secondary_slot.tooltip_text = "Select Skill / Spell [S]\nClick or press 'S' to open Speedbook."
+			return
+
 		var tex = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
 		if secondary_icon:
 			secondary_icon.texture = tex
-
-		if spell_id <= 0:
-			if secondary_slot_mat:
-				secondary_slot_mat.set_shader_parameter("is_active", false)
-			if secondary_slot:
-				secondary_slot.tooltip_text = "Select Skill / Spell\nClick or press 'S' to open spellbook."
-			return
+			secondary_icon.visible = (tex != null)
 
 		var spell_name = SPELL_NAMES.get(spell_id, "Spell #%d" % spell_id)
 		var type_name = SPELL_TYPE_NAMES.get(spell_type, "Skill")
-		var glow_col = SPELL_TYPE_COLORS.get(spell_type, Color(0.8, 0.8, 0.8, 1.0))
-
-		if secondary_slot_mat:
-			secondary_slot_mat.set_shader_parameter("glow_color", glow_col)
-			secondary_slot_mat.set_shader_parameter("is_active", true)
 
 		if secondary_slot:
-			secondary_slot.tooltip_text = "%s (%s)\nClick or press 'S' to change active spell." % [spell_name, type_name]
+			secondary_slot.tooltip_text = "%s (%s) [RMB]\nClick or press 'S' to change active spell." % [spell_name, type_name]
 
 func update_belt_potions():
 	var belt = diablo_bridge.get_belt_items()
@@ -310,16 +312,33 @@ func update_belt_potions():
 		var type = item.get("type", 0)
 		var count = item.get("count", 0)
 
-		var icon = slot.get_node_or_null("PotionIcon") as ColorRect
+		var icon = slot.get_node_or_null("ItemIcon") as TextureRect
 		var count_lbl = slot.get_node_or_null("CountLabel") as Label
 
-		if icon and icon.material is ShaderMaterial:
-			var mat = icon.material as ShaderMaterial
-			mat.set_shader_parameter("potion_type", type)
+		if icon:
+			match type:
+				1, 2:
+					icon.texture = TEX_HEAL
+					icon.visible = true
+				3, 4:
+					icon.texture = TEX_MANA
+					icon.visible = true
+				5, 6:
+					icon.texture = TEX_REJUV
+					icon.visible = true
+				8:
+					icon.texture = TEX_SCROLL
+					icon.visible = true
+				7:
+					icon.texture = TEX_REJUV
+					icon.visible = true
+				_:
+					icon.texture = null
+					icon.visible = false
 
 		if count_lbl:
 			if count > 1:
-				count_lbl.text = str(count)
+				count_lbl.text = "x%d" % count
 				count_lbl.visible = true
 			else:
 				count_lbl.text = ""
@@ -327,13 +346,14 @@ func update_belt_potions():
 
 		var tip = ""
 		match type:
-			1: tip = "Potion of Healing (Belt %d)\nRestores health." % (i + 1)
-			2: tip = "Potion of Full Healing (Belt %d)\nCompletely restores health." % (i + 1)
-			3: tip = "Potion of Mana (Belt %d)\nRestores mana." % (i + 1)
-			4: tip = "Potion of Full Mana (Belt %d)\nCompletely restores mana." % (i + 1)
-			5: tip = "Potion of Rejuvenation (Belt %d)\nRestores both health and mana." % (i + 1)
-			6: tip = "Potion of Full Rejuvenation (Belt %d)\nCompletely restores health and mana." % (i + 1)
-			7: tip = "Elixir (Belt %d)" % (i + 1)
+			1: tip = "Potion of Healing (Belt %d) [Key %d]\nRestores health." % [i + 1, i + 1]
+			2: tip = "Potion of Full Healing (Belt %d) [Key %d]\nCompletely restores health." % [i + 1, i + 1]
+			3: tip = "Potion of Mana (Belt %d) [Key %d]\nRestores mana." % [i + 1, i + 1]
+			4: tip = "Potion of Full Mana (Belt %d) [Key %d]\nCompletely restores mana." % [i + 1, i + 1]
+			5: tip = "Potion of Rejuvenation (Belt %d) [Key %d]\nRestores health & mana." % [i + 1, i + 1]
+			6: tip = "Potion of Full Rejuvenation (Belt %d) [Key %d]\nCompletely restores health & mana." % [i + 1, i + 1]
+			7: tip = "Elixir (Belt %d) [Key %d]" % [i + 1, i + 1]
+			8: tip = "Scroll (Belt %d) [Key %d]\nClick or press '%d' to cast." % [i + 1, i + 1, i + 1]
 			_: tip = "Empty Belt Slot %d" % (i + 1)
 		slot.tooltip_text = tip
 

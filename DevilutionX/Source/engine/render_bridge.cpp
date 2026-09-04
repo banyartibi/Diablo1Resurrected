@@ -124,6 +124,7 @@ void ExportGodotFrame(const SDL_Surface *surface)
 					else if (item._iMiscId == IMISC_FULLMANA) type = 4;
 					else if (item._iMiscId == IMISC_REJUV) type = 5;
 					else if (item._iMiscId == IMISC_FULLREJUV) type = 6;
+					else if (item.isScroll()) type = 8;
 					g_D1EngineData.beltTypes[i] = type;
 					g_D1EngineData.beltCounts[i] = 1;
 				} else {

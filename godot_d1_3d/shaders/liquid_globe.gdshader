@@ -154,19 +154,17 @@ void fragment() {
     float result_alpha = mix(empty_glass_alpha, 0.98, fluid_alpha);
 
     // Glass specular highlights:
-    // 1. Curved crescent highlight on top-left (authentic Diablo IV / D2R polished glass reflection)
-    vec2 spec_pos1 = vec2(-0.36, -0.38);
-    float spec_dist1 = length(p - spec_pos1);
-    float spec_crescent = smoothstep(0.32, 0.24, spec_dist1) * smoothstep(0.08, 0.16, spec_dist1);
-    float spec1 = spec_crescent * 0.75;
+    // Authentic curved spherical glint on top-left (arc reflection)
+    float arc_dist = abs(dist - 0.70);
+    float arc_angle = atan(-p.y, -p.x); // top-left quadrant is near PI/4
+    float angle_diff = abs(arc_angle - 0.785);
+    float arc_spec = exp(-arc_dist * 16.0) * exp(-angle_diff * angle_diff * 4.5) * 0.85;
 
-    // 2. Crisp pinpoint highlight
-    float spec_pin = smoothstep(0.08, 0.02, length(p - vec2(-0.28, -0.32))) * 0.95;
+    // Subtle soft secondary highlight
+    float pin_spec = exp(-length(p - vec2(-0.40, -0.40)) * 10.0) * 0.45;
+    float spec_bottom = smoothstep(0.35, 0.0, length(p - vec2(0.40, 0.40))) * 0.15;
 
-    // 3. Subtle bottom-right counter-reflection
-    float spec_bottom = smoothstep(0.30, 0.0, length(p - vec2(0.42, 0.42))) * 0.22;
-
-    float total_spec = (spec1 + spec_pin + spec_bottom) * specular_intensity;
+    float total_spec = (arc_spec + pin_spec + spec_bottom) * specular_intensity;
     result_color += vec3(total_spec);
 
     // Fresnel rim sheen (glass boundary)
