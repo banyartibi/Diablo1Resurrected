@@ -115,15 +115,18 @@ func play_music(raw_path: String) -> void:
 	if clean_path.is_empty():
 		return
 		
-	if clean_path == current_music_path and active_music_player and active_music_player.playing and active_music_player.volume_db > -20.0:
+	# If already playing this track, ensure volume is up and don't re-trigger crossfade
+	if clean_path == current_music_path and active_music_player and active_music_player.playing:
+		if not music_tween or not music_tween.is_valid():
+			active_music_player.volume_db = music_volume_db
+		return
+		
+	var stream = get_or_load_stream(clean_path, true)
+	if not stream:
+		print("[Godot-D1 Audio] Warning: could not load music stream (MPQ not ready or missing): ", clean_path)
 		return
 		
 	current_music_path = clean_path
-	var stream = get_or_load_stream(clean_path, true)
-	if not stream:
-		print("[Godot-D1 Audio] Warning: could not load music stream: ", clean_path)
-		return
-		
 	var incoming_player = music_player_b if active_music_player == music_player_a else music_player_a
 	var outgoing_player = active_music_player
 	

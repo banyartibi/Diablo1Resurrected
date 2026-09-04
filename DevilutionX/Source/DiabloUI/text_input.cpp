@@ -15,6 +15,7 @@
 #include "utils/sdl_ptrs.h"
 #include "utils/stdcompat/string_view.hpp"
 #include "utils/str_cat.hpp"
+#include "engine/render_bridge.hpp"
 
 namespace devilution {
 
@@ -98,6 +99,14 @@ bool HandleInputEvent(const SDL_Event &event, TextInputState &state,
 			return true;
 		}
 #else
+		if (gbGodotBridgeActive) {
+			if (!isCtrl && !isAlt && event.key.keysym.sym >= SDLK_SPACE && event.key.keysym.sym <= 126) {
+				char ch = static_cast<char>(event.key.keysym.sym);
+				std::string utf8(1, ch);
+				typeFn(utf8);
+				return true;
+			}
+		}
 		// Mark events that will also trigger SDL_TEXTINPUT as handled.
 		return !isCtrl && !isAlt
 		    && event.key.keysym.sym >= SDLK_SPACE && event.key.keysym.sym <= SDLK_z;

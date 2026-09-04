@@ -165,24 +165,12 @@ void PollGodotBridgeInput()
 			} else if (msg.type == 3) { // Key
 				ev.type = (msg.state != 0) ? SDL_KEYDOWN : SDL_KEYUP;
 				ev.key.state = (msg.state != 0) ? SDL_PRESSED : SDL_RELEASED;
-				ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.code);
-				SDL_PushEvent(&ev);
-
-				if (msg.state != 0) {
-					char charToType = 0;
-					if (msg.x >= 32 && msg.x < 127) {
-						charToType = static_cast<char>(msg.x);
-					} else if (msg.code >= 32 && msg.code < 127) {
-						charToType = static_cast<char>(msg.code);
-					}
-					if (charToType != 0) {
-						SDL_Event tev {};
-						tev.type = SDL_TEXTINPUT;
-						tev.text.text[0] = charToType;
-						tev.text.text[1] = '\0';
-						SDL_PushEvent(&tev);
-					}
+				if (msg.state != 0 && msg.x >= 32 && msg.x < 127) {
+					ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.x);
+				} else {
+					ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.code);
 				}
+				SDL_PushEvent(&ev);
 			} else if (msg.type == 4) { // Zoom In
 				ZoomInMode();
 			} else if (msg.type == 5) { // Zoom Out
@@ -216,24 +204,12 @@ void PollGodotBridgeInput()
 				} else if (msg.type == 3) { // Key
 					ev.type = (msg.state != 0) ? SDL_KEYDOWN : SDL_KEYUP;
 					ev.key.state = (msg.state != 0) ? SDL_PRESSED : SDL_RELEASED;
-					ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.code);
-					SDL_PushEvent(&ev);
-
-					if (msg.state != 0) {
-						char charToType = 0;
-						if (msg.x >= 32 && msg.x < 127) {
-							charToType = static_cast<char>(msg.x);
-						} else if (msg.code >= 32 && msg.code < 127) {
-							charToType = static_cast<char>(msg.code);
-						}
-						if (charToType != 0) {
-							SDL_Event tev {};
-							tev.type = SDL_TEXTINPUT;
-							tev.text.text[0] = charToType;
-							tev.text.text[1] = '\0';
-							SDL_PushEvent(&tev);
-						}
+					if (msg.state != 0 && msg.x >= 32 && msg.x < 127) {
+						ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.x);
+					} else {
+						ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.code);
 					}
+					SDL_PushEvent(&ev);
 				} else if (msg.type == 4) { // Zoom In
 					ZoomInMode();
 				} else if (msg.type == 5) { // Zoom Out
