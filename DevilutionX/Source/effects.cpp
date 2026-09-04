@@ -1014,7 +1014,12 @@ void PlaySfxPriv(TSFX *pSFX, bool loc, Point position)
 		if (loc) {
 			CalculateSoundPosition(position, &lVolume, &lPan);
 		}
-		PushDevilutionXAudioEvent(D1AudioEvent::SFX_PLAY, pSFX->pszName, lVolume, lPan, position.x, position.y, loc);
+		if ((pSFX->bFlags & sfx_STREAM) != 0) {
+			stream_stop();
+			PushDevilutionXAudioEvent(D1AudioEvent::STREAM_PLAY, pSFX->pszName, lVolume, lPan, position.x, position.y, loc);
+		} else {
+			PushDevilutionXAudioEvent(D1AudioEvent::SFX_PLAY, pSFX->pszName, lVolume, lPan, position.x, position.y, loc);
+		}
 		return;
 	}
 
@@ -1114,6 +1119,9 @@ bool effect_is_playing(int nSFX)
 
 void stream_stop()
 {
+	if (gbGodotBridgeActive) {
+		PushDevilutionXAudioEvent(D1AudioEvent::STREAM_STOP, "");
+	}
 	if (sgpStreamSFX != nullptr) {
 		sgpStreamSFX->pSnd = nullptr;
 		sgpStreamSFX = nullptr;
@@ -1144,6 +1152,7 @@ void PlaySfxLoc(_sfx_id psfx, Point position, bool randomizeByCategory)
 
 void sound_stop()
 {
+	stream_stop();
 	if (!gbSndInited)
 		return;
 	ClearDuplicateSounds();

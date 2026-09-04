@@ -24,7 +24,6 @@ var current_relief_mode: int = 3        # Default: 3 = Deep 3D Embossed Contour 
 var current_hdr_level: int = 3          # Default: 3 = 3.0x Blazing HDR Glow (0: OFF, 1: 1.0x, 2: 2.0x, 3: 3.0x)
 var hero_light_enabled: bool = false    # Default: OFF (Respects authentic Diablo shadows, no bleeding through walls!)
 var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections, Darker Damp Stone + Glossy Puddles)
-var playfield_zoom: float = 1.0
 var left_panel_open: bool = false
 var right_panel_open: bool = false
 var diablo_bridge = null
@@ -33,10 +32,8 @@ var use_gdextension: bool = false
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
 	"1.0x (Normál / Széles Látószög)",
-	"1.5x (Köztes / Arany Középút)",
-	"2.0x (Közeli / Zoomed)",
-	"2.5x (Ultra Közeli / Ultra Close)",
-	"3.0x (Epikus Makró / Macro Close)"
+	"1.5x (Köztes / Kiegyensúlyozott)",
+	"2.0x (Közeli / Zoomed)"
 ]
 
 var hdr_multipliers = [0.0, 1.0, 2.0, 3.0]
@@ -181,31 +178,24 @@ func apply_zoom_step(old_step: int, new_step: int):
 		
 	if new_step == 0:
 		# 1.0x Normal
-		playfield_zoom = 1.0
-		if old_step > 0:
+		if old_step == 1:
 			send_input_to_d1(5, 0, 0, 0, 0) # D1 ZoomOutMode (1.5x -> 1.0x)
+		elif old_step == 2:
+			send_input_to_d1(5, 0, 0, 0, 0)
+			send_input_to_d1(5, 0, 0, 0, 0) # 2.0x -> 1.5x -> 1.0x
 	elif new_step == 1:
 		# 1.5x Balanced
-		playfield_zoom = 1.0
 		if old_step == 0:
 			send_input_to_d1(4, 0, 0, 0, 0) # D1 ZoomInMode (1.0x -> 1.5x)
-		elif old_step >= 2:
+		elif old_step == 2:
 			send_input_to_d1(5, 0, 0, 0, 0) # D1 ZoomOutMode (2.0x -> 1.5x)
 	elif new_step == 2:
-		# 2.0x Zoomed Close
-		playfield_zoom = 1.0
-		if old_step <= 1:
+		# 2.0x Zoomed
+		if old_step == 1:
 			send_input_to_d1(4, 0, 0, 0, 0) # D1 ZoomInMode (1.5x -> 2.0x)
-	elif new_step == 3:
-		# 2.5x Ultra Close (D1 2.0x + 1.25x playfield zoom, HUD remains 100% visible!)
-		if old_step <= 1:
+		elif old_step == 0:
 			send_input_to_d1(4, 0, 0, 0, 0)
-		playfield_zoom = 1.25
-	elif new_step == 4:
-		# 3.0x Epic Macro (D1 2.0x + 1.50x playfield zoom, HUD remains 100% visible!)
-		if old_step <= 1:
-			send_input_to_d1(4, 0, 0, 0, 0)
-		playfield_zoom = 1.50
+			send_input_to_d1(4, 0, 0, 0, 0) # 1.0x -> 1.5x -> 2.0x
 		
 	update_shader_params()
 	show_osd("[Zoom] " + zoom_step_names[new_step], 1.2)
@@ -242,7 +232,6 @@ func update_shader_params():
 		shader_material.set_shader_parameter("relief_mode", current_relief_mode)
 		shader_material.set_shader_parameter("hdr_glow_mult", hdr_multipliers[current_hdr_level])
 		shader_material.set_shader_parameter("wet_floor", wet_floor)
-		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 		shader_material.set_shader_parameter("left_panel_open", left_panel_open)
 		shader_material.set_shader_parameter("right_panel_open", right_panel_open)
 
@@ -387,20 +376,8 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var norm_x = screen_pos.x / vp_size.x
 	var norm_y = screen_pos.y / vp_size.y
 	
-	var hud_boundary = 0.898
-	var mapped_x = norm_x
-	var mapped_y = norm_y
-	
-	if playfield_zoom > 1.001 and norm_y < hud_boundary:
-		var norm_play_y = norm_y / hud_boundary
-		var center_x = 0.5
-		var center_y = 0.5
-		mapped_x = center_x + (norm_x - center_x) / playfield_zoom
-		var scaled_play_y = center_y + (norm_play_y - center_y) / playfield_zoom
-		mapped_y = scaled_play_y * hud_boundary
-		
-	var game_x = int(clamp(mapped_x * float(d1_width), 0.0, float(d1_width - 1)))
-	var game_y = int(clamp(mapped_y * float(d1_height), 0.0, float(d1_height - 1)))
+	var game_x = int(clamp(norm_x * float(d1_width), 0.0, float(d1_width - 1)))
+	var game_y = int(clamp(norm_y * float(d1_height), 0.0, float(d1_height - 1)))
 	return Vector2i(game_x, game_y)
 
 func _input(event: InputEvent):
@@ -463,9 +440,9 @@ func _input(event: InputEvent):
 		var mpos = get_game_mouse_pos(event.position, vp_size)
 		send_input_to_d1(1, 0, 0, mpos.x, mpos.y)
 	elif event is InputEventMouseButton:
-		# 5-Step Bidirectional in-game Zoom (1.0x, 1.5x, 2.0x, 2.5x, 3.0x)
+		# 3-Step Native DevilutionX In-Game Zoom (1.0x Normal, 1.5x Balanced, 2.0x Zoomed)
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			if current_zoom_step < 4:
+			if current_zoom_step < zoom_step_names.size() - 1:
 				var old_s = current_zoom_step
 				current_zoom_step += 1
 				apply_zoom_step(old_s, current_zoom_step)

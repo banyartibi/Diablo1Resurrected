@@ -23,12 +23,16 @@ var pool_size_2d: int = 16
 var pool_size_3d: int = 24
 var sfx_volume_db: float = 0.0
 
+# Speech / Dialogue Player
+var speech_player: AudioStreamPlayer = null
+
 func init(p_bridge: Node, p_parent_3d: Node3D) -> void:
 	diablo_bridge = p_bridge
 	parent_3d = p_parent_3d
 	
 	setup_audio_buses()
 	setup_music_players()
+	setup_speech_player()
 	setup_sfx_pools()
 	print("[Godot-D1 Audio] Native Godot 4.7 Audio Engine initialized with 3D Spatial SFX and Crossfade Music!")
 
@@ -66,6 +70,12 @@ func setup_music_players() -> void:
 	add_child(music_player_b)
 	
 	active_music_player = music_player_a
+
+func setup_speech_player() -> void:
+	speech_player = AudioStreamPlayer.new()
+	speech_player.name = "D1_SpeechPlayer"
+	speech_player.bus = "SFX"
+	add_child(speech_player)
 
 func setup_sfx_pools() -> void:
 	# 2D SFX Pool (UI, menus, speech, level-up, inventory)
@@ -109,6 +119,11 @@ func process_audio_events(events: Array, player_tile: Vector2i) -> void:
 			var tile_y = ev.get("tile_y", 0)
 			var vol = ev.get("volume", 0)
 			play_sfx(path, tile_x, tile_y, has_pos, player_tile, vol)
+		elif type == 4: # STREAM_PLAY (Speech/Dialogue)
+			var vol = ev.get("volume", 0)
+			play_speech(path, vol)
+		elif type == 5: # STREAM_STOP (Stop Speech/Dialogue)
+			stop_speech()
 
 func play_music(raw_path: String) -> void:
 	var clean_path = raw_path.replace("\\", "/").strip_edges()
@@ -162,6 +177,24 @@ func stop_music() -> void:
 	if is_b_playing:
 		music_tween.tween_property(music_player_b, "volume_db", -80.0, 0.6).set_trans(Tween.TRANS_SINE)
 		music_tween.chain().tween_callback(music_player_b.stop)
+
+func play_speech(raw_path: String, vol_offset: int = 0) -> void:
+	stop_speech()
+	var clean_path = raw_path.replace("\\", "/").strip_edges()
+	if clean_path.is_empty():
+		return
+	var stream = get_or_load_stream(clean_path, false)
+	if not stream:
+		return
+	if speech_player:
+		speech_player.volume_db = sfx_volume_db + clamp(float(vol_offset) / 100.0, -20.0, 6.0)
+		speech_player.stream = stream
+		speech_player.play()
+
+func stop_speech() -> void:
+	if speech_player and speech_player.playing:
+		speech_player.stop()
+		speech_player.stream = null
 
 func play_sfx(raw_path: String, tile_x: int, tile_y: int, has_pos: bool, player_tile: Vector2i, vol_offset: int = 0) -> void:
 	var clean_path = raw_path.replace("\\", "/").strip_edges()

@@ -7,7 +7,6 @@ uniform int color_profile : hint_range(0, 4) = 1;   // 0: Vanilla, 1: Dark Gothi
 uniform int upscaler_mode : hint_range(0, 4) = 3;   // 0: AMD CAS, 1: Anime4K Edge, 2: Anime4K Thin, 3: 8K Spline (Default), 4: Native
 uniform int relief_mode : hint_range(0, 4) = 3;     // 0: Off, 1: Subtle, 2: Balanced, 3: Deep 3D (Default), 4: Extreme
 uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.95;
-uniform float playfield_zoom : hint_range(1.0, 2.5) = 1.0; // Zooms playfield ONLY, HUD stays pinned!
 uniform float hdr_glow_mult : hint_range(0.0, 4.0) = 3.0;  // 0.0: OFF, 1.0, 2.0, 3.0 (Default)
 uniform bool wet_floor = true;                             // Wet cobblestone PBR reflections & specular gloss
 uniform bool left_panel_open = false;                      // Character sheet / Quest window open
@@ -199,26 +198,25 @@ vec3 apply_color_grading(vec3 c, int profile) {
 }
 
 void fragment() {
-    vec2 texel_size = vec2(1.0) / vec2(textureSize(d1_texture, 0));
+    vec2 tex_size = vec2(textureSize(d1_texture, 0));
+    vec2 texel_size = vec2(1.0) / tex_size;
 
-    // Compute sample UV: Playfield zooms, but HUD stays 100% fixed at the bottom!
     vec2 sample_uv = UV;
-    float hud_boundary = 0.898; // HUD is the bottom ~10% (144 / 1440 = 0.10)
-
-    if (playfield_zoom > 1.001 && UV.y < hud_boundary) {
-        vec2 playfield_center = vec2(0.5, hud_boundary * 0.5);
-        vec2 zoomed_uv = playfield_center + (UV - playfield_center) / playfield_zoom;
-        if (zoomed_uv.y < hud_boundary && zoomed_uv.x >= 0.0 && zoomed_uv.x <= 1.0 && zoomed_uv.y >= 0.0) {
-            sample_uv = zoomed_uv;
-        }
-    }
-
     vec3 raw_pixel = texture(d1_texture, sample_uv).bgr;
 
-    // Check if UV falls inside an active UI panel (Character Sheet, Inventory, Quest Log, Spellbook)
-    bool in_left_panel = left_panel_open && (sample_uv.x <= 0.40 && sample_uv.y >= 0.06 && sample_uv.y < hud_boundary);
-    bool in_right_panel = right_panel_open && (sample_uv.x >= 0.60 && sample_uv.y >= 0.06 && sample_uv.y < hud_boundary);
-    bool in_ui = (sample_uv.y >= hud_boundary) || in_left_panel || in_right_panel;
+    // Check UI regions with pixel-perfect resolution independence:
+    // 1. Bottom Main Control Panel: 640x144 pixels centered at the bottom
+    float main_panel_x = (tex_size.x - 640.0) * 0.5;
+    float main_panel_y = tex_size.y - 144.0;
+    vec2 pixel_pos = sample_uv * tex_size;
+
+    bool in_main_panel = (pixel_pos.x >= main_panel_x && pixel_pos.x <= (main_panel_x + 640.0) && pixel_pos.y >= main_panel_y);
+    // 2. Left UI Panel (Character Sheet / Quest Log)
+    bool in_left_panel = left_panel_open && (pixel_pos.x <= 320.0 && pixel_pos.y < main_panel_y);
+    // 3. Right UI Panel (Inventory / Spellbook)
+    bool in_right_panel = right_panel_open && (pixel_pos.x >= (tex_size.x - 320.0) && pixel_pos.y < main_panel_y);
+    // Combined UI mask: ONLY true UI panels are protected; playfield cobblestones beside the HUD receive full shaders!
+    bool in_ui = in_main_panel || in_left_panel || in_right_panel;
 
     // Apply selected Upscaler
     vec3 base_color;

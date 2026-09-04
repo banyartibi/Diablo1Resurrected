@@ -97,6 +97,8 @@ struct D1AudioEvent {
 		MUSIC_PLAY = 1,
 		MUSIC_STOP = 2,
 		SFX_PLAY = 3,
+		STREAM_PLAY = 4,
+		STREAM_STOP = 5,
 	} type;
 	char path[128];
 	int32_t volume;
