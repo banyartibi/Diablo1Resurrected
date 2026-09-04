@@ -200,11 +200,8 @@ void PollGodotBridgeInput()
 			} else if (msg.type == 3) { // Key
 				ev.type = (msg.state != 0) ? SDL_KEYDOWN : SDL_KEYUP;
 				ev.key.state = (msg.state != 0) ? SDL_PRESSED : SDL_RELEASED;
-				if (msg.state != 0 && msg.x >= 32 && msg.x < 127) {
-					ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.x);
-				} else {
-					ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.code);
-				}
+				SDL_Keycode sym = static_cast<SDL_Keycode>(msg.code != 0 ? msg.code : msg.x);
+				ev.key.keysym.sym = sym;
 				SDL_PushEvent(&ev);
 			} else if (msg.type == 4) { // Zoom In
 				ZoomInMode();
@@ -423,7 +420,7 @@ std::vector<uint8_t> LoadDevilutionXAsset(const char *path)
 std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 {
 	std::vector<uint8_t> rgba(56 * 56 * 4, 0);
-	if (!gbRunGame || spellId <= 0 || spellId > static_cast<int>(SpellID::LAST))
+	if (!gbRunGame || spellId < 0 || spellId > static_cast<int>(SpellID::LAST))
 		return rgba;
 
 	if (!HasLargeSpellIcons()) {
@@ -434,7 +431,12 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 
 	OwnedSurface surface(56, 56);
 	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
-	SetSpellTrans(static_cast<SpellType>(spellType));
+
+	SpellType st = static_cast<SpellType>(spellType);
+	if (st == SpellType::Invalid || static_cast<int>(st) < 0 || static_cast<int>(st) > 3) {
+		st = SpellType::Spell;
+	}
+	SetSpellTrans(st);
 	DrawLargeSpellIcon(surface, { 0, 55 }, static_cast<SpellID>(spellId));
 
 	for (int y = 0; y < 56; ++y) {

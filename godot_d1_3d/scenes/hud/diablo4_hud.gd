@@ -17,9 +17,12 @@ extends CanvasLayer
 	$Root/HBox/CenterPanel/ActionBar/Potion1,
 	$Root/HBox/CenterPanel/ActionBar/Potion2,
 	$Root/HBox/CenterPanel/ActionBar/Potion3,
-	$Root/HBox/CenterPanel/ActionBar/Potion4
+	$Root/HBox/CenterPanel/ActionBar/Potion4,
+	$Root/HBox/CenterPanel/ActionBar/Potion5,
+	$Root/HBox/CenterPanel/ActionBar/Potion6,
+	$Root/HBox/CenterPanel/ActionBar/Potion7,
+	$Root/HBox/CenterPanel/ActionBar/Potion8
 ]
-@onready var primary_slot: Control = $Root/HBox/CenterPanel/ActionBar/PrimarySlot
 @onready var secondary_slot: Control = $Root/HBox/CenterPanel/ActionBar/SecondarySlot
 @onready var secondary_icon: TextureRect = $Root/HBox/CenterPanel/ActionBar/SecondarySlot/Icon
 
@@ -124,10 +127,11 @@ func set_bridge(bridge):
 	diablo_bridge = bridge
 
 func setup_button_events():
-	# Potion 1-4 clicks
+	# Potion 1-8 clicks
 	for i in range(potion_slots.size()):
 		var slot = potion_slots[i]
 		var idx = i + 1
+		slot.mouse_filter = Control.MOUSE_FILTER_STOP
 		slot.gui_input.connect(func(event: InputEvent):
 			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 				use_belt_slot(idx)
@@ -135,6 +139,7 @@ func setup_button_events():
 
 	# RMB secondary slot click (opens spell list/speedbook)
 	if secondary_slot:
+		secondary_slot.mouse_filter = Control.MOUSE_FILTER_STOP
 		secondary_slot.gui_input.connect(func(event: InputEvent):
 			if event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT):
 				toggle_speedbook()
@@ -147,11 +152,21 @@ func setup_button_events():
 	var btn_map = $Root/HBox/CenterPanel/UtilityButtons/BtnMap
 	var btn_menu = $Root/HBox/CenterPanel/UtilityButtons/BtnMenu
 
-	if btn_char: btn_char.pressed.connect(func(): send_key(KEY_C))
-	if btn_inv: btn_inv.pressed.connect(func(): send_key(KEY_I))
-	if btn_quest: btn_quest.pressed.connect(func(): send_key(KEY_Q))
-	if btn_map: btn_map.pressed.connect(func(): send_key(KEY_TAB))
-	if btn_menu: btn_menu.pressed.connect(func(): send_key(KEY_ESCAPE))
+	if btn_char:
+		btn_char.mouse_filter = Control.MOUSE_FILTER_STOP
+		btn_char.pressed.connect(func(): send_key(KEY_C))
+	if btn_inv:
+		btn_inv.mouse_filter = Control.MOUSE_FILTER_STOP
+		btn_inv.pressed.connect(func(): send_key(KEY_I))
+	if btn_quest:
+		btn_quest.mouse_filter = Control.MOUSE_FILTER_STOP
+		btn_quest.pressed.connect(func(): send_key(KEY_Q))
+	if btn_map:
+		btn_map.mouse_filter = Control.MOUSE_FILTER_STOP
+		btn_map.pressed.connect(func(): send_key(KEY_TAB))
+	if btn_menu:
+		btn_menu.mouse_filter = Control.MOUSE_FILTER_STOP
+		btn_menu.pressed.connect(func(): send_key(KEY_ESCAPE))
 
 func use_belt_slot(slot_idx: int):
 	if not diablo_bridge:
@@ -164,12 +179,31 @@ func toggle_speedbook():
 		return
 	send_key(KEY_S)
 
+func get_sdl_key(keycode: int) -> int:
+	if keycode == KEY_ESCAPE: return 27
+	if keycode == KEY_ENTER: return 13
+	if keycode == KEY_SPACE: return 32
+	if keycode == KEY_TAB: return 9
+	if keycode == KEY_BACKSPACE: return 8
+	if keycode >= KEY_0 and keycode <= KEY_9: return keycode
+	if keycode >= KEY_A and keycode <= KEY_Z: return keycode + 32
+	return keycode
+
 func send_key(keycode: int):
-	if diablo_bridge and diablo_bridge.has_method("send_key_event"):
-		diablo_bridge.send_key_event(keycode, true)
-		get_tree().create_timer(0.05).timeout.connect(func():
+	if not diablo_bridge:
+		return
+	var sdl_key = get_sdl_key(keycode)
+	if diablo_bridge.has_method("send_key_event"):
+		diablo_bridge.send_key_event(sdl_key, true)
+		get_tree().create_timer(0.06).timeout.connect(func():
 			if diablo_bridge and diablo_bridge.has_method("send_key_event"):
-				diablo_bridge.send_key_event(keycode, false)
+				diablo_bridge.send_key_event(sdl_key, false)
+		)
+	elif diablo_bridge.has_method("send_input"):
+		diablo_bridge.send_input(3, sdl_key, 1, sdl_key, 0)
+		get_tree().create_timer(0.06).timeout.connect(func():
+			if diablo_bridge and diablo_bridge.has_method("send_input"):
+				diablo_bridge.send_input(3, sdl_key, 0, sdl_key, 0)
 		)
 
 func _process(delta: float):
@@ -246,18 +280,16 @@ func update_secondary_spell():
 		current_spell_id = spell_id
 		current_spell_type = spell_type
 
+		var tex = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
+		if secondary_icon:
+			secondary_icon.texture = tex
+
 		if spell_id <= 0:
-			if secondary_icon:
-				secondary_icon.texture = null
 			if secondary_slot_mat:
 				secondary_slot_mat.set_shader_parameter("is_active", false)
 			if secondary_slot:
 				secondary_slot.tooltip_text = "Select Skill / Spell\nClick or press 'S' to open spellbook."
 			return
-
-		var tex = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
-		if secondary_icon:
-			secondary_icon.texture = tex
 
 		var spell_name = SPELL_NAMES.get(spell_id, "Spell #%d" % spell_id)
 		var type_name = SPELL_TYPE_NAMES.get(spell_type, "Skill")
@@ -306,6 +338,7 @@ func update_belt_potions():
 		slot.tooltip_text = tip
 
 func format_number(n: int) -> String:
+	if n <= 0: return "0"
 	var s = str(n)
 	var result = ""
 	var cnt = 0

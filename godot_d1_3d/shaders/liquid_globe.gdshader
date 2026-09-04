@@ -101,8 +101,8 @@ void fragment() {
 
     // Fluid presence masks
     // Soft antialiasing on surface boundary
-    float front_surface_aa = clamp((fluid_surface_front - p.y) * 40.0 + 0.5, 0.0, 1.0);
-    float back_surface_aa = clamp((fluid_surface_back - p.y) * 30.0 + 0.5, 0.0, 1.0);
+    float front_surface_aa = clamp((p.y - fluid_surface_front) * 40.0 + 0.5, 0.0, 1.0);
+    float back_surface_aa = clamp((p.y - fluid_surface_back) * 30.0 + 0.5, 0.0, 1.0);
 
     // Liquid depth gradient: deeper at bottom of globe, lighter near surface
     float depth_factor = clamp((p.y - fill_target_y) / 1.5, 0.0, 1.0);

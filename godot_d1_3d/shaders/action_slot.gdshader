@@ -4,17 +4,21 @@ render_mode blend_mix;
 uniform vec4 border_color : source_color = vec4(0.45, 0.40, 0.30, 1.0);
 uniform vec4 glow_color : source_color = vec4(0.0, 0.0, 0.0, 0.0);
 uniform vec4 bg_color : source_color = vec4(0.06, 0.05, 0.07, 0.95);
-uniform float border_thickness : hint_range(0.01, 0.15) = 0.05;
+uniform float border_thickness : hint_range(0.01, 0.2) = 0.05;
 uniform float corner_cut : hint_range(0.0, 0.2) = 0.08;
+uniform bool is_circular = false;
 uniform bool is_active = false;
 
 void fragment() {
-    vec2 p = abs(UV - 0.5) * 2.0; // [0, 1] from center
-    
-    // Chamfered corner distance
-    float chamfer = max(p.x, p.y);
-    float corner_dist = (p.x + p.y) * 0.7071;
-    float max_dist = max(chamfer, corner_dist * (1.0 + corner_cut));
+    float max_dist = 0.0;
+    if (is_circular) {
+        max_dist = length((UV - 0.5) * 2.0);
+    } else {
+        vec2 p = abs(UV - 0.5) * 2.0; // [0, 1] from center
+        float chamfer = max(p.x, p.y);
+        float corner_dist = (p.x + p.y) * 0.7071;
+        max_dist = max(chamfer, corner_dist * (1.0 + corner_cut));
+    }
 
     if (max_dist > 1.0) {
         discard;

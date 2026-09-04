@@ -67,6 +67,7 @@ public:
 
 	// Direct Input Routing (In-memory C++ event dispatch, no SHM!)
 	void send_input(int type, int code, int state, int x, int y);
+	void send_key_event(int keycode, bool pressed);
 
 	// Direct Video Frame Access (In-memory blit directly to Godot Image)
 	PackedByteArray get_frame_bytes();

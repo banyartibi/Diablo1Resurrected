@@ -1,10 +1,19 @@
-[gd_scene load_steps=18 format=3 uid="uid://d4hudscene001"]
+[gd_scene load_steps=26 format=3 uid="uid://d4hudscene001"]
 
 [ext_resource type="Script" path="res://scenes/hud/diablo4_hud.gd" id="1_hud"]
 [ext_resource type="Shader" path="res://shaders/liquid_globe.gdshader" id="2_liquid"]
 [ext_resource type="Shader" path="res://shaders/globe_frame.gdshader" id="3_frame"]
 [ext_resource type="Shader" path="res://shaders/action_slot.gdshader" id="4_slot"]
 [ext_resource type="Shader" path="res://shaders/potion_icon.gdshader" id="5_potion"]
+[ext_resource type="Shader" path="res://shaders/hud_panel_bg.gdshader" id="6_panel_bg"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bg"]
+shader = ExtResource("6_panel_bg")
+shader_parameter/stone_base_color = Color(0.045, 0.042, 0.048, 0.96)
+shader_parameter/stone_highlight_color = Color(0.09, 0.085, 0.095, 1)
+shader_parameter/iron_trim_color = Color(0.2, 0.18, 0.16, 1)
+shader_parameter/gold_filigree_color = Color(0.65, 0.48, 0.22, 1)
+shader_parameter/shadow_color = Color(0, 0, 0, 0.85)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_life"]
 shader = ExtResource("2_liquid")
@@ -46,31 +55,24 @@ shader_parameter/metal_color_trim = Color(0.65, 0.52, 0.28, 1)
 shader_parameter/metal_color_highlight = Color(0.95, 0.85, 0.6, 1)
 shader_parameter/is_mana_side = 1.0
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_slot_pri"]
-shader = ExtResource("4_slot")
-shader_parameter/border_color = Color(0.55, 0.45, 0.25, 1)
-shader_parameter/glow_color = Color(0, 0, 0, 0)
-shader_parameter/bg_color = Color(0.06, 0.05, 0.07, 0.95)
-shader_parameter/border_thickness = 0.06
-shader_parameter/corner_cut = 0.08
-shader_parameter/is_active = false
-
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_slot_sec"]
 shader = ExtResource("4_slot")
-shader_parameter/border_color = Color(0.3, 0.5, 0.8, 1)
-shader_parameter/glow_color = Color(0.2, 0.6, 1.5, 1)
+shader_parameter/border_color = Color(0.72, 0.58, 0.28, 1)
+shader_parameter/glow_color = Color(0.25, 0.65, 1.6, 1)
 shader_parameter/bg_color = Color(0.06, 0.05, 0.07, 0.95)
-shader_parameter/border_thickness = 0.06
+shader_parameter/border_thickness = 0.08
 shader_parameter/corner_cut = 0.08
+shader_parameter/is_circular = true
 shader_parameter/is_active = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_slot_pot"]
 shader = ExtResource("4_slot")
-shader_parameter/border_color = Color(0.35, 0.32, 0.28, 1)
+shader_parameter/border_color = Color(0.38, 0.34, 0.28, 1)
 shader_parameter/glow_color = Color(0, 0, 0, 0)
 shader_parameter/bg_color = Color(0.06, 0.05, 0.07, 0.95)
-shader_parameter/border_thickness = 0.05
-shader_parameter/corner_cut = 0.07
+shader_parameter/border_thickness = 0.06
+shader_parameter/corner_cut = 0.08
+shader_parameter/is_circular = false
 shader_parameter/is_active = false
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_pot1"]
@@ -83,14 +85,71 @@ shader_parameter/potion_type = 1
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_pot3"]
 shader = ExtResource("5_potion")
-shader_parameter/potion_type = 3
+shader_parameter/potion_type = 1
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_pot4"]
 shader = ExtResource("5_potion")
+shader_parameter/potion_type = 1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pot5"]
+shader = ExtResource("5_potion")
 shader_parameter/potion_type = 3
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pot6"]
+shader = ExtResource("5_potion")
+shader_parameter/potion_type = 3
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pot7"]
+shader = ExtResource("5_potion")
+shader_parameter/potion_type = 3
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pot8"]
+shader = ExtResource("5_potion")
+shader_parameter/potion_type = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_normal"]
+bg_color = Color(0.1, 0.09, 0.11, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.42, 0.36, 0.26, 0.9)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
+bg_color = Color(0.18, 0.16, 0.2, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.78, 0.65, 0.35, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_pressed"]
+bg_color = Color(0.06, 0.05, 0.07, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.95, 0.82, 0.45, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_bg"]
-bg_color = Color(0.05, 0.05, 0.06, 0.9)
+bg_color = Color(0.05, 0.05, 0.06, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.28, 0.25, 0.2, 0.8)
 corner_radius_top_left = 2
 corner_radius_top_right = 2
 corner_radius_bottom_right = 2
@@ -127,6 +186,16 @@ grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 
+[node name="GothicPanelBg" type="ColorRect" parent="Root"]
+material = SubResource("ShaderMaterial_bg")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
 [node name="HBox" type="HBoxContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 15
@@ -134,7 +203,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 alignment = 1
 
 [node name="LifeContainer" type="Control" parent="Root/HBox"]
@@ -216,85 +285,76 @@ alignment = 1
 [node name="BtnChar" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
 custom_minimum_size = Vector2(80, 24)
 layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_colors/font_color = Color(0.88, 0.82, 0.7, 1)
+theme_override_colors/font_hover_color = Color(1, 0.92, 0.6, 1)
 theme_override_font_sizes/font_size = 12
 text = "[C] Hero"
 
 [node name="BtnInv" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
 custom_minimum_size = Vector2(80, 24)
 layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_colors/font_color = Color(0.88, 0.82, 0.7, 1)
+theme_override_colors/font_hover_color = Color(1, 0.92, 0.6, 1)
 theme_override_font_sizes/font_size = 12
 text = "[I] Inv"
 
 [node name="BtnQuest" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
 custom_minimum_size = Vector2(80, 24)
 layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_colors/font_color = Color(0.88, 0.82, 0.7, 1)
+theme_override_colors/font_hover_color = Color(1, 0.92, 0.6, 1)
 theme_override_font_sizes/font_size = 12
 text = "[Q] Quests"
 
 [node name="BtnMap" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
 custom_minimum_size = Vector2(80, 24)
 layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_colors/font_color = Color(0.88, 0.82, 0.7, 1)
+theme_override_colors/font_hover_color = Color(1, 0.92, 0.6, 1)
 theme_override_font_sizes/font_size = 12
 text = "[Tab] Map"
 
 [node name="BtnMenu" type="Button" parent="Root/HBox/CenterPanel/UtilityButtons"]
 custom_minimum_size = Vector2(80, 24)
 layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_colors/font_color = Color(0.88, 0.82, 0.7, 1)
+theme_override_colors/font_hover_color = Color(1, 0.92, 0.6, 1)
 theme_override_font_sizes/font_size = 12
 text = "[Esc] Menu"
 
 [node name="ActionBar" type="HBoxContainer" parent="Root/HBox/CenterPanel"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 6
 alignment = 1
-
-[node name="PrimarySlot" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
-material = SubResource("ShaderMaterial_slot_pri")
-custom_minimum_size = Vector2(54, 54)
-layout_mode = 2
-tooltip_text = "Primary Attack (LMB)"
-
-[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/PrimarySlot"]
-layout_mode = 0
-offset_left = 4.0
-offset_top = 2.0
-offset_right = 30.0
-offset_bottom = 18.0
-theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
-theme_override_font_sizes/font_size = 10
-text = "LMB"
-
-[node name="Icon" type="Label" parent="Root/HBox/CenterPanel/ActionBar/PrimarySlot"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -12.0
-offset_top = -14.0
-offset_right = 12.0
-offset_bottom = 14.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_font_sizes/font_size = 20
-text = "⚔"
-horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="Potion1" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
 material = SubResource("ShaderMaterial_slot_pot")
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(46, 46)
 layout_mode = 2
-tooltip_text = "Potion Slot 1"
+tooltip_text = "Belt Slot 1 [1]"
 
 [node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion1"]
 layout_mode = 0
-offset_left = 4.0
-offset_top = 2.0
-offset_right = 16.0
-offset_bottom = 18.0
-theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
+offset_left = 3.0
+offset_top = 1.0
+offset_right = 15.0
+offset_bottom = 17.0
+theme_override_colors/font_color = Color(0.85, 0.8, 0.65, 1)
 theme_override_font_sizes/font_size = 10
 text = "1"
 
@@ -306,10 +366,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -18.0
-offset_top = -18.0
-offset_right = 18.0
-offset_bottom = 18.0
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -332,17 +392,17 @@ text = "1"
 
 [node name="Potion2" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
 material = SubResource("ShaderMaterial_slot_pot")
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(46, 46)
 layout_mode = 2
-tooltip_text = "Potion Slot 2"
+tooltip_text = "Belt Slot 2 [2]"
 
 [node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion2"]
 layout_mode = 0
-offset_left = 4.0
-offset_top = 2.0
-offset_right = 16.0
-offset_bottom = 18.0
-theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
+offset_left = 3.0
+offset_top = 1.0
+offset_right = 15.0
+offset_bottom = 17.0
+theme_override_colors/font_color = Color(0.85, 0.8, 0.65, 1)
 theme_override_font_sizes/font_size = 10
 text = "2"
 
@@ -354,10 +414,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -18.0
-offset_top = -18.0
-offset_right = 18.0
-offset_bottom = 18.0
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -380,17 +440,17 @@ text = "1"
 
 [node name="Potion3" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
 material = SubResource("ShaderMaterial_slot_pot")
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(46, 46)
 layout_mode = 2
-tooltip_text = "Potion Slot 3"
+tooltip_text = "Belt Slot 3 [3]"
 
 [node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion3"]
 layout_mode = 0
-offset_left = 4.0
-offset_top = 2.0
-offset_right = 16.0
-offset_bottom = 18.0
-theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
+offset_left = 3.0
+offset_top = 1.0
+offset_right = 15.0
+offset_bottom = 17.0
+theme_override_colors/font_color = Color(0.85, 0.8, 0.65, 1)
 theme_override_font_sizes/font_size = 10
 text = "3"
 
@@ -402,10 +462,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -18.0
-offset_top = -18.0
-offset_right = 18.0
-offset_bottom = 18.0
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -428,17 +488,17 @@ text = "1"
 
 [node name="Potion4" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
 material = SubResource("ShaderMaterial_slot_pot")
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(46, 46)
 layout_mode = 2
-tooltip_text = "Potion Slot 4"
+tooltip_text = "Belt Slot 4 [4]"
 
 [node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion4"]
 layout_mode = 0
-offset_left = 4.0
-offset_top = 2.0
-offset_right = 16.0
-offset_bottom = 18.0
-theme_override_colors/font_color = Color(0.8, 0.75, 0.6, 1)
+offset_left = 3.0
+offset_top = 1.0
+offset_right = 15.0
+offset_bottom = 17.0
+theme_override_colors/font_color = Color(0.85, 0.8, 0.65, 1)
 theme_override_font_sizes/font_size = 10
 text = "4"
 
@@ -450,10 +510,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -18.0
-offset_top = -18.0
-offset_right = 18.0
-offset_bottom = 18.0
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -474,11 +534,207 @@ theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 11
 text = "1"
 
+[node name="Potion5" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_pot")
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+tooltip_text = "Belt Slot 5 [5]"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion5"]
+layout_mode = 0
+offset_left = 3.0
+offset_top = 1.0
+offset_right = 15.0
+offset_bottom = 17.0
+theme_override_colors/font_color = Color(0.85, 0.8, 0.65, 1)
+theme_override_font_sizes/font_size = 10
+text = "5"
+
+[node name="PotionIcon" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar/Potion5"]
+material = SubResource("ShaderMaterial_pot5")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CountLabel" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion5"]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "1"
+
+[node name="Potion6" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_pot")
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+tooltip_text = "Belt Slot 6 [6]"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion6"]
+layout_mode = 0
+offset_left = 3.0
+offset_top = 1.0
+offset_right = 15.0
+offset_bottom = 17.0
+theme_override_colors/font_color = Color(0.85, 0.8, 0.65, 1)
+theme_override_font_sizes/font_size = 10
+text = "6"
+
+[node name="PotionIcon" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar/Potion6"]
+material = SubResource("ShaderMaterial_pot6")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CountLabel" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion6"]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "1"
+
+[node name="Potion7" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_pot")
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+tooltip_text = "Belt Slot 7 [7]"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion7"]
+layout_mode = 0
+offset_left = 3.0
+offset_top = 1.0
+offset_right = 15.0
+offset_bottom = 17.0
+theme_override_colors/font_color = Color(0.85, 0.8, 0.65, 1)
+theme_override_font_sizes/font_size = 10
+text = "7"
+
+[node name="PotionIcon" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar/Potion7"]
+material = SubResource("ShaderMaterial_pot7")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CountLabel" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion7"]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "1"
+
+[node name="Potion8" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
+material = SubResource("ShaderMaterial_slot_pot")
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+tooltip_text = "Belt Slot 8 [8]"
+
+[node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion8"]
+layout_mode = 0
+offset_left = 3.0
+offset_top = 1.0
+offset_right = 15.0
+offset_bottom = 17.0
+theme_override_colors/font_color = Color(0.85, 0.8, 0.65, 1)
+theme_override_font_sizes/font_size = 10
+text = "8"
+
+[node name="PotionIcon" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar/Potion8"]
+material = SubResource("ShaderMaterial_pot8")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CountLabel" type="Label" parent="Root/HBox/CenterPanel/ActionBar/Potion8"]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "1"
+
+[node name="SlotSpacer" type="Control" parent="Root/HBox/CenterPanel/ActionBar"]
+custom_minimum_size = Vector2(8, 0)
+layout_mode = 2
+
 [node name="SecondarySlot" type="ColorRect" parent="Root/HBox/CenterPanel/ActionBar"]
 material = SubResource("ShaderMaterial_slot_sec")
 custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
-tooltip_text = "Secondary Spell (RMB)"
+tooltip_text = "Active Spell / Skill (RMB) [S]"
 
 [node name="Badge" type="Label" parent="Root/HBox/CenterPanel/ActionBar/SecondarySlot"]
 layout_mode = 0
@@ -486,7 +742,7 @@ offset_left = 4.0
 offset_top = 2.0
 offset_right = 32.0
 offset_bottom = 18.0
-theme_override_colors/font_color = Color(0.9, 0.85, 0.7, 1)
+theme_override_colors/font_color = Color(0.95, 0.88, 0.7, 1)
 theme_override_font_sizes/font_size = 10
 text = "RMB"
 
@@ -497,10 +753,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -24.0
-offset_top = -24.0
-offset_right = 24.0
-offset_bottom = 24.0
+offset_left = -22.0
+offset_top = -22.0
+offset_right = 22.0
+offset_bottom = 22.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -519,7 +775,7 @@ theme_override_font_sizes/font_size = 12
 text = "Lv 1"
 
 [node name="XPBar" type="ProgressBar" parent="Root/HBox/CenterPanel/XPContainer"]
-custom_minimum_size = Vector2(400, 8)
+custom_minimum_size = Vector2(390, 8)
 layout_mode = 2
 size_flags_vertical = 4
 theme_override_styles/background = SubResource("StyleBoxFlat_xp_bg")

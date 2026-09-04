@@ -45,6 +45,7 @@ void DiabloBridge::_bind_methods() {
 
 	// Direct Input
 	ClassDB::bind_method(D_METHOD("send_input", "type", "code", "state", "x", "y"), &DiabloBridge::send_input);
+	ClassDB::bind_method(D_METHOD("send_key_event", "keycode", "pressed"), &DiabloBridge::send_key_event);
 
 	// Video Frame Blitting
 	ClassDB::bind_method(D_METHOD("get_frame_bytes"), &DiabloBridge::get_frame_bytes);
@@ -229,6 +230,18 @@ void DiabloBridge::send_input(int type, int code, int state, int x, int y) {
 									 static_cast<uint32_t>(state),
 									 static_cast<int32_t>(x),
 									 static_cast<int32_t>(y));
+}
+
+void DiabloBridge::send_key_event(int keycode, bool pressed) {
+	int sdl_key = keycode;
+	if (keycode == 4194305) sdl_key = 27;       // KEY_ESCAPE
+	else if (keycode == 4194309) sdl_key = 13;  // KEY_ENTER
+	else if (keycode == 4194306) sdl_key = 9;   // KEY_TAB
+	else if (keycode == 32) sdl_key = 32;       // KEY_SPACE
+	else if (keycode >= 65 && keycode <= 90) sdl_key = keycode + 32; // 'A'..'Z' -> 'a'..'z'
+	else if (keycode >= 48 && keycode <= 57) sdl_key = keycode;      // '0'..'9'
+
+	send_input(3, sdl_key, pressed ? 1 : 0, sdl_key, 0);
 }
 
 PackedByteArray DiabloBridge::get_frame_bytes() {

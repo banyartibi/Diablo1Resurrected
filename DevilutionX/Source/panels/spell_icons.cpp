@@ -178,11 +178,7 @@ void DrawSmallSpellIconBorder(const Surface &out, Point position)
 
 void SetSpellTrans(SpellType t)
 {
-	if (t == SpellType::Skill) {
-		for (int i = 0; i < 128; i++)
-			SplTransTbl[i] = i;
-	}
-	for (int i = 128; i < 256; i++)
+	for (int i = 0; i < 256; i++)
 		SplTransTbl[i] = i;
 	SplTransTbl[255] = 0;
 
