@@ -434,11 +434,19 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var mapped_x = norm_x
 	var mapped_y = norm_y
 	
-	if not in_ui and playfield_zoom > 1.001 and not left_panel_open and not right_panel_open:
+	if not in_ui and playfield_zoom > 1.001:
 		var center_x = 0.5
+		if right_panel_open and not left_panel_open:
+			center_x = 0.25
+		elif left_panel_open and not right_panel_open:
+			center_x = 0.75
 		var center_y = 0.5 if (modern_hud_enabled and last_is_ingame) else (panel_base_y * 0.5 / float(d1_height))
 		mapped_x = center_x + (norm_x - center_x) / playfield_zoom
 		mapped_y = center_y + (norm_y - center_y) / playfield_zoom
+		if right_panel_open and not left_panel_open:
+			mapped_x = clampf(mapped_x, 0.0, 319.0 / float(d1_width))
+		elif left_panel_open and not right_panel_open:
+			mapped_x = clampf(mapped_x, 320.0 / float(d1_width), 1.0)
 		
 	var game_x = int(clamp(mapped_x * float(d1_width), 0.0, float(d1_width - 1)))
 	var game_y = int(clamp(mapped_y * float(d1_height), 0.0, float(d1_height - 1)))

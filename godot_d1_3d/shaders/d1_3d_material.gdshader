@@ -241,14 +241,29 @@ void fragment() {
     // Combined UI mask: ONLY true UI panels are masked; playfield ground behind/beside HUD gets full shaders!
     bool in_ui = in_main_panel || in_left_panel || in_right_panel;
 
-    // Seamless Full-Screen Playfield Zoom (for 2.5x and 3.0x ultra-close views):
-    // The playfield scales smoothly and continuously around the player hero!
-    // The HUD panel stays pinned 1:1 at the bottom center when vanilla HUD is visible.
-    // Suppressed when left or right panels are open (inventory, character sheet) to prevent duplicate panels!
+    // Determine the center of playfield zoom:
+    // When inventory is open on the right, the visible playfield & hero are on the left (center.x = 0.25).
+    // When character sheet is open on the left, the visible playfield & hero are on the right (center.x = 0.75).
+    // When no panels are open, playfield is centered (center.x = 0.50).
+    vec2 playfield_center = vec2(0.5, 0.5);
+    if (right_panel_open && !left_panel_open) {
+        playfield_center.x = 0.25;
+    } else if (left_panel_open && !right_panel_open) {
+        playfield_center.x = 0.75;
+    }
+    if (!hide_vanilla_hud) {
+        playfield_center.y = panel_base_y * 0.5 / tex_size.y;
+    }
+
     vec2 sample_uv = UV;
-    if (!in_ui && playfield_zoom > 1.001 && !left_panel_open && !right_panel_open) {
-        vec2 playfield_center = hide_vanilla_hud ? vec2(0.5, 0.5) : vec2(0.5, panel_base_y * 0.5 / tex_size.y);
+    if (!in_ui && playfield_zoom > 1.001) {
         sample_uv = playfield_center + (UV - playfield_center) / playfield_zoom;
+        // Clamp sampling strictly within the active playfield to prevent crossing into side panels:
+        if (right_panel_open && !left_panel_open) {
+            sample_uv.x = clamp(sample_uv.x, 0.0, (right_panel_rect.x - 1.0) / tex_size.x);
+        } else if (left_panel_open && !right_panel_open) {
+            sample_uv.x = clamp(sample_uv.x, (left_panel_rect.x + left_panel_rect.z + 1.0) / tex_size.x, 1.0);
+        }
     }
 
     vec3 raw_pixel = texture(d1_texture, sample_uv).bgr;
