@@ -30,16 +30,18 @@ corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close_btn"]
-bg_color = Color(0.14, 0.11, 0.14, 0.9)
+bg_color = Color(0.11, 0.09, 0.12, 0.92)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.65, 0.52, 0.32, 0.85)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
+border_color = Color(0.60, 0.48, 0.28, 0.85)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+shadow_color = Color(0, 0, 0, 0.85)
+shadow_size = 4
 
 [node name="CharacterPanel" type="Control"]
 custom_minimum_size = Vector2(320, 352)
@@ -63,19 +65,19 @@ stretch_mode = 0
 layout_mode = 1
 anchors_preset = 15
 anchor_left = 0.20
-anchor_top = 0.23
+anchor_top = 0.21
 anchor_right = 0.80
-anchor_bottom = 0.86
+anchor_bottom = 0.85
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 6
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 6
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 4
 
 [node name="VBox" type="VBoxContainer" parent="Content"]
 layout_mode = 2
-theme_override_constants/separation = 5
+theme_override_constants/separation = 3
 
 [node name="HeaderRow" type="HBoxContainer" parent="Content/VBox"]
 layout_mode = 2
@@ -84,14 +86,14 @@ alignment = 1
 [node name="TitleVBox" type="VBoxContainer" parent="Content/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 1
+theme_override_constants/separation = 0
 
 [node name="NameLabel" type="Label" parent="Content/VBox/HeaderRow/TitleVBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.88, 0.4, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 3
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 14
 text = "Hero"
 
 [node name="ClassLevelLabel" type="Label" parent="Content/VBox/HeaderRow/TitleVBox"]
@@ -109,14 +111,6 @@ theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
 theme_override_font_sizes/font_size = 11
 text = "Gold: 0"
-
-[node name="CloseBtn" type="Button" parent="Content/VBox/HeaderRow"]
-custom_minimum_size = Vector2(20, 20)
-layout_mode = 2
-focus_mode = 0
-theme_override_styles/normal = SubResource("StyleBoxFlat_close_btn")
-theme_override_font_sizes/font_size = 11
-text = "✕"
 
 [node name="LevelUpBanner" type="PanelContainer" parent="Content/VBox"]
 visible = false
@@ -142,12 +136,12 @@ horizontal_alignment = 1
 [node name="StatsColumns" type="HBoxContainer" parent="Content/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="LeftCol" type="VBoxContainer" parent="Content/VBox/StatsColumns"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 3
+theme_override_constants/separation = 2
 
 [node name="AttrTitle" type="Label" parent="Content/VBox/StatsColumns/LeftCol"]
 layout_mode = 2
@@ -164,22 +158,22 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Strength"
 
 [node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol/StrRow"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "15 (15)"
 
 [node name="AddBtn" type="Button" parent="Content/VBox/StatsColumns/LeftCol/StrRow"]
 visible = false
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(16, 16)
 layout_mode = 2
 focus_mode = 0
 theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
 text = "+"
 
@@ -190,22 +184,22 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Magic"
 
 [node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol/MagRow"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "40 (40)"
 
 [node name="AddBtn" type="Button" parent="Content/VBox/StatsColumns/LeftCol/MagRow"]
 visible = false
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(16, 16)
 layout_mode = 2
 focus_mode = 0
 theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
 text = "+"
 
@@ -216,22 +210,22 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Dexterity"
 
 [node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol/DexRow"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "15 (15)"
 
 [node name="AddBtn" type="Button" parent="Content/VBox/StatsColumns/LeftCol/DexRow"]
 visible = false
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(16, 16)
 layout_mode = 2
 focus_mode = 0
 theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
 text = "+"
 
@@ -242,27 +236,24 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Vitality"
 
 [node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol/VitRow"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "25 (25)"
 
 [node name="AddBtn" type="Button" parent="Content/VBox/StatsColumns/LeftCol/VitRow"]
 visible = false
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(16, 16)
 layout_mode = 2
 focus_mode = 0
 theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
 text = "+"
-
-[node name="VitalsSep" type="HSeparator" parent="Content/VBox/StatsColumns/LeftCol"]
-layout_mode = 2
 
 [node name="VitalsTitle" type="Label" parent="Content/VBox/StatsColumns/LeftCol"]
 layout_mode = 2
@@ -277,7 +268,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.28, 0.28, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Life: 27 / 37"
 
 [node name="ManaLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol"]
@@ -285,13 +276,13 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.35, 0.7, 1, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Mana: 66 / 84"
 
 [node name="RightCol" type="VBoxContainer" parent="Content/VBox/StatsColumns"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 3
+theme_override_constants/separation = 2
 
 [node name="CombatTitle" type="Label" parent="Content/VBox/StatsColumns/RightCol"]
 layout_mode = 2
@@ -308,13 +299,13 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Damage"
 
 [node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol/DmgRow"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "2 - 4"
 
 [node name="ToHitRow" type="HBoxContainer" parent="Content/VBox/StatsColumns/RightCol"]
@@ -324,13 +315,13 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "To Hit"
 
 [node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol/ToHitRow"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "60%"
 
 [node name="ArmorRow" type="HBoxContainer" parent="Content/VBox/StatsColumns/RightCol"]
@@ -340,17 +331,14 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Armor"
 
 [node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol/ArmorRow"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "9"
-
-[node name="ResSep" type="HSeparator" parent="Content/VBox/StatsColumns/RightCol"]
-layout_mode = 2
 
 [node name="ResTitle" type="Label" parent="Content/VBox/StatsColumns/RightCol"]
 layout_mode = 2
@@ -365,7 +353,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.35, 0.7, 1, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Magic: 0%"
 
 [node name="ResFireLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol"]
@@ -373,7 +361,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.35, 0.25, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Fire: 0%"
 
 [node name="ResLightningLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol"]
@@ -381,7 +369,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.25, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "Lightning: 0%"
 
 [node name="FooterRow" type="HBoxContainer" parent="Content/VBox"]
@@ -404,3 +392,30 @@ theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
 theme_override_font_sizes/font_size = 11
 text = "Points: 5"
+
+[node name="CloseBtnContainer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_left = 0.35
+anchor_top = 0.88
+anchor_right = 0.65
+anchor_bottom = 0.94
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CloseBtn" type="Button" parent="CloseBtnContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.88, 0.76, 0.42, 1)
+theme_override_colors/font_hover_color = Color(1, 0.92, 0.60, 1)
+theme_override_colors/font_pressed_color = Color(0.70, 0.58, 0.30, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_close_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_close_btn")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_close_btn")
+text = "✕ CLOSE"

@@ -177,7 +177,8 @@ void fragment() {
     }
 
     // 2. Left UI Panel (Character Sheet / Quest Log / Stash)
-    bool in_left_panel = left_panel_open &&
+    // In Modern HUD mode, panels are on CanvasLayer, so floor receives uniform color grading!
+    bool in_left_panel = (!hide_vanilla_hud && left_panel_open) &&
         (pixel_pos.x >= left_panel_rect.x && pixel_pos.x <= (left_panel_rect.x + left_panel_rect.z) &&
          pixel_pos.y >= left_panel_rect.y && pixel_pos.y <= (left_panel_rect.y + left_panel_rect.w));
 
@@ -258,7 +259,7 @@ void fragment() {
 
         // Soft ambient drop shadow around open UI panels (Character Sheet, Inventory, Quest Log)
         float panel_shadow = 1.0;
-        if (left_panel_open) {
+        if (!hide_vanilla_hud && left_panel_open) {
             vec2 lp_min = left_panel_rect.xy;
             vec2 lp_max = left_panel_rect.xy + left_panel_rect.zw;
             vec2 d = max(lp_min - pixel_pos, pixel_pos - lp_max);

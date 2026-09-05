@@ -85,6 +85,9 @@ public:
 	bool is_quest_log_open() const;
 	void toggle_quest_log();
 
+	bool is_inventory_open() const;
+	void toggle_inventory();
+
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap
 	PackedInt32Array get_dungeon_grid() const;
 	int get_dungeon_tile(int x, int y) const;

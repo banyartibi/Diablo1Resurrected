@@ -47,11 +47,13 @@ const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 @onready var skill_selector: PanelContainer = $SkillSelector
 @onready var skill_list: HBoxContainer = $SkillSelector/Margin/SkillList
 
-# Character Panel & Quest Log
+# Character Panel, Quest Log & Inventory Frame
 const CHAR_PANEL_SCENE = preload("res://scenes/hud/diablo4_character_panel.tscn")
 const QUEST_LOG_SCENE = preload("res://scenes/hud/diablo4_quest_log.tscn")
+const INV_FRAME_SCENE = preload("res://scenes/hud/diablo4_inventory_frame.tscn")
 var char_panel: Control = null
 var quest_log: Control = null
+var inv_frame: Control = null
 
 @onready var level_up_btn: Button = $Root/LevelUpBtn
 
@@ -178,6 +180,10 @@ func _ready():
 	quest_log.visible = false
 	add_child(quest_log)
 
+	inv_frame = INV_FRAME_SCENE.instantiate()
+	inv_frame.visible = false
+	add_child(inv_frame)
+
 	# Disable all keyboard focus grabbing on HUD elements so TAB key always toggles automap!
 	_disable_focus_recursive(self)
 
@@ -195,6 +201,8 @@ func set_bridge(bridge):
 		char_panel.set_bridge(bridge)
 	if quest_log and quest_log.has_method("set_bridge"):
 		quest_log.set_bridge(bridge)
+	if inv_frame and inv_frame.has_method("set_bridge"):
+		inv_frame.set_bridge(bridge)
 
 func setup_button_events():
 	# Potion 1-8 clicks
@@ -306,6 +314,12 @@ func _input(event: InputEvent):
 				if diablo_bridge and diablo_bridge.has_method("toggle_quest_log"):
 					diablo_bridge.toggle_quest_log()
 				quest_log.visible = false
+				get_viewport().set_input_as_handled()
+				return
+			if inv_frame and inv_frame.visible:
+				if diablo_bridge and diablo_bridge.has_method("toggle_inventory"):
+					diablo_bridge.toggle_inventory()
+				inv_frame.visible = false
 				get_viewport().set_input_as_handled()
 				return
 
@@ -792,6 +806,7 @@ func update_panels():
 	if not is_modern:
 		if char_panel: char_panel.visible = false
 		if quest_log: quest_log.visible = false
+		if inv_frame: inv_frame.visible = false
 		if level_up_btn: level_up_btn.visible = false
 		return
 
@@ -821,6 +836,18 @@ func update_panels():
 		quest_log.size = Vector2(size_w, size_h)
 		quest_log.custom_minimum_size = Vector2(size_w, size_h)
 
+	# Right Panel (Inventory Frame) geometry
+	var rp = diablo_bridge.get_right_panel_rect() if diablo_bridge.has_method("get_right_panel_rect") else Rect2(d1_w - 320, 0, 320, 352)
+	var rpos_x = rp.position.x * scale_x
+	var rpos_y = rp.position.y * scale_y
+	var rsize_w = rp.size.x * scale_x
+	var rsize_h = rp.size.y * scale_y
+
+	if inv_frame:
+		inv_frame.position = Vector2(rpos_x, rpos_y)
+		inv_frame.size = Vector2(rsize_w, rsize_h)
+		inv_frame.custom_minimum_size = Vector2(rsize_w, rsize_h)
+
 	# Character Panel sync
 	if char_panel:
 		var char_open = diablo_bridge.is_character_open() if diablo_bridge.has_method("is_character_open") else false
@@ -836,6 +863,12 @@ func update_panels():
 			quest_log.visible = quest_open
 		if quest_open:
 			quest_log.update_quests()
+
+	# Inventory Frame sync
+	if inv_frame:
+		var inv_open = diablo_bridge.is_inventory_open() if diablo_bridge.has_method("is_inventory_open") else false
+		if inv_frame.visible != inv_open:
+			inv_frame.visible = inv_open
 
 	# Level-up indicator on HUD & BtnChar
 	var stat_pts = 0

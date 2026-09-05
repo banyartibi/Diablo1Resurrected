@@ -254,5 +254,8 @@ void SelectQuest(int questIdx);
 bool IsQuestLogOpen();
 void ToggleQuestLog();
 
+bool IsInventoryOpen();
+void ToggleInventory();
+
 } // namespace devilution
 

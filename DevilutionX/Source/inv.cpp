@@ -1063,7 +1063,23 @@ void InitInv()
 
 void DrawInv(const Surface &out)
 {
-	ClxDraw(out, GetPanelPosition(UiPanels::Inventory, { 0, 351 }), (*pInvCels)[0]);
+	Point pos = GetPanelPosition(UiPanels::Inventory, { 0, 351 });
+	ClxDraw(out, pos, (*pInvCels)[0]);
+
+	if (gbHideVanillaHUD) {
+		Point topPos = GetPanelPosition(UiPanels::Inventory, { 0, 0 });
+		for (int y = 0; y < SidePanelSize.height; ++y) {
+			for (int x = 0; x < SidePanelSize.width; ++x) {
+				Point pt = topPos + Displacement { x, y };
+				if (out.InBounds(pt)) {
+					std::uint8_t &pix = out[pt];
+					if (pix >= PAL16_BEIGE && pix < PAL16_BEIGE + 16) {
+						pix = PAL16_GRAY + (pix - PAL16_BEIGE);
+					}
+				}
+			}
+		}
+	}
 
 	Size slotSize[] = {
 		{ 2, 2 }, // head

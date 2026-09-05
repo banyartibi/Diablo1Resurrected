@@ -60,6 +60,8 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("select_quest", "quest_idx"), &DiabloBridge::select_quest);
 	ClassDB::bind_method(D_METHOD("is_quest_log_open"), &DiabloBridge::is_quest_log_open);
 	ClassDB::bind_method(D_METHOD("toggle_quest_log"), &DiabloBridge::toggle_quest_log);
+	ClassDB::bind_method(D_METHOD("is_inventory_open"), &DiabloBridge::is_inventory_open);
+	ClassDB::bind_method(D_METHOD("toggle_inventory"), &DiabloBridge::toggle_inventory);
 
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
@@ -600,5 +602,13 @@ bool DiabloBridge::is_quest_log_open() const {
 
 void DiabloBridge::toggle_quest_log() {
 	devilution::ToggleQuestLog();
+}
+
+bool DiabloBridge::is_inventory_open() const {
+	return devilution::IsInventoryOpen();
+}
+
+void DiabloBridge::toggle_inventory() {
+	devilution::ToggleInventory();
 }
 

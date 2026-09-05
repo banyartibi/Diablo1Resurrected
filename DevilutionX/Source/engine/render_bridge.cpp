@@ -28,6 +28,7 @@
 #include "quests.h"
 #include "minitext.h"
 #include "inv.h"
+#include "qol/stash.h"
 #include "msg.h"
 #include "cursor.h"
 #include "sound.h"
@@ -1047,6 +1048,22 @@ void ToggleQuestLog()
 	if (QuestLogIsOpen) {
 		if (chrflag) chrflag = false;
 		StartQuestlog();
+	}
+}
+
+bool IsInventoryOpen()
+{
+	return invflag;
+}
+
+void ToggleInventory()
+{
+	sbookflag = false;
+	CloseGoldWithdraw();
+	CloseStash();
+	invflag = !invflag;
+	if (DropGoldFlag) {
+		CloseGoldDrop();
 	}
 }
 
