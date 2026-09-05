@@ -450,26 +450,22 @@ void RightMouseDown(bool isShiftHeld)
 		} else if (pcursinvitem < NUM_INVLOC) {
 			item = &player.InvBody[pcursinvitem];
 		}
-		if (item != nullptr && item->_itype == ItemType::Staff && IsValidSpell(item->_iSpell)) {
-			bool manaRestored = false;
-			if (player._pMana < player._pMaxMana) {
-				player._pMana = player._pMaxMana;
-				player._pManaBase = player._pMaxManaBase;
-				RedrawComponent(PanelDrawComponent::Mana);
-				manaRestored = true;
-			}
-			if (item->_iCharges < item->_iMaxCharges) {
-				DoRecharge(player, pcursinvitem);
-			}
-			PlaySFX(IS_MAGIC);
-			if (pcurs == CURSOR_RECHARGE)
-				NewCursor(CURSOR_HAND);
-
-			if (manaRestored) {
-				InitDiabloMsg(_("Mana fully restored"), 2000);
-			} else {
+		if (item != nullptr && item->_itype == ItemType::Staff && item->_iSpell == SpellID::Mana) {
+			if (player._pMana >= player._pMaxMana) {
 				InitDiabloMsg(_("Mana is already full"), 2000);
+				return;
 			}
+			if (item->_iCharges <= 0) {
+				InitDiabloMsg(_("Staff has no charges"), 2000);
+				return;
+			}
+			item->_iCharges--;
+			player._pMana = player._pMaxMana;
+			player._pManaBase = player._pMaxManaBase;
+			RedrawComponent(PanelDrawComponent::Mana);
+			PlaySFX(IS_MAGIC);
+			InitDiabloMsg(_("Mana fully restored"), 2000);
+			CalcPlrInv(player, true);
 			return;
 		}
 		if (UseInvItem(pcursinvitem))

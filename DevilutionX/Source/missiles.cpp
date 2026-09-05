@@ -1583,12 +1583,20 @@ void AddMana(Missile &missile, AddMissileParameter & /*parameter*/)
 {
 	Player &player = Players[missile._misource];
 
-	player._pMana = player._pMaxMana;
-	player._pManaBase = player._pMaxManaBase;
 	missile._miDelFlag = true;
-	RedrawComponent(PanelDrawComponent::Mana);
 	if (&player == MyPlayer) {
-		InitDiabloMsg(_("Mana fully restored"), 2000);
+		if (player._pMana < player._pMaxMana) {
+			player._pMana = player._pMaxMana;
+			player._pManaBase = player._pMaxManaBase;
+			RedrawComponent(PanelDrawComponent::Mana);
+			PlaySFX(IS_MAGIC);
+			InitDiabloMsg(_("Mana fully restored"), 2000);
+		} else {
+			InitDiabloMsg(_("Mana is already full"), 2000);
+		}
+	} else {
+		player._pMana = player._pMaxMana;
+		player._pManaBase = player._pMaxManaBase;
 	}
 }
 
@@ -2530,14 +2538,6 @@ void AddStaffRecharge(Missile &missile, AddMissileParameter & /*parameter*/)
 
 	missile._miDelFlag = true;
 	if (&player == MyPlayer) {
-		bool manaRestored = false;
-		if (player._pMana < player._pMaxMana) {
-			player._pMana = player._pMaxMana;
-			player._pManaBase = player._pMaxManaBase;
-			RedrawComponent(PanelDrawComponent::Mana);
-			manaRestored = true;
-		}
-
 		Item *staffToRecharge = nullptr;
 		auto checkStaff = [&](Item &item) {
 			if (!item.isEmpty() && item._itype == ItemType::Staff && IsValidSpell(item._iSpell)) {
@@ -2557,16 +2557,10 @@ void AddStaffRecharge(Missile &missile, AddMissileParameter & /*parameter*/)
 		if (staffToRecharge != nullptr) {
 			RechargeItem(*staffToRecharge, player);
 			CalcPlrInv(player, true);
-		}
-
-		PlaySFX(IS_MAGIC);
-
-		if (manaRestored) {
-			InitDiabloMsg(_("Mana fully restored"), 2000);
-		} else if (staffToRecharge != nullptr) {
+			PlaySFX(IS_MAGIC);
 			InitDiabloMsg(_("Staff recharged"), 2000);
 		} else {
-			InitDiabloMsg(_("Mana is already full"), 2000);
+			InitDiabloMsg(_("Staff charges are already full"), 2000);
 		}
 	}
 }

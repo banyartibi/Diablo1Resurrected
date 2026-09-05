@@ -320,33 +320,23 @@ func populate_speedbook():
 		var hotkey: String = spell_info.get("hotkey", "")
 
 		var btn = Button.new()
-		btn.custom_minimum_size = Vector2(44, 44)
+		btn.custom_minimum_size = Vector2(38, 38)
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 
-		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.08, 0.07, 0.10, 0.95)
-		sb.set_corner_radius_all(3)
+		var empty_sb = StyleBoxEmpty.new()
+		btn.add_theme_stylebox_override("normal", empty_sb)
+		btn.add_theme_stylebox_override("focus", empty_sb)
+		btn.add_theme_stylebox_override("pressed", empty_sb)
+		btn.add_theme_stylebox_override("disabled", empty_sb)
+
+		# Subtle hover sheen without any boxy colored border
+		var hover_sb = StyleBoxFlat.new()
+		hover_sb.bg_color = Color(1.0, 1.0, 1.0, 0.12)
+		hover_sb.set_corner_radius_all(2)
+		btn.add_theme_stylebox_override("hover", hover_sb)
+
 		var is_current = (s_id == current_spell_id and s_type == current_spell_type)
-		if is_current:
-			sb.border_color = Color(1.0, 0.88, 0.35, 1.0)
-			sb.border_width_left = 2
-			sb.border_width_top = 2
-			sb.border_width_right = 2
-			sb.border_width_bottom = 2
-		else:
-			var border_c = SPELL_TYPE_COLORS.get(s_type, Color(0.45, 0.4, 0.3, 0.8))
-			sb.border_color = Color(border_c.r * 0.75, border_c.g * 0.75, border_c.b * 0.75, 0.85)
-			sb.border_width_left = 1
-			sb.border_width_top = 1
-			sb.border_width_right = 1
-			sb.border_width_bottom = 1
-
-		btn.add_theme_stylebox_override("normal", sb)
-
-		var sb_hover = sb.duplicate()
-		sb_hover.border_color = Color(1.0, 0.95, 0.6, 1.0)
-		btn.add_theme_stylebox_override("hover", sb_hover)
 
 		# Icon
 		var icon_tex = get_cached_spell_icon(s_id, s_type)
@@ -358,6 +348,8 @@ func populate_speedbook():
 			tex_rect.custom_minimum_size = Vector2(38, 38)
 			tex_rect.anchors_preset = Control.PRESET_FULL_RECT
 			tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if is_current:
+				tex_rect.modulate = Color(1.15, 1.15, 1.05)
 			btn.add_child(tex_rect)
 
 		# Hotkey badge

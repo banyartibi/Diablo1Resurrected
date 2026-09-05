@@ -255,6 +255,30 @@ void fragment() {
         // Playfield: Atmospheric color grading
         ALBEDO = apply_color_grading(base_color, color_profile);
         EMISSION = vec3(0.0);
+
+        // Soft ambient drop shadow around open UI panels (Character Sheet, Inventory, Quest Log)
+        float panel_shadow = 1.0;
+        if (left_panel_open) {
+            vec2 lp_min = left_panel_rect.xy;
+            vec2 lp_max = left_panel_rect.xy + left_panel_rect.zw;
+            vec2 d = max(lp_min - pixel_pos, pixel_pos - lp_max);
+            float dist = length(max(d, vec2(0.0)));
+            if (dist > 0.0 && dist < 16.0) {
+                float s = smoothstep(0.0, 16.0, dist);
+                panel_shadow = min(panel_shadow, mix(0.40, 1.0, s));
+            }
+        }
+        if (right_panel_open) {
+            vec2 rp_min = right_panel_rect.xy;
+            vec2 rp_max = right_panel_rect.xy + right_panel_rect.zw;
+            vec2 d = max(rp_min - pixel_pos, pixel_pos - rp_max);
+            float dist = length(max(d, vec2(0.0)));
+            if (dist > 0.0 && dist < 16.0) {
+                float s = smoothstep(0.0, 16.0, dist);
+                panel_shadow = min(panel_shadow, mix(0.40, 1.0, s));
+            }
+        }
+        ALBEDO *= panel_shadow;
     }
 
     // Void & Darkness Protection:
