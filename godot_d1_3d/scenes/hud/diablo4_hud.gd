@@ -50,7 +50,7 @@ const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 # Character Panel, Quest Log & Inventory Frame
 const CHAR_PANEL_SCENE = preload("res://scenes/hud/diablo4_character_panel.tscn")
 const QUEST_LOG_SCENE = preload("res://scenes/hud/diablo4_quest_log.tscn")
-const INV_FRAME_SCENE = preload("res://scenes/hud/diablo4_inventory_frame.tscn")
+const INV_FRAME_SCENE = preload("res://scenes/hud/diablo4_inventory.tscn")
 var char_panel: Control = null
 var quest_log: Control = null
 var inv_frame: Control = null
@@ -823,8 +823,8 @@ func update_panels():
 	var lp = diablo_bridge.get_left_panel_rect() if diablo_bridge.has_method("get_left_panel_rect") else Rect2(0, 0, 320, 352)
 	var pos_x = lp.position.x * scale_x
 	var pos_y = lp.position.y * scale_y
-	var size_w = lp.size.x * scale_x
-	var panel_aspect = 1480.0 / 896.0
+	var size_w = 380.0 * scale_x
+	var panel_aspect = 1480.0 / 1120.0
 	var size_h = min(size_w * panel_aspect, vp_size.y - pos_y - 12.0)
 
 	if char_panel:
@@ -837,12 +837,11 @@ func update_panels():
 		quest_log.size = Vector2(size_w, size_h)
 		quest_log.custom_minimum_size = Vector2(size_w, size_h)
 
-	# Right Panel (Inventory Frame) geometry
-	var rp = diablo_bridge.get_right_panel_rect() if diablo_bridge.has_method("get_right_panel_rect") else Rect2(d1_w - 320, 0, 320, 352)
-	var rpos_x = rp.position.x * scale_x
-	var rpos_y = rp.position.y * scale_y
-	var rsize_w = rp.size.x * scale_x
-	var rsize_h = (rp.size.y + 30.0) * scale_y
+	# Right Panel (Native Inventory) geometry - symmetrical with left panel
+	var rpos_x = vp_size.x - size_w - pos_x
+	var rpos_y = pos_y
+	var rsize_w = size_w
+	var rsize_h = size_h
 
 	if inv_frame:
 		inv_frame.position = Vector2(rpos_x, rpos_y)
@@ -865,11 +864,13 @@ func update_panels():
 		if quest_open:
 			quest_log.update_quests()
 
-	# Inventory Frame sync
+	# Inventory sync
 	if inv_frame:
 		var inv_open = diablo_bridge.is_inventory_open() if diablo_bridge.has_method("is_inventory_open") else false
 		if inv_frame.visible != inv_open:
 			inv_frame.visible = inv_open
+		if inv_open and inv_frame.has_method("update_inventory"):
+			inv_frame.update_inventory()
 
 	# Level-up indicator on HUD & BtnChar
 	var stat_pts = 0

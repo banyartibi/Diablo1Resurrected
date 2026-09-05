@@ -185,6 +185,8 @@ void CheckInvSwap(Player &player, const Item &item, int invGridIndex);
 void CheckInvRemove(Player &player, int invGridIndex);
 void TransferItemToStash(Player &player, int location);
 void CheckInvItem(bool isShiftHeld = false, bool isCtrlHeld = false);
+void DoCheckInvCut(Player &player, Point cursorPosition, bool automaticMove = false, bool dropItem = false);
+void DoCheckInvPaste(Player &player, Point cursorPosition);
 
 /**
  * Check for interactions with belt

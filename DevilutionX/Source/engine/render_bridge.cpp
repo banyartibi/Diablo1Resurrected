@@ -1111,5 +1111,244 @@ void SelectQuest(int questIdx)
 	}
 }
 
+// Native Godot Diablo IV Inventory Bridge
+static std::string FormatItemStats(const Item &item)
+{
+	std::string saved = std::string(InfoString.str());
+	InfoString = StringOrView {};
+	if (item._iIdentified) {
+		PrintItemDetails(item);
+	} else {
+		PrintItemDur(item);
+	}
+	std::string res = std::string(InfoString.str());
+	InfoString = StringOrView(std::move(saved));
+	return res;
+}
+
+static D1InvItemData ConvertItemToInvData(const Item &item, int slotId, int cellX, int cellY, int invListIndex)
+{
+	D1InvItemData data;
+	data.slotId = slotId;
+	data.type = static_cast<int>(item._itype);
+	data.curs = item._iCurs;
+	data.cursId = item._iCurs + CURSOR_FIRSTITEM;
+	data.quality = static_cast<int>(item._iMagical);
+
+	std::string_view nameSv = item.getName();
+	size_t nameLen = std::min(nameSv.size(), sizeof(data.name) - 1);
+	std::memcpy(data.name, nameSv.data(), nameLen);
+	data.name[nameLen] = '\0';
+
+	std::string statsStr = FormatItemStats(item);
+	size_t statsLen = std::min(statsStr.size(), sizeof(data.stats) - 1);
+	std::memcpy(data.stats, statsStr.data(), statsLen);
+	data.stats[statsLen] = '\0';
+
+	data.cellX = cellX;
+	data.cellY = cellY;
+	Size sz = GetInventorySize(item);
+	data.cellW = sz.width;
+	data.cellH = sz.height;
+
+	if (MyPlayer != nullptr) {
+		data.canUse = MyPlayer->CanUseItem(item);
+	} else {
+		data.canUse = true;
+	}
+
+	data.isIdentified = item._iIdentified;
+	data.durability = item._iDurability;
+	data.maxDurability = item._iMaxDur;
+	data.value = item._ivalue;
+	data.invListIndex = invListIndex;
+	return data;
+}
+
+std::vector<D1InvItemData> GetPlayerEquipmentData()
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return {};
+
+	std::vector<D1InvItemData> result;
+	Player &player = *MyPlayer;
+	for (int s = 0; s < NUM_INVLOC; ++s) {
+		const Item &item = player.InvBody[s];
+		if (!item.isEmpty()) {
+			result.push_back(ConvertItemToInvData(item, s, 0, 0, -1));
+		}
+	}
+	return result;
+}
+
+std::vector<D1InvItemData> GetPlayerBackpackData()
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return {};
+
+	std::vector<D1InvItemData> result;
+	Player &player = *MyPlayer;
+	for (int j = 0; j < InventoryGridCells; ++j) {
+		if (player.InvGrid[j] > 0) {
+			int ii = player.InvGrid[j] - 1;
+			if (ii >= 0 && ii < player._pNumInv) {
+				const Item &item = player.InvList[ii];
+				int cellX = j % 10;
+				int cellY = j / 10;
+				result.push_back(ConvertItemToInvData(item, j, cellX, cellY, ii));
+			}
+		}
+	}
+	return result;
+}
+
+D1InvItemData GetPlayerHoldItemData()
+{
+	if (!gbRunGame || MyPlayer == nullptr || MyPlayer->HoldItem.isEmpty())
+		return {};
+
+	return ConvertItemToInvData(MyPlayer->HoldItem, -1, 0, 0, -1);
+}
+
+int GetPlayerGold()
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return 0;
+	return MyPlayer->_pGold;
+}
+
+D1ItemIconRgba GetItemSpriteRgba(int cursId)
+{
+	if (!gbRunGame || cursId <= 0)
+		return {};
+
+	const ClxSprite sprite = GetInvItemSprite(cursId);
+	int w = sprite.width();
+	int h = sprite.height();
+	if (w <= 0 || h <= 0 || w > 128 || h > 128)
+		return {};
+
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+
+	ClxDraw(surface, { 0, h - 1 }, sprite);
+
+	const auto &pal = orig_palette;
+	D1ItemIconRgba res;
+	res.width = w;
+	res.height = h;
+	res.rgba.resize(w * h * 4, 0);
+
+	bool hasPixels = false;
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		uint8_t *dst = res.rgba.data() + (y * w * 4);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = pal[idx];
+				hasPixels = true;
+				dst[x * 4 + 0] = c.r;
+				dst[x * 4 + 1] = c.g;
+				dst[x * 4 + 2] = c.b;
+				dst[x * 4 + 3] = 255;
+			}
+		}
+	}
+	if (!hasPixels)
+		return {};
+
+	return res;
+}
+
+void ClickInventorySlot(int slotType, int slotIdx, bool isShift, bool isCtrl)
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return;
+
+	Player &player = *MyPlayer;
+	if (player._pmode > PM_WALK_SIDEWAYS)
+		return;
+
+	if (slotType == 0) {
+		// Equipment slot (0..6: Head, RingL, RingR, Amulet, HandL, HandR, Chest)
+		if (slotIdx < 0 || slotIdx > 6)
+			return;
+
+		Point clickPos { InvRect[slotIdx].Center().x + GetRightPanel().position.x, InvRect[slotIdx].Center().y + GetRightPanel().position.y };
+		if (!player.HoldItem.isEmpty()) {
+			DoCheckInvPaste(player, clickPos);
+		} else {
+			DoCheckInvCut(player, clickPos, isShift, isCtrl);
+		}
+	} else if (slotType == 1) {
+		// Backpack slot (0..39)
+		if (slotIdx < 0 || slotIdx >= 40)
+			return;
+
+		int cellX = slotIdx % 10;
+		int cellY = slotIdx / 10;
+
+		if (!player.HoldItem.isEmpty()) {
+			Size itemSize = GetInventorySize(player.HoldItem);
+			int clickCol = std::clamp(cellX + (itemSize.width - 1) / 2, 0, 9);
+			int clickRow = std::clamp(cellY + (itemSize.height - 1) / 2, 0, 3);
+			int targetSlot = SLOTXY_INV_FIRST + clickRow * 10 + clickCol;
+			Point clickPos { InvRect[targetSlot].Center().x + GetRightPanel().position.x, InvRect[targetSlot].Center().y + GetRightPanel().position.y };
+			DoCheckInvPaste(player, clickPos);
+		} else {
+			int targetSlot = SLOTXY_INV_FIRST + slotIdx;
+			Point clickPos { InvRect[targetSlot].Center().x + GetRightPanel().position.x, InvRect[targetSlot].Center().y + GetRightPanel().position.y };
+			DoCheckInvCut(player, clickPos, isShift, isCtrl);
+		}
+	}
+	CalcPlrInv(player, true);
+}
+
+void UseInventorySlot(int slotType, int slotIdx)
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return;
+
+	Player &player = *MyPlayer;
+	if (player._pmode > PM_WALK_SIDEWAYS)
+		return;
+
+	if (slotType == 0) {
+		// Equipment slot unequip
+		if (slotIdx < 0 || slotIdx > 6)
+			return;
+		if (!player.InvBody[slotIdx].isEmpty()) {
+			if (AutoPlaceItemInInventory(player, player.InvBody[slotIdx], true)) {
+				RemoveEquipment(player, static_cast<inv_body_loc>(slotIdx), false);
+				PlaySFX(ItemInvSnds[ItemCAnimTbl[player.InvBody[slotIdx]._iCurs]]);
+				CalcPlrInv(player, true);
+			}
+		}
+	} else if (slotType == 1) {
+		// Backpack item right-click
+		int itemIndex = -1;
+		if (slotIdx >= 0 && slotIdx < 40) {
+			if (player.InvGrid[slotIdx] != 0) {
+				itemIndex = abs(player.InvGrid[slotIdx]) - 1;
+			}
+		} else if (slotIdx >= 0 && slotIdx < player._pNumInv) {
+			itemIndex = slotIdx;
+		}
+
+		if (itemIndex >= 0 && itemIndex < player._pNumInv) {
+			Item &item = player.InvList[itemIndex];
+			if (item.isUsable()) {
+				UseInvItem(INVITEM_INV_FIRST + itemIndex);
+			} else if (player.CanUseItem(item)) {
+				// Auto-equip weapon/armor/ring/amulet
+				AutoEquip(player, item);
+				PlaySFX(ItemInvSnds[ItemCAnimTbl[item._iCurs]]);
+				CalcPlrInv(player, true);
+			}
+		}
+	}
+}
+
 } // namespace devilution
 

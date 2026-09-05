@@ -997,6 +997,16 @@ int CreateGoldItemInInventorySlot(Player &player, int slotIndex, int value)
 
 } // namespace
 
+void DoCheckInvCut(Player &player, Point cursorPosition, bool automaticMove, bool dropItem)
+{
+	CheckInvCut(player, cursorPosition, automaticMove, dropItem);
+}
+
+void DoCheckInvPaste(Player &player, Point cursorPosition)
+{
+	CheckInvPaste(player, cursorPosition);
+}
+
 void InvDrawSlotBack(const Surface &out, Point targetPosition, Size size, item_quality itemQuality)
 {
 	SDL_Rect srcRect = MakeSdlRect(0, 0, size.width, size.height);
@@ -1063,23 +1073,11 @@ void InitInv()
 
 void DrawInv(const Surface &out)
 {
+	if (gbHideVanillaHUD)
+		return;
+
 	Point pos = GetPanelPosition(UiPanels::Inventory, { 0, 351 });
 	ClxDraw(out, pos, (*pInvCels)[0]);
-
-	if (gbHideVanillaHUD) {
-		Point topPos = GetPanelPosition(UiPanels::Inventory, { 0, 0 });
-		for (int y = 0; y < SidePanelSize.height; ++y) {
-			for (int x = 0; x < SidePanelSize.width; ++x) {
-				Point pt = topPos + Displacement { x, y };
-				if (out.InBounds(pt)) {
-					std::uint8_t &pix = out[pt];
-					if (pix >= 176 && pix <= 191) {
-						pix = 224 + (pix - 176);
-					}
-				}
-			}
-		}
-	}
 
 	Size slotSize[] = {
 		{ 2, 2 }, // head

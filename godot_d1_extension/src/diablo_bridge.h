@@ -14,6 +14,7 @@
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <unordered_map>
 
 namespace godot {
 
@@ -22,6 +23,7 @@ class DiabloBridge : public Node {
 
 private:
 	bool engine_started = false;
+	mutable std::unordered_map<int, Ref<ImageTexture>> item_texture_cache;
 
 protected:
 	static void _bind_methods();
@@ -87,6 +89,14 @@ public:
 
 	bool is_inventory_open() const;
 	void toggle_inventory();
+
+	// Native Godot Diablo IV Inventory
+	Array get_player_equipment() const;
+	Array get_player_backpack() const;
+	Dictionary get_player_hold_item() const;
+	Ref<ImageTexture> get_item_texture(int curs_id);
+	void click_inventory_slot(int slot_type, int slot_idx, bool is_shift = false, bool is_ctrl = false);
+	void use_inventory_slot(int slot_type, int slot_idx);
 
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap
 	PackedInt32Array get_dungeon_grid() const;

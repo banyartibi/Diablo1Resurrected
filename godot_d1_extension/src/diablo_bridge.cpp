@@ -63,6 +63,14 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_inventory_open"), &DiabloBridge::is_inventory_open);
 	ClassDB::bind_method(D_METHOD("toggle_inventory"), &DiabloBridge::toggle_inventory);
 
+	// Native Godot Diablo IV Inventory
+	ClassDB::bind_method(D_METHOD("get_player_equipment"), &DiabloBridge::get_player_equipment);
+	ClassDB::bind_method(D_METHOD("get_player_backpack"), &DiabloBridge::get_player_backpack);
+	ClassDB::bind_method(D_METHOD("get_player_hold_item"), &DiabloBridge::get_player_hold_item);
+	ClassDB::bind_method(D_METHOD("get_item_texture", "curs_id"), &DiabloBridge::get_item_texture);
+	ClassDB::bind_method(D_METHOD("click_inventory_slot", "slot_type", "slot_idx", "is_shift", "is_ctrl"), &DiabloBridge::click_inventory_slot, DEFVAL(false), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("use_inventory_slot", "slot_type", "slot_idx"), &DiabloBridge::use_inventory_slot);
+
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
 	ClassDB::bind_method(D_METHOD("get_dungeon_tile", "x", "y"), &DiabloBridge::get_dungeon_tile);
@@ -611,4 +619,85 @@ bool DiabloBridge::is_inventory_open() const {
 void DiabloBridge::toggle_inventory() {
 	devilution::ToggleInventory();
 }
+
+static Dictionary InvDataToDict(const devilution::D1InvItemData &item) {
+	Dictionary d;
+	d["slot_id"] = item.slotId;
+	d["type"] = item.type;
+	d["curs"] = item.curs;
+	d["curs_id"] = item.cursId;
+	d["quality"] = item.quality;
+	d["name"] = String::utf8(item.name);
+	d["stats"] = String::utf8(item.stats);
+	d["cell_x"] = item.cellX;
+	d["cell_y"] = item.cellY;
+	d["cell_w"] = item.cellW;
+	d["cell_h"] = item.cellH;
+	d["can_use"] = item.canUse;
+	d["is_identified"] = item.isIdentified;
+	d["durability"] = item.durability;
+	d["max_durability"] = item.maxDurability;
+	d["value"] = item.value;
+	d["inv_list_index"] = item.invListIndex;
+	return d;
+}
+
+Array DiabloBridge::get_player_equipment() const {
+	Array arr;
+	auto eq = devilution::GetPlayerEquipmentData();
+	for (const auto &item : eq) {
+		arr.push_back(InvDataToDict(item));
+	}
+	return arr;
+}
+
+Array DiabloBridge::get_player_backpack() const {
+	Array arr;
+	auto bp = devilution::GetPlayerBackpackData();
+	for (const auto &item : bp) {
+		arr.push_back(InvDataToDict(item));
+	}
+	return arr;
+}
+
+Dictionary DiabloBridge::get_player_hold_item() const {
+	auto hold = devilution::GetPlayerHoldItemData();
+	if (hold.cursId <= 0)
+		return Dictionary();
+	return InvDataToDict(hold);
+}
+
+Ref<ImageTexture> DiabloBridge::get_item_texture(int curs_id) {
+	if (curs_id <= 0)
+		return Ref<ImageTexture>();
+
+	auto it = item_texture_cache.find(curs_id);
+	if (it != item_texture_cache.end() && it->second.is_valid())
+		return it->second;
+
+	auto icon = devilution::GetItemSpriteRgba(curs_id);
+	if (icon.rgba.empty() || icon.width <= 0 || icon.height <= 0)
+		return Ref<ImageTexture>();
+
+	PackedByteArray pba;
+	pba.resize(icon.rgba.size());
+	std::memcpy(pba.ptrw(), icon.rgba.data(), icon.rgba.size());
+
+	Ref<Image> img = Image::create_from_data(icon.width, icon.height, false, Image::FORMAT_RGBA8, pba);
+	if (img.is_null())
+		return Ref<ImageTexture>();
+
+	Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+	item_texture_cache[curs_id] = tex;
+	return tex;
+}
+
+void DiabloBridge::click_inventory_slot(int slot_type, int slot_idx, bool is_shift, bool is_ctrl) {
+	devilution::ClickInventorySlot(slot_type, slot_idx, is_shift, is_ctrl);
+}
+
+void DiabloBridge::use_inventory_slot(int slot_type, int slot_idx) {
+	devilution::UseInventorySlot(slot_type, slot_idx);
+}
+
 

@@ -257,5 +257,34 @@ void ToggleQuestLog();
 bool IsInventoryOpen();
 void ToggleInventory();
 
+// Native Godot Diablo IV Inventory
+struct D1InvItemData {
+	int slotId = 0; // 0..6 for equipment (SLOTXY_HEAD..SLOTXY_CHEST), or 0..39 for backpack index
+	int type = 0;
+	int curs = 0;
+	int cursId = 0;
+	int quality = 0; // 0=normal, 1=magic, 2=unique
+	char name[64] = { 0 };
+	char stats[256] = { 0 };
+	int cellX = 0;
+	int cellY = 0;
+	int cellW = 1;
+	int cellH = 1;
+	bool canUse = true;
+	bool isIdentified = true;
+	int durability = 0;
+	int maxDurability = 0;
+	int value = 0;
+	int invListIndex = -1;
+};
+
+std::vector<D1InvItemData> GetPlayerEquipmentData();
+std::vector<D1InvItemData> GetPlayerBackpackData();
+D1InvItemData GetPlayerHoldItemData();
+int GetPlayerGold();
+D1ItemIconRgba GetItemSpriteRgba(int cursId);
+void ClickInventorySlot(int slotType, int slotIdx, bool isShift = false, bool isCtrl = false);
+void UseInventorySlot(int slotType, int slotIdx);
+
 } // namespace devilution
 
