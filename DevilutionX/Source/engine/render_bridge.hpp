@@ -330,5 +330,15 @@ struct D1SpriteFrameRgba {
 D1SpriteFrameRgba GetPlayerSpriteRgba();
 D1SpriteFrameRgba GetMonsterSpriteRgba(int monsterId);
 
+// Native Godot 2.5D Dungeon Piece Extraction
+struct D1TilePieceRgba {
+	int width = 0;
+	int height = 0;
+	int numRows = 0;
+	std::vector<uint8_t> rgba;
+};
+
+D1TilePieceRgba GetDungeonPieceRgba(int pieceId);
+
 } // namespace devilution
 

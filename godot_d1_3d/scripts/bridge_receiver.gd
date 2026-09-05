@@ -51,10 +51,19 @@ var modern_hud = null
 var modern_hud_enabled: bool = true     # Default: Modern Diablo IV Native CanvasLayer HUD
 var last_is_ingame: bool = false
 
-# Native Godot 3D Sandbox (Lépcső 1 / Step 1)
+# 3-Mode Display Architecture:
+# Mode 0: Classic 2.5D Blit (Vanilla + 3D Relief Shader)
+# Mode 1: Native Godot 2.5D Engine (Direct Godot 2D Engine, 144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)
+# Mode 2: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)
+enum DisplayMode { ORIGINAL_25D = 0, NATIVE_25D = 1, NATIVE_3D = 2 }
+var current_display_mode: int = DisplayMode.ORIGINAL_25D
+
+var native_25d_scene = preload("res://scenes/views/native_25d_view.tscn")
+var native_25d_instance = null
+
+# Native Godot 3D Sandbox (Mode 2)
 var sandbox_scene = preload("res://scenes/sandbox/native_3d_sandbox.tscn")
 var sandbox_instance = null
-var sandbox_enabled: bool = false
 
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
@@ -192,15 +201,21 @@ func _ready():
 	if diablo_bridge:
 		modern_hud.set_bridge(diablo_bridge)
 
-	# Initialize Native 3D Sandbox (Lépcső 1 / Step 1)
+	# Initialize Native Godot 2.5D View (Mode 1)
+	native_25d_instance = native_25d_scene.instantiate()
+	add_child(native_25d_instance)
+	native_25d_instance.diablo_bridge = diablo_bridge
+	native_25d_instance.deactivate()
+
+	# Initialize Native 3D Sandbox (Mode 2)
 	sandbox_instance = sandbox_scene.instantiate()
 	add_child(sandbox_instance)
 	sandbox_instance.diablo_bridge = diablo_bridge
 	sandbox_instance.main_receiver = self
 	sandbox_instance.deactivate()
 	
-	show_osd("Diablo 1 Resurrected | [F3] Native 3D Sandbox | [H] Modern HUD | [F4] V-Sync", 4.0)
-	print("[Godot-D1 Bridge] Receiver initialized with user defaults. Dark Gothic, 8K Spline & Panel Shield active.")
+	show_osd("Diablo 1 Resurrected | [F3] Switch Display Mode (Original 2.5D / Native 2.5D / 3D Sandbox) | [H] HUD", 4.5)
+	print("[Godot-D1 Bridge] 3-Mode Architecture ready: [Original 2.5D] / [Native Godot 2.5D] / [Native 3D Sandbox].")
 
 func _notification(what: int):
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -363,6 +378,8 @@ func _process(delta: float):
 					modern_hud.set_bridge(diablo_bridge)
 				if modern_hud_enabled:
 					diablo_bridge.set_vanilla_hud_hidden(true)
+				if native_25d_instance:
+					native_25d_instance.diablo_bridge = diablo_bridge
 				if sandbox_instance:
 					sandbox_instance.diablo_bridge = diablo_bridge
 			var cur_frame_id = diablo_bridge.get_frame_id()
@@ -470,6 +487,57 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var game_y = int(clamp(norm_y * float(d1_height), 0.0, float(d1_height - 1)))
 	return Vector2i(game_x, game_y)
 
+func switch_display_mode(new_mode: int):
+	current_display_mode = new_mode
+
+	# Deactivate all views first
+	if native_25d_instance:
+		native_25d_instance.deactivate()
+	if sandbox_instance:
+		sandbox_instance.deactivate()
+
+	if current_display_mode == DisplayMode.ORIGINAL_25D:
+		# Mode 0: Classic 2.5D Blit (Vanilla + PBR Relief Shader)
+		if mesh_instance:
+			mesh_instance.visible = true
+		if hero_light:
+			hero_light.visible = hero_light_enabled
+		if torch_container:
+			torch_container.visible = true
+		if effects_container:
+			effects_container.visible = true
+		if camera:
+			camera.make_current()
+		show_osd("[F3] Display Mode 1/3: Classic 2.5D Blit (Vanilla + 3D Relief Shader)", 3.5)
+
+	elif current_display_mode == DisplayMode.NATIVE_25D:
+		# Mode 1: Native Godot 2.5D Engine (Smooth 144Hz Camera, Y-Sorted Sprites, PointLight2D)
+		if mesh_instance:
+			mesh_instance.visible = false
+		if hero_light:
+			hero_light.visible = false
+		if torch_container:
+			torch_container.visible = false
+		if effects_container:
+			effects_container.visible = false
+		if native_25d_instance:
+			native_25d_instance.activate()
+		show_osd("[F3] Display Mode 2/3: Native Godot 2.5D Engine (144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)", 3.5)
+
+	elif current_display_mode == DisplayMode.NATIVE_3D:
+		# Mode 2: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)
+		if mesh_instance:
+			mesh_instance.visible = false
+		if hero_light:
+			hero_light.visible = false
+		if torch_container:
+			torch_container.visible = false
+		if effects_container:
+			effects_container.visible = false
+		if sandbox_instance:
+			sandbox_instance.activate()
+		show_osd("[F3] Display Mode 3/3: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)", 3.5)
+
 func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_H:
@@ -482,32 +550,8 @@ func _unhandled_input(event: InputEvent):
 			show_osd("[H] HUD Mode: " + ("Modern Diablo IV CanvasLayer (Forward+ Vulkan)" if modern_hud_enabled else "Classic 1996 Panel (Vanilla)"))
 			return
 		elif event.keycode == KEY_F3:
-			sandbox_enabled = !sandbox_enabled
-			if sandbox_instance:
-				if sandbox_enabled:
-					if mesh_instance:
-						mesh_instance.visible = false
-					if hero_light:
-						hero_light.visible = false
-					if torch_container:
-						torch_container.visible = false
-					if effects_container:
-						effects_container.visible = false
-					sandbox_instance.activate()
-					show_osd("[F3] Native 3D Sandbox: ENABLED (Smooth Camera, 3D Dungeon, PgUp/PgDn Tilt, Q/E Rotate)", 3.5)
-				else:
-					sandbox_instance.deactivate()
-					if mesh_instance:
-						mesh_instance.visible = true
-					if hero_light:
-						hero_light.visible = hero_light_enabled
-					if torch_container:
-						torch_container.visible = true
-					if effects_container:
-						effects_container.visible = true
-					if camera:
-						camera.make_current()
-					show_osd("[F3] Native 3D Sandbox: DISABLED (Classic 2.5D View Active)", 2.5)
+			var next_mode = (current_display_mode + 1) % 3
+			switch_display_mode(next_mode)
 			return
 		elif event.keycode == KEY_F4:
 			vsync_enabled = !vsync_enabled
@@ -556,8 +600,12 @@ func _unhandled_input(event: InputEvent):
 			show_osd("[F12] Dungeon Floor: " + ("Wet & Reflective Cobblestone (Glossy Puddles ON)" if wet_floor else "Dry Dusty Stone Surface (OFF)"))
 			return
 
-	if sandbox_enabled and sandbox_instance != null:
+	if current_display_mode == DisplayMode.NATIVE_3D and sandbox_instance != null:
 		if sandbox_instance.handle_input(event):
+			return
+
+	if current_display_mode == DisplayMode.NATIVE_25D and native_25d_instance != null:
+		if native_25d_instance.handle_input(event):
 			return
 
 	if not use_gdextension and not FileAccess.file_exists("/dev/shm/d1_godot_frame"):

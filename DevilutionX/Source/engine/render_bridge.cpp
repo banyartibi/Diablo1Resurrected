@@ -1,6 +1,7 @@
 #include "engine/render_bridge.hpp"
 #include "engine/render/scrollrt.h"
 #include "engine/render/clx_render.hpp"
+#include "engine/render/dun_render.hpp"
 #include "engine/dx.h"
 #include "engine/backbuffer_state.hpp"
 
@@ -1636,6 +1637,74 @@ D1SpriteFrameRgba GetMonsterSpriteRgba(int monsterId)
 			}
 		}
 	}
+	return result;
+}
+
+D1TilePieceRgba GetDungeonPieceRgba(int pieceId)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1TilePieceRgba result;
+	if (!gbRunGame || pieceId <= 0 || pieceId >= MAXTILES || pDungeonCels == nullptr)
+		return result;
+
+	const MICROS &micros = DPieceMicros[pieceId];
+	int maxRow = -1;
+	uint_fast8_t numMicros = std::min<uint_fast8_t>(MicroTileLen, 16);
+	for (int i = 0; i < numMicros; i += 2) {
+		if (LevelCelBlock(micros.mt[i]).hasValue() || (i + 1 < numMicros && LevelCelBlock(micros.mt[i + 1]).hasValue())) {
+			maxRow = i / 2;
+		}
+	}
+	if (maxRow < 0)
+		return result;
+
+	int numRows = maxRow + 1;
+	int w = 64;
+	int h = numRows * 32;
+
+	result.width = w;
+	result.height = h;
+	result.numRows = numRows;
+
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+
+	const uint8_t *tbl = LightTables[0].data();
+
+	Point renderPos { 0, h - 1 };
+
+	for (int r = 0; r < numRows; ++r) {
+		int i = r * 2;
+		LevelCelBlock leftBlock { micros.mt[i] };
+		if (leftBlock.hasValue()) {
+			RenderTile(surface, renderPos, leftBlock, MaskType::Solid, tbl);
+		}
+		if (i + 1 < numMicros) {
+			LevelCelBlock rightBlock { micros.mt[i + 1] };
+			if (rightBlock.hasValue()) {
+				RenderTile(surface, renderPos + Displacement { 32, 0 }, rightBlock, MaskType::Solid, tbl);
+			}
+		}
+		renderPos.y -= 32;
+	}
+
+	result.rgba.resize(w * h * 4, 0);
+	uint8_t *dst = result.rgba.data();
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = orig_palette[idx];
+				int px = (y * w + x) * 4;
+				dst[px + 0] = c.r;
+				dst[px + 1] = c.g;
+				dst[px + 2] = c.b;
+				dst[px + 3] = 255;
+			}
+		}
+	}
+
 	return result;
 }
 

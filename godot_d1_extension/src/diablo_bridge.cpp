@@ -76,6 +76,9 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
 	ClassDB::bind_method(D_METHOD("get_dungeon_tile", "x", "y"), &DiabloBridge::get_dungeon_tile);
 	ClassDB::bind_method(D_METHOD("get_dungeon_solidity_grid"), &DiabloBridge::get_dungeon_solidity_grid);
+	ClassDB::bind_method(D_METHOD("get_dungeon_piece_data", "piece_id"), &DiabloBridge::get_dungeon_piece_data);
+	ClassDB::bind_method(D_METHOD("get_dungeon_piece_texture", "piece_id"), &DiabloBridge::get_dungeon_piece_texture);
+	ClassDB::bind_method(D_METHOD("clear_dungeon_piece_cache"), &DiabloBridge::clear_dungeon_piece_cache);
 
 	// Native 3D World & Entity Tracking
 	ClassDB::bind_method(D_METHOD("get_player_continuous_pos"), &DiabloBridge::get_player_continuous_pos);
@@ -371,6 +374,50 @@ PackedByteArray DiabloBridge::get_dungeon_solidity_grid() const {
 		std::memcpy(arr.ptrw(), grid.data(), grid.size());
 	}
 	return arr;
+}
+
+Dictionary DiabloBridge::get_dungeon_piece_data(int piece_id) const {
+	Dictionary d;
+	devilution::D1TilePieceRgba p = devilution::GetDungeonPieceRgba(piece_id);
+	d["width"] = p.width;
+	d["height"] = p.height;
+	d["num_rows"] = p.numRows;
+	PackedByteArray bytes;
+	if (!p.rgba.empty()) {
+		bytes.resize(p.rgba.size());
+		std::memcpy(bytes.ptrw(), p.rgba.data(), p.rgba.size());
+	}
+	d["rgba"] = bytes;
+	return d;
+}
+
+Ref<ImageTexture> DiabloBridge::get_dungeon_piece_texture(int piece_id) {
+	if (piece_id <= 0)
+		return Ref<ImageTexture>();
+
+	auto it = piece_texture_cache.find(piece_id);
+	if (it != piece_texture_cache.end() && it->second.is_valid())
+		return it->second;
+
+	devilution::D1TilePieceRgba p = devilution::GetDungeonPieceRgba(piece_id);
+	if (p.rgba.empty() || p.width <= 0 || p.height <= 0)
+		return Ref<ImageTexture>();
+
+	PackedByteArray pba;
+	pba.resize(p.rgba.size());
+	std::memcpy(pba.ptrw(), p.rgba.data(), p.rgba.size());
+
+	Ref<Image> img = Image::create_from_data(p.width, p.height, false, Image::FORMAT_RGBA8, pba);
+	if (img.is_null() || img->is_empty())
+		return Ref<ImageTexture>();
+
+	Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+	piece_texture_cache[piece_id] = tex;
+	return tex;
+}
+
+void DiabloBridge::clear_dungeon_piece_cache() {
+	piece_texture_cache.clear();
 }
 
 Dictionary DiabloBridge::get_player_continuous_pos() const {

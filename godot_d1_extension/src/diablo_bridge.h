@@ -24,6 +24,7 @@ class DiabloBridge : public Node {
 private:
 	bool engine_started = false;
 	mutable std::unordered_map<int, Ref<ImageTexture>> item_texture_cache;
+	mutable std::unordered_map<int, Ref<ImageTexture>> piece_texture_cache;
 
 protected:
 	static void _bind_methods();
@@ -103,6 +104,11 @@ public:
 	PackedInt32Array get_dungeon_grid() const;
 	int get_dungeon_tile(int x, int y) const;
 	PackedByteArray get_dungeon_solidity_grid() const;
+
+	// Native Godot 2.5D Tile Piece Extraction & Caching
+	Dictionary get_dungeon_piece_data(int piece_id) const;
+	Ref<ImageTexture> get_dungeon_piece_texture(int piece_id);
+	void clear_dungeon_piece_cache();
 
 	// Native 3D World & Entity Tracking
 	Dictionary get_player_continuous_pos() const;
