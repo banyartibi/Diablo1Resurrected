@@ -196,5 +196,63 @@ struct D1ItemIconRgba {
 };
 D1ItemIconRgba GetBeltItemIconRgba(int slotIndex);
 
+// Native Godot Diablo IV Character Sheet & Quest Log
+struct D1CharacterInfo {
+	char name[32] = { 0 };
+	int playerClass = 0;
+	int level = 1;
+	int exp = 0;
+	int nextExp = 0;
+	int gold = 0;
+
+	int strBase = 0;
+	int strNow = 0;
+	int strMax = 0;
+
+	int magBase = 0;
+	int magNow = 0;
+	int magMax = 0;
+
+	int dexBase = 0;
+	int dexNow = 0;
+	int dexMax = 0;
+
+	int vitBase = 0;
+	int vitNow = 0;
+	int vitMax = 0;
+
+	int statPts = 0;
+
+	int hp = 0;
+	int maxHp = 0;
+	int mana = 0;
+	int maxMana = 0;
+
+	int armor = 0;
+	int toHit = 0;
+	int dmgMin = 0;
+	int dmgMax = 0;
+
+	int resMagic = 0;
+	int resFire = 0;
+	int resLightning = 0;
+};
+
+D1CharacterInfo GetCharacterInfo();
+void AddAttributePoint(int attrIdx);
+bool IsCharacterSheetOpen();
+void ToggleCharacterSheet();
+
+struct D1QuestEntry {
+	int idx = 0;
+	char name[64] = { 0 };
+	bool isFinished = false;
+};
+
+std::vector<D1QuestEntry> GetQuestsInfo();
+void SelectQuest(int questIdx);
+bool IsQuestLogOpen();
+void ToggleQuestLog();
+
 } // namespace devilution
 

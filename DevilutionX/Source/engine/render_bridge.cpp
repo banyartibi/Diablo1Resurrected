@@ -25,6 +25,8 @@
 #include "engine/palette.h"
 #include "engine/surface.hpp"
 #include "items.h"
+#include "quests.h"
+#include "minitext.h"
 #include "inv.h"
 #include "msg.h"
 #include "cursor.h"
@@ -935,6 +937,158 @@ std::vector<D1WallOccluder> GetActiveWallOccluders()
 		}
 	}
 	return occluders;
+}
+
+D1CharacterInfo GetCharacterInfo()
+{
+	D1CharacterInfo info;
+	if (MyPlayer == nullptr)
+		return info;
+
+	Player &p = *MyPlayer;
+	std::strncpy(info.name, p._pName, sizeof(info.name) - 1);
+	info.playerClass = static_cast<int>(p._pClass);
+	info.level = p._pLevel;
+	info.exp = p._pExperience;
+	info.nextExp = p._pNextExper;
+	info.gold = p._pGold;
+
+	info.strBase = p._pBaseStr;
+	info.strNow = p._pStrength;
+	info.strMax = p.GetMaximumAttributeValue(CharacterAttribute::Strength);
+
+	info.magBase = p._pBaseMag;
+	info.magNow = p._pMagic;
+	info.magMax = p.GetMaximumAttributeValue(CharacterAttribute::Magic);
+
+	info.dexBase = p._pBaseDex;
+	info.dexNow = p._pDexterity;
+	info.dexMax = p.GetMaximumAttributeValue(CharacterAttribute::Dexterity);
+
+	info.vitBase = p._pBaseVit;
+	info.vitNow = p._pVitality;
+	info.vitMax = p.GetMaximumAttributeValue(CharacterAttribute::Vitality);
+
+	info.statPts = p._pStatPts;
+
+	info.hp = p._pHitPoints >> 6;
+	info.maxHp = p._pMaxHP >> 6;
+	info.mana = p._pMana >> 6;
+	info.maxMana = p._pMaxMana >> 6;
+
+	info.armor = p.GetArmor() + p._pLevel * 2;
+	info.toHit = (p.InvBody[INVLOC_HAND_LEFT]._itype == ItemType::Bow) ? p.GetRangedToHit() : p.GetMeleeToHit();
+
+	int damageMod = p._pIBonusDamMod;
+	if (p.InvBody[INVLOC_HAND_LEFT]._itype == ItemType::Bow && p._pClass != HeroClass::Rogue) {
+		damageMod += p._pDamageMod / 2;
+	} else {
+		damageMod += p._pDamageMod;
+	}
+	info.dmgMin = p._pIMinDam + p._pIBonusDam * p._pIMinDam / 100 + damageMod;
+	info.dmgMax = p._pIMaxDam + p._pIBonusDam * p._pIMaxDam / 100 + damageMod;
+
+	info.resMagic = p._pMagResist;
+	info.resFire = p._pFireResist;
+	info.resLightning = p._pLghtResist;
+
+	return info;
+}
+
+void AddAttributePoint(int attrIdx)
+{
+	if (MyPlayer == nullptr || MyPlayer->_pStatPts <= 0)
+		return;
+
+	CharacterAttribute attr = static_cast<CharacterAttribute>(attrIdx);
+	if (MyPlayer->GetBaseAttributeValue(attr) >= MyPlayer->GetMaximumAttributeValue(attr))
+		return;
+
+	switch (attr) {
+	case CharacterAttribute::Strength:
+		NetSendCmdParam1(true, CMD_ADDSTR, 1);
+		MyPlayer->_pStatPts -= 1;
+		break;
+	case CharacterAttribute::Magic:
+		NetSendCmdParam1(true, CMD_ADDMAG, 1);
+		MyPlayer->_pStatPts -= 1;
+		break;
+	case CharacterAttribute::Dexterity:
+		NetSendCmdParam1(true, CMD_ADDDEX, 1);
+		MyPlayer->_pStatPts -= 1;
+		break;
+	case CharacterAttribute::Vitality:
+		NetSendCmdParam1(true, CMD_ADDVIT, 1);
+		MyPlayer->_pStatPts -= 1;
+		break;
+	}
+}
+
+bool IsCharacterSheetOpen()
+{
+	return chrflag;
+}
+
+void ToggleCharacterSheet()
+{
+	chrflag = !chrflag;
+	if (chrflag && QuestLogIsOpen)
+		QuestLogIsOpen = false;
+}
+
+bool IsQuestLogOpen()
+{
+	return QuestLogIsOpen;
+}
+
+void ToggleQuestLog()
+{
+	QuestLogIsOpen = !QuestLogIsOpen;
+	if (QuestLogIsOpen) {
+		if (chrflag) chrflag = false;
+		StartQuestlog();
+	}
+}
+
+std::vector<D1QuestEntry> GetQuestsInfo()
+{
+	std::vector<D1QuestEntry> list;
+	// 1. Active quests with log flag
+	for (const auto &quest : Quests) {
+		if (quest._qactive == QUEST_ACTIVE && quest._qlog) {
+			D1QuestEntry qe;
+			qe.idx = quest._qidx;
+			std::string_view sv = _(QuestsData[quest._qidx]._qlstr);
+			size_t len = std::min(sv.size(), sizeof(qe.name) - 1);
+			std::memcpy(qe.name, sv.data(), len);
+			qe.name[len] = '\0';
+			qe.isFinished = false;
+			list.push_back(qe);
+		}
+	}
+	// 2. Finished quests
+	for (const auto &quest : Quests) {
+		if (quest._qactive == QUEST_DONE || quest._qactive == QUEST_HIVE_DONE) {
+			D1QuestEntry qe;
+			qe.idx = quest._qidx;
+			std::string_view sv = _(QuestsData[quest._qidx]._qlstr);
+			size_t len = std::min(sv.size(), sizeof(qe.name) - 1);
+			std::memcpy(qe.name, sv.data(), len);
+			qe.name[len] = '\0';
+			qe.isFinished = true;
+			list.push_back(qe);
+		}
+	}
+	return list;
+}
+
+void SelectQuest(int questIdx)
+{
+	if (questIdx >= 0 && questIdx < MAXQUESTS) {
+		InitQTextMsg(Quests[questIdx]._qmsg);
+		PlaySFX(IS_TITLSLCT);
+		QuestLogIsOpen = false;
+	}
 }
 
 } // namespace devilution

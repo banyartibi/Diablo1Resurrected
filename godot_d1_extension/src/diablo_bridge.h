@@ -74,6 +74,17 @@ public:
 	void select_spell(int spell_id, int spell_type);
 	int get_zoom_mode() const;
 
+	// Native Godot Diablo IV Character Sheet & Quest Log
+	Dictionary get_character_info() const;
+	void add_attribute_point(int attr_idx);
+	bool is_character_open() const;
+	void toggle_character_sheet();
+
+	Array get_quests_info() const;
+	void select_quest(int quest_idx);
+	bool is_quest_log_open() const;
+	void toggle_quest_log();
+
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap
 	PackedInt32Array get_dungeon_grid() const;
 	int get_dungeon_tile(int x, int y) const;

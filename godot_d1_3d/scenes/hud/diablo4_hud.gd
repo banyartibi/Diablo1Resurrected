@@ -47,6 +47,12 @@ const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 @onready var skill_selector: PanelContainer = $SkillSelector
 @onready var skill_list: HBoxContainer = $SkillSelector/Margin/SkillList
 
+# Character Panel & Quest Log
+const CHAR_PANEL_SCENE = preload("res://scenes/hud/diablo4_character_panel.tscn")
+const QUEST_LOG_SCENE = preload("res://scenes/hud/diablo4_quest_log.tscn")
+var char_panel: PanelContainer = null
+var quest_log: PanelContainer = null
+
 var diablo_bridge = null
 var current_spell_id: int = -1
 var current_spell_type: int = -1
@@ -161,6 +167,15 @@ func _ready():
 			tooltip_style = base_sb.duplicate()
 			item_tooltip.add_theme_stylebox_override("panel", tooltip_style)
 
+	# Instance Character Panel & Quest Log
+	char_panel = CHAR_PANEL_SCENE.instantiate()
+	char_panel.visible = false
+	add_child(char_panel)
+
+	quest_log = QUEST_LOG_SCENE.instantiate()
+	quest_log.visible = false
+	add_child(quest_log)
+
 	# Disable all keyboard focus grabbing on HUD elements so TAB key always toggles automap!
 	_disable_focus_recursive(self)
 
@@ -174,6 +189,10 @@ func _disable_focus_recursive(node: Node):
 
 func set_bridge(bridge):
 	diablo_bridge = bridge
+	if char_panel and char_panel.has_method("set_bridge"):
+		char_panel.set_bridge(bridge)
+	if quest_log and quest_log.has_method("set_bridge"):
+		quest_log.set_bridge(bridge)
 
 func setup_button_events():
 	# Potion 1-8 clicks
@@ -213,7 +232,12 @@ func setup_button_events():
 	if btn_char:
 		btn_char.focus_mode = Control.FOCUS_NONE
 		btn_char.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn_char.pressed.connect(func(): send_key(KEY_C))
+		btn_char.pressed.connect(func():
+			if diablo_bridge and diablo_bridge.has_method("toggle_character_sheet"):
+				diablo_bridge.toggle_character_sheet()
+			else:
+				send_key(KEY_C)
+		)
 	if btn_inv:
 		btn_inv.focus_mode = Control.FOCUS_NONE
 		btn_inv.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -221,7 +245,12 @@ func setup_button_events():
 	if btn_quest:
 		btn_quest.focus_mode = Control.FOCUS_NONE
 		btn_quest.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn_quest.pressed.connect(func(): send_key(KEY_Q))
+		btn_quest.pressed.connect(func():
+			if diablo_bridge and diablo_bridge.has_method("toggle_quest_log"):
+				diablo_bridge.toggle_quest_log()
+			else:
+				send_key(KEY_Q)
+		)
 	if btn_map:
 		btn_map.focus_mode = Control.FOCUS_NONE
 		btn_map.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -249,10 +278,23 @@ func _input(event: InputEvent):
 			toggle_speedbook()
 			get_viewport().set_input_as_handled()
 			return
-		elif event.keycode == KEY_ESCAPE and is_speedbook_showing:
-			close_speedbook()
-			get_viewport().set_input_as_handled()
-			return
+		elif event.keycode == KEY_ESCAPE:
+			if is_speedbook_showing:
+				close_speedbook()
+				get_viewport().set_input_as_handled()
+				return
+			if char_panel and char_panel.visible:
+				if diablo_bridge and diablo_bridge.has_method("toggle_character_sheet"):
+					diablo_bridge.toggle_character_sheet()
+				char_panel.visible = false
+				get_viewport().set_input_as_handled()
+				return
+			if quest_log and quest_log.visible:
+				if diablo_bridge and diablo_bridge.has_method("toggle_quest_log"):
+					diablo_bridge.toggle_quest_log()
+				quest_log.visible = false
+				get_viewport().set_input_as_handled()
+				return
 
 	if event is InputEventMouseButton and event.pressed and is_speedbook_showing:
 		if skill_selector and skill_selector.visible:
@@ -411,12 +453,16 @@ func _process(delta: float):
 		$Root.visible = false
 		if item_tooltip: item_tooltip.visible = false
 		if skill_selector: skill_selector.visible = false
+		if char_panel: char_panel.visible = false
+		if quest_log: quest_log.visible = false
 		return
 
 	if diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
 		$Root.visible = false
 		if item_tooltip: item_tooltip.visible = false
 		if skill_selector: skill_selector.visible = false
+		if char_panel: char_panel.visible = false
+		if quest_log: quest_log.visible = false
 		return
 
 	$Root.visible = true
@@ -426,6 +472,7 @@ func _process(delta: float):
 	update_secondary_spell()
 	update_belt_potions()
 	update_item_tooltip()
+	update_panels()
 
 func update_health_and_mana(delta: float):
 	var hp = diablo_bridge.get_player_hp()
@@ -720,3 +767,44 @@ func format_number(n: int) -> String:
 		if cnt % 3 == 0 and i > 0:
 			result = "," + result
 	return result
+
+func update_panels():
+	if not diablo_bridge:
+		return
+
+	var is_modern = true
+	if diablo_bridge.has_method("is_vanilla_hud_hidden"):
+		is_modern = diablo_bridge.is_vanilla_hud_hidden()
+
+	if not is_modern:
+		if char_panel: char_panel.visible = false
+		if quest_log: quest_log.visible = false
+		return
+
+	# Character Panel sync
+	if char_panel:
+		var char_open = diablo_bridge.is_character_open() if diablo_bridge.has_method("is_character_open") else false
+		if char_panel.visible != char_open:
+			char_panel.visible = char_open
+		if char_open:
+			char_panel.update_stats()
+
+	# Quest Log sync
+	if quest_log:
+		var quest_open = diablo_bridge.is_quest_log_open() if diablo_bridge.has_method("is_quest_log_open") else false
+		if quest_log.visible != quest_open:
+			quest_log.visible = quest_open
+		if quest_open:
+			quest_log.update_quests()
+
+	# Level-up indicator on BtnChar
+	var btn_char = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnChar
+	if btn_char and diablo_bridge.has_method("get_character_info"):
+		var cinfo = diablo_bridge.get_character_info()
+		var stat_pts = cinfo.get("stat_pts", 0)
+		if stat_pts > 0:
+			var pulse = 0.8 + 0.4 * sin(Time.get_ticks_msec() * 0.006)
+			btn_char.modulate = Color(1.0 + pulse * 0.4, 0.8 + pulse * 0.5, 0.2 + pulse * 0.4, 1.0)
+		else:
+			btn_char.modulate = Color(1.0, 1.0, 1.0, 1.0)
+

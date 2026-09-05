@@ -51,6 +51,16 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("select_spell", "spell_id", "spell_type"), &DiabloBridge::select_spell);
 	ClassDB::bind_method(D_METHOD("get_zoom_mode"), &DiabloBridge::get_zoom_mode);
 
+	// Native Godot Diablo IV Character Sheet & Quest Log
+	ClassDB::bind_method(D_METHOD("get_character_info"), &DiabloBridge::get_character_info);
+	ClassDB::bind_method(D_METHOD("add_attribute_point", "attr_idx"), &DiabloBridge::add_attribute_point);
+	ClassDB::bind_method(D_METHOD("is_character_open"), &DiabloBridge::is_character_open);
+	ClassDB::bind_method(D_METHOD("toggle_character_sheet"), &DiabloBridge::toggle_character_sheet);
+	ClassDB::bind_method(D_METHOD("get_quests_info"), &DiabloBridge::get_quests_info);
+	ClassDB::bind_method(D_METHOD("select_quest", "quest_idx"), &DiabloBridge::select_quest);
+	ClassDB::bind_method(D_METHOD("is_quest_log_open"), &DiabloBridge::is_quest_log_open);
+	ClassDB::bind_method(D_METHOD("toggle_quest_log"), &DiabloBridge::toggle_quest_log);
+
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
 	ClassDB::bind_method(D_METHOD("get_dungeon_tile", "x", "y"), &DiabloBridge::get_dungeon_tile);
@@ -508,5 +518,87 @@ Array DiabloBridge::poll_visual_events() {
 		arr.append(d);
 	}
 	return arr;
+}
+
+Dictionary DiabloBridge::get_character_info() const {
+	Dictionary d;
+	auto info = devilution::GetCharacterInfo();
+	d["name"] = String::utf8(info.name);
+	d["class"] = info.playerClass;
+	d["level"] = info.level;
+	d["exp"] = info.exp;
+	d["next_exp"] = info.nextExp;
+	d["gold"] = info.gold;
+
+	d["str_base"] = info.strBase;
+	d["str_now"] = info.strNow;
+	d["str_max"] = info.strMax;
+
+	d["mag_base"] = info.magBase;
+	d["mag_now"] = info.magNow;
+	d["mag_max"] = info.magMax;
+
+	d["dex_base"] = info.dexBase;
+	d["dex_now"] = info.dexNow;
+	d["dex_max"] = info.dexMax;
+
+	d["vit_base"] = info.vitBase;
+	d["vit_now"] = info.vitNow;
+	d["vit_max"] = info.vitMax;
+
+	d["stat_pts"] = info.statPts;
+
+	d["hp"] = info.hp;
+	d["max_hp"] = info.maxHp;
+	d["mana"] = info.mana;
+	d["max_mana"] = info.maxMana;
+
+	d["armor"] = info.armor;
+	d["to_hit"] = info.toHit;
+	d["dmg_min"] = info.dmgMin;
+	d["dmg_max"] = info.dmgMax;
+
+	d["res_magic"] = info.resMagic;
+	d["res_fire"] = info.resFire;
+	d["res_lightning"] = info.resLightning;
+
+	return d;
+}
+
+void DiabloBridge::add_attribute_point(int attr_idx) {
+	devilution::AddAttributePoint(attr_idx);
+}
+
+bool DiabloBridge::is_character_open() const {
+	return devilution::IsCharacterSheetOpen();
+}
+
+void DiabloBridge::toggle_character_sheet() {
+	devilution::ToggleCharacterSheet();
+}
+
+Array DiabloBridge::get_quests_info() const {
+	Array arr;
+	auto list = devilution::GetQuestsInfo();
+	for (const auto &qe : list) {
+		Dictionary q;
+		q["idx"] = qe.idx;
+		q["name"] = String::utf8(qe.name);
+		q["is_finished"] = qe.isFinished;
+		arr.push_back(q);
+	}
+	return arr;
+}
+
+void DiabloBridge::select_quest(int quest_idx) {
+	devilution::SelectQuest(quest_idx);
+}
+
+bool DiabloBridge::is_quest_log_open() const {
+	return devilution::IsQuestLogOpen();
+}
+
+void DiabloBridge::toggle_quest_log() {
+	devilution::ToggleQuestLog();
 }
 

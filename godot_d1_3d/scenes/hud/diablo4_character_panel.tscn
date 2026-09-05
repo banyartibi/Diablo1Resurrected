@@ -1,0 +1,391 @@
+[gd_scene format=3 uid="uid://c7w8f3j4m2p1q"]
+
+[ext_resource type="Script" path="res://scenes/hud/diablo4_character_panel.gd" id="1_cp"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_char_panel"]
+bg_color = Color(0.045, 0.04, 0.055, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8, 0.66, 0.32, 0.95)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0, 0, 0, 0.9)
+shadow_size = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.07, 0.06, 0.085, 0.8)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.35, 0.28, 0.18, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_add_btn"]
+bg_color = Color(0.85, 0.65, 0.15, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.88, 0.45, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close_btn"]
+bg_color = Color(0.15, 0.12, 0.15, 0.8)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.6, 0.5, 0.3, 0.8)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[node name="CharacterPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(340, 540)
+offset_left = 32.0
+offset_top = 32.0
+offset_right = 372.0
+offset_bottom = 572.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_char_panel")
+script = ExtResource("1_cp")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HeaderRow" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="TitleVBox" type="VBoxContainer" parent="Margin/VBox/HeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 1
+
+[node name="NameLabel" type="Label" parent="Margin/VBox/HeaderRow/TitleVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.4, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 15
+text = "Hero"
+
+[node name="ClassLevelLabel" type="Label" parent="Margin/VBox/HeaderRow/TitleVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_font_sizes/font_size = 11
+text = "Level 1 Sorcerer"
+
+[node name="GoldLabel" type="Label" parent="Margin/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 11
+text = "Gold: 0"
+
+[node name="CloseBtn" type="Button" parent="Margin/VBox/HeaderRow"]
+custom_minimum_size = Vector2(22, 22)
+layout_mode = 2
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_close_btn")
+text = "✕"
+
+[node name="Divider" type="ColorRect" parent="Margin/VBox"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+color = Color(0.55, 0.45, 0.25, 0.8)
+
+[node name="ExpPointsRow" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="ExpLabel" type="Label" parent="Margin/VBox/ExpPointsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.75, 0.7, 1)
+theme_override_font_sizes/font_size = 10
+text = "XP: 0 / 0"
+
+[node name="StatPointsLabel" type="Label" parent="Margin/VBox/ExpPointsRow"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
+theme_override_font_sizes/font_size = 11
+text = "Points: 5"
+
+[node name="AttributesCard" type="PanelContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Margin" type="MarginContainer" parent="Margin/VBox/AttributesCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="Margin/VBox/AttributesCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SectionTitle" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.65, 0.45, 1)
+theme_override_font_sizes/font_size = 10
+text = "CORE ATTRIBUTES"
+
+[node name="StrRow" type="HBoxContainer" parent="Margin/VBox/AttributesCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/StrRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "Strength"
+
+[node name="ValueLabel" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/StrRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "15 (15)"
+
+[node name="AddBtn" type="Button" parent="Margin/VBox/AttributesCard/Margin/VBox/StrRow"]
+visible = false
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.1, 0.08, 0.02, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
+text = "+"
+
+[node name="MagRow" type="HBoxContainer" parent="Margin/VBox/AttributesCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/MagRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "Magic"
+
+[node name="ValueLabel" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/MagRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "40 (40)"
+
+[node name="AddBtn" type="Button" parent="Margin/VBox/AttributesCard/Margin/VBox/MagRow"]
+visible = false
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.1, 0.08, 0.02, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
+text = "+"
+
+[node name="DexRow" type="HBoxContainer" parent="Margin/VBox/AttributesCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/DexRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "Dexterity"
+
+[node name="ValueLabel" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/DexRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "15 (15)"
+
+[node name="AddBtn" type="Button" parent="Margin/VBox/AttributesCard/Margin/VBox/DexRow"]
+visible = false
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.1, 0.08, 0.02, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
+text = "+"
+
+[node name="VitRow" type="HBoxContainer" parent="Margin/VBox/AttributesCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/VitRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "Vitality"
+
+[node name="ValueLabel" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/VitRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "25 (25)"
+
+[node name="AddBtn" type="Button" parent="Margin/VBox/AttributesCard/Margin/VBox/VitRow"]
+visible = false
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.1, 0.08, 0.02, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
+text = "+"
+
+[node name="CombatCard" type="PanelContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Margin" type="MarginContainer" parent="Margin/VBox/CombatCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="Margin/VBox/CombatCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SectionTitle" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.65, 0.45, 1)
+theme_override_font_sizes/font_size = 10
+text = "OFFENSE & DEFENSE"
+
+[node name="DmgRow" type="HBoxContainer" parent="Margin/VBox/CombatCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/DmgRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "Damage"
+
+[node name="ValueLabel" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/DmgRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "2 - 4"
+
+[node name="ToHitRow" type="HBoxContainer" parent="Margin/VBox/CombatCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/ToHitRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "To Hit"
+
+[node name="ValueLabel" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/ToHitRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "60%"
+
+[node name="ArmorRow" type="HBoxContainer" parent="Margin/VBox/CombatCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/ArmorRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "Armor Class"
+
+[node name="ValueLabel" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/ArmorRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "9"
+
+[node name="ResistVitalsCard" type="PanelContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Margin" type="MarginContainer" parent="Margin/VBox/ResistVitalsCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="Margin/VBox/ResistVitalsCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SectionTitle" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.65, 0.45, 1)
+theme_override_font_sizes/font_size = 10
+text = "RESISTANCES & VITALS"
+
+[node name="ResRow1" type="HBoxContainer" parent="Margin/VBox/ResistVitalsCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="ResMagicLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/ResRow1"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.4, 0.75, 1, 1)
+theme_override_font_sizes/font_size = 11
+text = "Magic: 0%"
+
+[node name="ResFireLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/ResRow1"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.5, 0.3, 1)
+theme_override_font_sizes/font_size = 11
+text = "Fire: 0%"
+
+[node name="ResRow2" type="HBoxContainer" parent="Margin/VBox/ResistVitalsCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="ResLightningLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/ResRow2"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
+theme_override_font_sizes/font_size = 11
+text = "Lightning: 0%"
+
+[node name="VitalsRow" type="HBoxContainer" parent="Margin/VBox/ResistVitalsCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="LifeLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/VitalsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.35, 0.35, 1)
+theme_override_font_sizes/font_size = 11
+text = "Life: 37 / 37"
+
+[node name="ManaLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/VitalsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.35, 0.7, 1, 1)
+theme_override_font_sizes/font_size = 11
+text = "Mana: 84 / 84"

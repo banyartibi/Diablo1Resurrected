@@ -221,11 +221,11 @@ func setup_osd():
 func update_torch_light():
 	if hero_light:
 		hero_light.visible = hero_light_enabled
-		hero_light.light_color = Color(1.0, 0.72, 0.38, 1.0) # Warm gothic amber
-		hero_light.light_energy = 1.20
-		hero_light.light_specular = 0.40
-		hero_light.omni_range = 2.8
-		hero_light.omni_attenuation = 2.0
+		hero_light.light_color = Color(1.0, 0.75, 0.42, 1.0) # Warm gothic amber candlelight
+		hero_light.light_energy = 0.55
+		hero_light.light_specular = 0.0 # Pure diffuse, zero sharp directional glints!
+		hero_light.omni_range = 3.2
+		hero_light.omni_attenuation = 1.4 # Soft, even 360-degree ambient falloff
 		hero_light.shadow_enabled = false
 
 func show_osd(text: String, duration: float = 2.5):
@@ -618,10 +618,11 @@ func update_dynamic_lighting(delta: float) -> void:
 			hero_light.visible = true
 			var hp = hero_info["world_pos"]
 			hero_light.position = Vector3(hp.x, hp.y, 0.45)
-			var h_flicker = 1.0 + 0.08 * sin(time_accum * 11.7) * cos(time_accum * 6.3)
-			hero_light.light_energy = 0.45 * h_flicker
-			hero_light.omni_range = clamp(hero_info["radius"] * 0.28, 2.0, 3.0)
-			hero_light.omni_attenuation = 2.0
+			var h_flicker = 1.0 + 0.04 * sin(time_accum * 11.7) * cos(time_accum * 6.3)
+			hero_light.light_energy = 0.50 * h_flicker
+			hero_light.light_specular = 0.0 # Pure diffuse, zero directional tracking glint
+			hero_light.omni_range = clamp(hero_info["radius"] * 0.28, 2.2, 3.2)
+			hero_light.omni_attenuation = 1.4
 		else:
 			hero_light.visible = false
 

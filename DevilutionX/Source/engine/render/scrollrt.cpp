@@ -1421,13 +1421,16 @@ void DrawView(const Surface &out, Point startPosition)
 	DrawDurIcon(out);
 
 	if (chrflag) {
-		DrawChr(out);
+		if (!gbHideVanillaHUD)
+			DrawChr(out);
 	} else if (QuestLogIsOpen) {
-		DrawQuestLog(out);
+		if (!gbHideVanillaHUD)
+			DrawQuestLog(out);
 	} else if (IsStashOpen) {
 		DrawStash(out);
 	}
-	DrawLevelUpIcon(out);
+	if (!gbHideVanillaHUD)
+		DrawLevelUpIcon(out);
 	if (ShowUniqueItemInfoBox && !gbHideVanillaHUD) {
 		DrawUniqueInfo(out);
 	}
