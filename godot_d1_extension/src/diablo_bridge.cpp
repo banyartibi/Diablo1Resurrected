@@ -79,6 +79,24 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_dungeon_piece_data", "piece_id"), &DiabloBridge::get_dungeon_piece_data);
 	ClassDB::bind_method(D_METHOD("get_dungeon_piece_texture", "piece_id"), &DiabloBridge::get_dungeon_piece_texture);
 	ClassDB::bind_method(D_METHOD("clear_dungeon_piece_cache"), &DiabloBridge::clear_dungeon_piece_cache);
+	ClassDB::bind_method(D_METHOD("get_dungeon_special_grid"), &DiabloBridge::get_dungeon_special_grid);
+	ClassDB::bind_method(D_METHOD("get_special_cel_data", "special_id"), &DiabloBridge::get_special_cel_data);
+	ClassDB::bind_method(D_METHOD("get_special_cel_texture", "special_id"), &DiabloBridge::get_special_cel_texture);
+	ClassDB::bind_method(D_METHOD("get_dungeon_light_grid"), &DiabloBridge::get_dungeon_light_grid);
+	ClassDB::bind_method(D_METHOD("get_dungeon_trans_grid"), &DiabloBridge::get_dungeon_trans_grid);
+	ClassDB::bind_method(D_METHOD("get_trans_list"), &DiabloBridge::get_trans_list);
+
+	// Native Godot 2.5D Dungeon Objects (Torches, Barrels, Chests, Shrines)
+	ClassDB::bind_method(D_METHOD("get_active_objects"), &DiabloBridge::get_active_objects);
+	ClassDB::bind_method(D_METHOD("get_object_sprite_data", "object_id"), &DiabloBridge::get_object_sprite_data);
+
+	// Native Godot 2.5D Ground Items & Loot
+	ClassDB::bind_method(D_METHOD("get_active_items"), &DiabloBridge::get_active_items);
+	ClassDB::bind_method(D_METHOD("get_ground_item_sprite_data", "item_id"), &DiabloBridge::get_ground_item_sprite_data);
+
+	// Native Godot 2.5D Corpses & Fallen Monsters
+	ClassDB::bind_method(D_METHOD("get_active_corpses"), &DiabloBridge::get_active_corpses);
+	ClassDB::bind_method(D_METHOD("get_corpse_sprite_data", "corpse_idx", "dir"), &DiabloBridge::get_corpse_sprite_data);
 
 	// Native 3D World & Entity Tracking
 	ClassDB::bind_method(D_METHOD("get_player_continuous_pos"), &DiabloBridge::get_player_continuous_pos);
@@ -418,6 +436,80 @@ Ref<ImageTexture> DiabloBridge::get_dungeon_piece_texture(int piece_id) {
 
 void DiabloBridge::clear_dungeon_piece_cache() {
 	piece_texture_cache.clear();
+	special_texture_cache.clear();
+}
+
+PackedInt32Array DiabloBridge::get_dungeon_special_grid() const {
+	PackedInt32Array arr;
+	arr.resize(112 * 112);
+	int32_t *w = arr.ptrw();
+	devilution::CopyD1SpecialGrid(w, 112 * 112);
+	return arr;
+}
+
+Dictionary DiabloBridge::get_special_cel_data(int special_id) const {
+	Dictionary d;
+	devilution::D1SpecialCelRgba s = devilution::GetSpecialCelRgba(special_id);
+	d["width"] = s.width;
+	d["height"] = s.height;
+	PackedByteArray bytes;
+	if (!s.rgba.empty()) {
+		bytes.resize(s.rgba.size());
+		std::memcpy(bytes.ptrw(), s.rgba.data(), s.rgba.size());
+	}
+	d["rgba"] = bytes;
+	return d;
+}
+
+Ref<ImageTexture> DiabloBridge::get_special_cel_texture(int special_id) {
+	if (special_id <= 0)
+		return Ref<ImageTexture>();
+
+	auto it = special_texture_cache.find(special_id);
+	if (it != special_texture_cache.end() && it->second.is_valid())
+		return it->second;
+
+	devilution::D1SpecialCelRgba s = devilution::GetSpecialCelRgba(special_id);
+	if (s.rgba.empty() || s.width <= 0 || s.height <= 0)
+		return Ref<ImageTexture>();
+
+	PackedByteArray pba;
+	pba.resize(s.rgba.size());
+	std::memcpy(pba.ptrw(), s.rgba.data(), s.rgba.size());
+
+	Ref<Image> img = Image::create_from_data(s.width, s.height, false, Image::FORMAT_RGBA8, pba);
+	if (img.is_null() || img->is_empty())
+		return Ref<ImageTexture>();
+
+	Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+	special_texture_cache[special_id] = tex;
+	return tex;
+}
+
+PackedByteArray DiabloBridge::get_dungeon_light_grid() const {
+	PackedByteArray arr;
+	arr.resize(112 * 112);
+	uint8_t *w = arr.ptrw();
+	devilution::CopyD1LightGrid(w, 112 * 112);
+	return arr;
+}
+
+PackedByteArray DiabloBridge::get_dungeon_trans_grid() const {
+	PackedByteArray arr;
+	arr.resize(112 * 112);
+	uint8_t *w = arr.ptrw();
+	devilution::CopyD1TransGrid(w, 112 * 112);
+	return arr;
+}
+
+PackedByteArray DiabloBridge::get_trans_list() const {
+	PackedByteArray arr;
+	std::vector<uint8_t> list = devilution::GetTransList();
+	arr.resize(list.size());
+	if (!list.empty()) {
+		std::memcpy(arr.ptrw(), list.data(), list.size());
+	}
+	return arr;
 }
 
 Dictionary DiabloBridge::get_player_continuous_pos() const {
@@ -835,6 +927,105 @@ void DiabloBridge::click_inventory_slot(int slot_type, int slot_idx, bool is_shi
 
 void DiabloBridge::use_inventory_slot(int slot_type, int slot_idx) {
 	devilution::UseInventorySlot(slot_type, slot_idx);
+}
+
+Array DiabloBridge::get_active_objects() const {
+	Array arr;
+	auto list = devilution::GetActiveObjectsList();
+	for (const auto &obj : list) {
+		Dictionary d;
+		d["id"] = obj.id;
+		d["type"] = obj.type;
+		d["tile_x"] = obj.tileX;
+		d["tile_y"] = obj.tileY;
+		d["anim_frame"] = obj.animFrame;
+		d["anim_total"] = obj.animTotal;
+		d["pre_flag"] = obj.preFlag;
+		d["solid"] = obj.solid;
+		d["selectable"] = obj.selectable;
+		d["width"] = obj.width;
+		d["height"] = obj.height;
+		arr.push_back(d);
+	}
+	return arr;
+}
+
+Dictionary DiabloBridge::get_object_sprite_data(int object_id) const {
+	Dictionary d;
+	auto data = devilution::GetObjectSpriteRgba(object_id);
+	d["width"] = data.width;
+	d["height"] = data.height;
+	PackedByteArray pba;
+	pba.resize(data.rgba.size());
+	if (!data.rgba.empty()) {
+		std::memcpy(pba.ptrw(), data.rgba.data(), data.rgba.size());
+	}
+	d["rgba"] = pba;
+	return d;
+}
+
+Array DiabloBridge::get_active_items() const {
+	Array arr;
+	auto list = devilution::GetActiveItemsList();
+	for (const auto &item : list) {
+		Dictionary d;
+		d["id"] = item.id;
+		d["tile_x"] = item.tileX;
+		d["tile_y"] = item.tileY;
+		d["curs_id"] = item.cursId;
+		d["quality"] = item.quality;
+		d["identified"] = item.identified;
+		d["name"] = String::utf8(item.name);
+		d["width"] = item.width;
+		d["height"] = item.height;
+		arr.push_back(d);
+	}
+	return arr;
+}
+
+Dictionary DiabloBridge::get_ground_item_sprite_data(int item_id) const {
+	Dictionary d;
+	auto data = devilution::GetGroundItemSpriteRgba(item_id);
+	d["width"] = data.width;
+	d["height"] = data.height;
+	PackedByteArray pba;
+	pba.resize(data.rgba.size());
+	if (!data.rgba.empty()) {
+		std::memcpy(pba.ptrw(), data.rgba.data(), data.rgba.size());
+	}
+	d["rgba"] = pba;
+	return d;
+}
+
+Array DiabloBridge::get_active_corpses() const {
+	Array arr;
+	auto list = devilution::GetActiveCorpsesList();
+	for (const auto &corpse : list) {
+		Dictionary d;
+		d["tile_x"] = corpse.tileX;
+		d["tile_y"] = corpse.tileY;
+		d["corpse_idx"] = corpse.corpseIdx;
+		d["dir"] = corpse.dir;
+		d["frame"] = corpse.frame;
+		d["width"] = corpse.width;
+		d["height"] = corpse.height;
+		arr.push_back(d);
+	}
+	return arr;
+}
+
+Dictionary DiabloBridge::get_corpse_sprite_data(int corpse_idx, int dir) const {
+	Dictionary d;
+	auto data = devilution::GetCorpseSpriteRgba(corpse_idx, dir);
+	d["width"] = data.width;
+	d["height"] = data.height;
+	PackedByteArray pba;
+	pba.resize(data.rgba.size());
+	if (!data.rgba.empty()) {
+		std::memcpy(pba.ptrw(), data.rgba.data(), data.rgba.size());
+	}
+	d["rgba"] = pba;
+	return d;
 }
 
 

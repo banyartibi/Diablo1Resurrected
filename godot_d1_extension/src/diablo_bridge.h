@@ -25,6 +25,7 @@ private:
 	bool engine_started = false;
 	mutable std::unordered_map<int, Ref<ImageTexture>> item_texture_cache;
 	mutable std::unordered_map<int, Ref<ImageTexture>> piece_texture_cache;
+	mutable std::unordered_map<int, Ref<ImageTexture>> special_texture_cache;
 
 protected:
 	static void _bind_methods();
@@ -109,6 +110,28 @@ public:
 	Dictionary get_dungeon_piece_data(int piece_id) const;
 	Ref<ImageTexture> get_dungeon_piece_texture(int piece_id);
 	void clear_dungeon_piece_cache();
+
+	// Special CELs (Archways, Column Tops, Doorways)
+	PackedInt32Array get_dungeon_special_grid() const;
+	Dictionary get_special_cel_data(int special_id) const;
+	Ref<ImageTexture> get_special_cel_texture(int special_id);
+
+	// Per-Tile Lighting & Transparency (Fog of War & Room Transparency)
+	PackedByteArray get_dungeon_light_grid() const;
+	PackedByteArray get_dungeon_trans_grid() const;
+	PackedByteArray get_trans_list() const;
+
+	// Native Godot 2.5D Dungeon Objects (Torches, Barrels, Chests, Shrines)
+	Array get_active_objects() const;
+	Dictionary get_object_sprite_data(int object_id) const;
+
+	// Native Godot 2.5D Ground Items & Loot
+	Array get_active_items() const;
+	Dictionary get_ground_item_sprite_data(int item_id) const;
+
+	// Native Godot 2.5D Corpses & Fallen Monsters
+	Array get_active_corpses() const;
+	Dictionary get_corpse_sprite_data(int corpse_idx, int dir) const;
 
 	// Native 3D World & Entity Tracking
 	Dictionary get_player_continuous_pos() const;

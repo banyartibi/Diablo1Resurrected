@@ -19,6 +19,7 @@ var canvas_modulate: CanvasModulate = null
 # State tracking
 var last_level_idx: int = -999
 var tile_sprites: Dictionary = {} # Vector2i -> Sprite2D
+var special_sprites: Dictionary = {} # Vector2i -> Sprite2D (Arches, Doorways, Column Tops)
 var last_player_frame: int = -999
 var last_player_dir: int = -999
 var player_texture: ImageTexture = null
@@ -28,6 +29,18 @@ var monster_nodes: Dictionary = {} # int -> Node2D
 var monster_textures: Dictionary = {} # int -> ImageTexture
 var monster_last_frame: Dictionary = {}
 var monster_last_dir: Dictionary = {}
+
+# Milestone 4: Dungeon Objects (Torches, Barrels, Chests, Shrines)
+var object_sprites: Dictionary = {} # int (id) -> Sprite2D
+var object_textures: Dictionary = {} # String ("type_frame") -> ImageTexture
+
+# Milestone 4: Dropped Items (Loot with name labels)
+var item_nodes: Dictionary = {} # int (id) -> Node2D
+var item_textures: Dictionary = {} # int (id) -> ImageTexture
+
+# Milestone 4: Corpses (Fallen monsters & skeletons)
+var corpse_sprites: Dictionary = {} # Vector2i -> Sprite2D
+var corpse_textures: Dictionary = {} # String ("corpseIdx_dir") -> ImageTexture
 
 # Torch light pool
 var torch_lights: Array = []
@@ -56,10 +69,10 @@ func setup_scene_hierarchy():
 	world_root.y_sort_enabled = true
 	add_child(world_root)
 
-	# Atmospheric Gothic Crypt Canvas Modulate
+	# Atmospheric Gothic Crypt Canvas Modulate (Pure 1.0 ambient so dLight controls contrast cleanly)
 	canvas_modulate = CanvasModulate.new()
 	canvas_modulate.name = "CryptModulate"
-	canvas_modulate.color = Color(0.12, 0.12, 0.16)
+	canvas_modulate.color = Color(1.0, 1.0, 1.0)
 	add_child(canvas_modulate)
 
 	# Smooth 144Hz Camera2D
@@ -93,13 +106,13 @@ func setup_player_node():
 	player_arrow.default_color = Color(1.0, 0.85, 0.25, 0.65)
 	player_node.add_child(player_arrow)
 
-	# Hero Torch Light (PointLight2D with soft radial falloff)
+	# Hero Torch Light (Subtle warm candlelight glow)
 	player_light = PointLight2D.new()
 	player_light.name = "HeroTorchLight"
 	player_light.texture = create_radial_light_texture(512)
-	player_light.texture_scale = 2.4
-	player_light.color = Color(1.0, 0.74, 0.42) # Warm candlelight/torch
-	player_light.energy = 1.35
+	player_light.texture_scale = 1.35
+	player_light.color = Color(1.0, 0.90, 0.75)
+	player_light.energy = 0.45
 	player_light.position = Vector2(0, -16)
 	player_node.add_child(player_light)
 
@@ -149,6 +162,10 @@ func _process(delta: float):
 	update_player(delta)
 	update_monsters(delta)
 	update_torches()
+	update_objects()
+	update_ground_items()
+	update_corpses()
+	update_lighting_and_transparency()
 
 func rebuild_dungeon_tiles():
 	if not diablo_bridge or not diablo_bridge.has_method("get_dungeon_grid"):
@@ -165,44 +182,152 @@ func rebuild_dungeon_tiles():
 			spr.queue_free()
 	tile_sprites.clear()
 
+	# Clear previous special cel sprites (arches / column tops)
+	for pos_key in special_sprites:
+		var spr = special_sprites[pos_key]
+		if is_instance_valid(spr):
+			spr.queue_free()
+	special_sprites.clear()
+
+	# Clear previous objects
+	for o_id in object_sprites:
+		var spr = object_sprites[o_id]
+		if is_instance_valid(spr):
+			spr.queue_free()
+	object_sprites.clear()
+	object_textures.clear()
+
+	# Clear previous ground items
+	for i_id in item_nodes:
+		var node = item_nodes[i_id]
+		if is_instance_valid(node):
+			node.queue_free()
+	item_nodes.clear()
+	item_textures.clear()
+
+	# Clear previous corpses
+	for pos_key in corpse_sprites:
+		var spr = corpse_sprites[pos_key]
+		if is_instance_valid(spr):
+			spr.queue_free()
+	corpse_sprites.clear()
+	corpse_textures.clear()
+
+	var special_grid = PackedInt32Array()
+	if diablo_bridge.has_method("get_dungeon_special_grid"):
+		special_grid = diablo_bridge.get_dungeon_special_grid()
+
 	var count = 0
+	var special_count = 0
 	for y in range(112):
 		for x in range(112):
-			var piece_id = grid[y * 112 + x]
-			if piece_id <= 0:
-				continue
-
-			var tex: Texture2D = null
-			if diablo_bridge.has_method("get_dungeon_piece_texture"):
-				tex = diablo_bridge.get_dungeon_piece_texture(piece_id)
-			if tex == null:
-				continue
-
-			var spr = Sprite2D.new()
-			spr.texture = tex
-			spr.centered = false
-			var h = tex.get_height()
-
-			# Isometric tile diamond position
+			var idx = y * 112 + x
+			var piece_id = grid[idx]
+			var special_id = special_grid[idx] if idx < special_grid.size() else 0
 			var tile_pos = Vector2(float(x - y) * 32.0, float(x + y) * 16.0)
-			spr.position = tile_pos
 
-			# Bottom 32px floor diamond centered at tile_pos:
-			# X: -32px, Y: 16px - height
-			spr.offset = Vector2(-32.0, 16.0 - float(h))
+			# 1. Base Dungeon Piece (Floor & Walls)
+			if piece_id > 0:
+				var tex: Texture2D = null
+				if diablo_bridge.has_method("get_dungeon_piece_texture"):
+					tex = diablo_bridge.get_dungeon_piece_texture(piece_id)
+				if tex != null:
+					var spr = Sprite2D.new()
+					spr.texture = tex
+					spr.centered = false
+					var h = tex.get_height()
+					spr.position = tile_pos
+					spr.offset = Vector2(-32.0, 16.0 - float(h))
+					if h <= 32:
+						spr.z_index = -1
+					else:
+						spr.z_index = 0
+					world_root.add_child(spr)
+					tile_sprites[Vector2i(x, y)] = spr
+					count += 1
 
-			# Flat floors (height == 32) stay underneath everything (z_index = -1)
-			# Wall / pillar pieces (height > 32) Y-sort with player and monsters at z_index = 0
-			if h <= 32:
-				spr.z_index = -1
-			else:
-				spr.z_index = 0
+			# 2. Milestone 1: Special CELs (Archways, Column Tops, Doorways)
+			if special_id > 0 and diablo_bridge.has_method("get_special_cel_texture"):
+				var arch_tex: Texture2D = diablo_bridge.get_special_cel_texture(special_id)
+				if arch_tex != null:
+					var arch_spr = Sprite2D.new()
+					arch_spr.texture = arch_tex
+					arch_spr.centered = false
+					var ah = arch_tex.get_height()
+					arch_spr.position = tile_pos
+					arch_spr.offset = Vector2(-32.0, 16.0 - float(ah))
+					arch_spr.z_index = 0 # Y-sorted with walls!
+					world_root.add_child(arch_spr)
+					special_sprites[Vector2i(x, y)] = arch_spr
+					special_count += 1
 
-			world_root.add_child(spr)
-			tile_sprites[Vector2i(x, y)] = spr
-			count += 1
+	print("[Native 2.5D View] Rebuilt %d dungeon tiles and %d special archways/column tops" % [count, special_count])
 
-	print("[Native 2.5D View] Rebuilt %d dungeon tiles" % count)
+func update_lighting_and_transparency():
+	if not diablo_bridge:
+		return
+
+	var light_grid: PackedByteArray = PackedByteArray()
+	if diablo_bridge.has_method("get_dungeon_light_grid"):
+		light_grid = diablo_bridge.get_dungeon_light_grid()
+
+	var trans_grid: PackedByteArray = PackedByteArray()
+	if diablo_bridge.has_method("get_dungeon_trans_grid"):
+		trans_grid = diablo_bridge.get_dungeon_trans_grid()
+
+	var trans_list: PackedByteArray = PackedByteArray()
+	if diablo_bridge.has_method("get_trans_list"):
+		trans_list = diablo_bridge.get_trans_list()
+
+	var has_light = (light_grid.size() >= 112 * 112)
+	var has_trans = (trans_grid.size() >= 112 * 112 and trans_list.size() >= 256)
+
+	var p_pos = diablo_bridge.get_player_continuous_pos() if diablo_bridge.has_method("get_player_continuous_pos") else {}
+	var p_tx = int(p_pos.get("pos_x", 25.0))
+	var p_ty = int(p_pos.get("pos_y", 25.0))
+
+	var min_x = max(0, p_tx - 24)
+	var max_x = min(111, p_tx + 24)
+	var min_y = max(0, p_ty - 24)
+	var max_y = min(111, p_ty + 24)
+
+	for ty in range(min_y, max_y + 1):
+		for tx in range(min_x, max_x + 1):
+			var pos_key = Vector2i(tx, ty)
+			var spr = tile_sprites.get(pos_key, null)
+			var arch_spr = special_sprites.get(pos_key, null)
+			if spr == null and arch_spr == null:
+				continue
+
+			var idx = ty * 112 + tx
+
+			# Milestone 2: Per-Tile Authentic Lighting (dLight: 0 = fully lit, 15 = pitch black)
+			var tile_mod = Color.WHITE
+			if has_light:
+				var light_val = light_grid[idx]
+				var brightness = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+				# Crypt Cyan Gothic color grading: deep cold slate in shadows, warm amber in light
+				tile_mod = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), brightness)
+
+			# Milestone 3: Front-Wall Transparency (TransList)
+			var alpha_val = 1.0
+			if has_trans:
+				var t_id = trans_grid[idx]
+				if t_id > 0 and t_id < trans_list.size() and trans_list[t_id] == 1:
+					alpha_val = 0.38 # Transparent front wall!
+
+			if spr:
+				spr.self_modulate = tile_mod
+				spr.modulate.a = alpha_val
+
+			if arch_spr:
+				arch_spr.self_modulate = tile_mod
+				arch_spr.modulate.a = alpha_val
+
+			var c_spr = corpse_sprites.get(pos_key, null)
+			if c_spr:
+				c_spr.self_modulate = tile_mod
+				c_spr.modulate.a = alpha_val
 
 func update_player(delta: float):
 	if not diablo_bridge or not diablo_bridge.has_method("get_player_continuous_pos"):
@@ -227,9 +352,9 @@ func update_player(delta: float):
 	var angle_rad = float(dir) * (PI / 4.0) - (PI / 2.0)
 	player_arrow.rotation = angle_rad
 
-	# Torch light breathing flicker
+	# Torch light breathing flicker (Soft warm candle glow)
 	if player_light:
-		var flicker = 1.30 + 0.08 * sin(time_accum * 5.4) * cos(time_accum * 2.8)
+		var flicker = 0.45 + 0.05 * sin(time_accum * 5.4) * cos(time_accum * 2.8)
 		player_light.energy = flicker
 
 	# Update animated player sprite
@@ -315,6 +440,19 @@ func update_monsters(delta: float):
 			hp_bar.max_value = max_hp
 			hp_bar.value = hp
 
+		# Milestone 2: Per-Tile Authentic Lighting on Monsters & Fog of War
+		var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
+		var m_tx = clamp(int(mx), 0, 111)
+		var m_ty = clamp(int(my), 0, 111)
+		var m_idx = m_ty * 112 + m_tx
+		if light_grid.size() >= 112 * 112:
+			var m_light = light_grid[m_idx]
+			var m_bright = clamp(1.0 - float(m_light) / 14.5, 0.0, 1.0)
+			if m_sprite:
+				m_sprite.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), m_bright)
+			# Hide monsters completely if they are shrouded in pitch black fog of war (dLight >= 15)
+			node.visible = (m_light < 15)
+
 	# Hide monsters that are no longer active
 	for m_id in monster_nodes:
 		if not seen_ids.has(m_id):
@@ -355,9 +493,9 @@ func update_torches():
 	while torch_lights.size() < needed:
 		var pl = PointLight2D.new()
 		pl.texture = create_radial_light_texture(384)
-		pl.texture_scale = 1.8
-		pl.color = Color(1.0, 0.65, 0.28)
-		pl.energy = 1.2
+		pl.texture_scale = 1.2
+		pl.color = Color(1.0, 0.70, 0.35)
+		pl.energy = 0.65
 		world_root.add_child(pl)
 		torch_lights.append(pl)
 
@@ -369,10 +507,239 @@ func update_torches():
 			var pl: PointLight2D = torch_lights[i]
 			pl.visible = true
 			pl.position = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0)
-			var flicker = 1.15 + 0.12 * sin(time_accum * 4.8 + float(i))
+			var flicker = 0.60 + 0.10 * sin(time_accum * 4.8 + float(i))
 			pl.energy = flicker
 		else:
 			torch_lights[i].visible = false
+
+# Milestone 4: Dungeon Objects (Animated Torches, Barrels, Chests, Shrines)
+func update_objects():
+	if not diablo_bridge or not diablo_bridge.has_method("get_active_objects"):
+		return
+
+	var objects: Array = diablo_bridge.get_active_objects()
+	var seen_ids: Dictionary = {}
+
+	var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
+	var has_light = (light_grid.size() >= 112 * 112)
+
+	var trans_grid = diablo_bridge.get_dungeon_trans_grid() if diablo_bridge.has_method("get_dungeon_trans_grid") else PackedByteArray()
+	var trans_list = diablo_bridge.get_trans_list() if diablo_bridge.has_method("get_trans_list") else PackedByteArray()
+	var has_trans = (trans_grid.size() >= 112 * 112 and trans_list.size() >= 256)
+
+	for obj in objects:
+		var o_id = obj.get("id", -1)
+		if o_id < 0:
+			continue
+		seen_ids[o_id] = true
+
+		var tx = obj.get("tile_x", 0)
+		var ty = obj.get("tile_y", 0)
+		var o_type = obj.get("type", 0)
+		var anim_frame = obj.get("anim_frame", 1)
+		var pre_flag = obj.get("pre_flag", false)
+
+		var spr: Sprite2D = object_sprites.get(o_id, null)
+		if spr == null:
+			spr = Sprite2D.new()
+			spr.name = "Object_%d" % o_id
+			spr.centered = false
+			world_root.add_child(spr)
+			object_sprites[o_id] = spr
+
+		spr.visible = true
+		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0)
+		spr.position = tile_pos
+		spr.z_index = -1 if pre_flag else 0
+
+		# Texture caching by (type, anim_frame)
+		var cache_key = "%d_%d" % [o_type, anim_frame]
+		var tex: ImageTexture = object_textures.get(cache_key, null)
+		if tex == null and diablo_bridge.has_method("get_object_sprite_data"):
+			var s_data = diablo_bridge.get_object_sprite_data(o_id)
+			var sw = s_data.get("width", 0)
+			var sh = s_data.get("height", 0)
+			var rgba = s_data.get("rgba", PackedByteArray())
+			if sw > 0 and sh > 0 and rgba.size() == sw * sh * 4:
+				var img = Image.create_from_data(sw, sh, false, Image.FORMAT_RGBA8, rgba)
+				tex = ImageTexture.create_from_image(img)
+				object_textures[cache_key] = tex
+
+		if tex:
+			spr.texture = tex
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
+
+		# Authentic per-tile lighting & wall transparency
+		var tile_idx = clamp(ty, 0, 111) * 112 + clamp(tx, 0, 111)
+		var is_torch = (o_type == 1 or o_type == 2 or o_type == 3 or o_type == 4 or o_type == 6 or o_type == 7 or o_type == 8 or o_type == 9)
+		if has_light:
+			var light_val = light_grid[tile_idx]
+			var brightness = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+			if is_torch:
+				brightness = max(0.85, brightness)
+			spr.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), brightness)
+
+		if has_trans:
+			var t_id = trans_grid[tile_idx]
+			if t_id > 0 and t_id < trans_list.size() and trans_list[t_id] == 1:
+				spr.modulate.a = 0.38
+			else:
+				spr.modulate.a = 1.0
+
+	for o_id in object_sprites:
+		if not seen_ids.has(o_id):
+			object_sprites[o_id].visible = false
+
+# Milestone 4: Ground Items & Loot with Authentic Labels
+func update_ground_items():
+	if not diablo_bridge or not diablo_bridge.has_method("get_active_items"):
+		return
+
+	var items: Array = diablo_bridge.get_active_items()
+	var seen_ids: Dictionary = {}
+
+	var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
+	var has_light = (light_grid.size() >= 112 * 112)
+
+	for item in items:
+		var i_id = item.get("id", -1)
+		if i_id < 0:
+			continue
+		seen_ids[i_id] = true
+
+		var tx = item.get("tile_x", 0)
+		var ty = item.get("tile_y", 0)
+		var quality = item.get("quality", 0)
+		var iname = item.get("name", "")
+
+		var node: Node2D = item_nodes.get(i_id, null)
+		if node == null:
+			node = Node2D.new()
+			node.name = "GroundItem_%d" % i_id
+			node.z_index = -1 # Ground level
+			world_root.add_child(node)
+
+			var spr = Sprite2D.new()
+			spr.name = "Sprite"
+			spr.centered = false
+			node.add_child(spr)
+
+			# Authentic Diablo loot name label
+			var lbl = Label.new()
+			lbl.name = "Label"
+			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			lbl.add_theme_font_size_override("font_size", 11)
+
+			var style = StyleBoxFlat.new()
+			style.bg_color = Color(0.0, 0.0, 0.0, 0.75)
+			style.corner_radius_top_left = 3
+			style.corner_radius_top_right = 3
+			style.corner_radius_bottom_left = 3
+			style.corner_radius_bottom_right = 3
+			style.content_margin_left = 6.0
+			style.content_margin_right = 6.0
+			style.content_margin_top = 2.0
+			style.content_margin_bottom = 2.0
+			lbl.add_theme_stylebox_override("normal", style)
+			node.add_child(lbl)
+
+			item_nodes[i_id] = node
+
+		node.visible = true
+		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0)
+		node.position = tile_pos
+
+		var spr = node.get_node_or_null("Sprite") as Sprite2D
+		var tex: ImageTexture = item_textures.get(i_id, null)
+		if tex == null and diablo_bridge.has_method("get_ground_item_sprite_data"):
+			var s_data = diablo_bridge.get_ground_item_sprite_data(i_id)
+			var sw = s_data.get("width", 0)
+			var sh = s_data.get("height", 0)
+			var rgba = s_data.get("rgba", PackedByteArray())
+			if sw > 0 and sh > 0 and rgba.size() == sw * sh * 4:
+				var img = Image.create_from_data(sw, sh, false, Image.FORMAT_RGBA8, rgba)
+				tex = ImageTexture.create_from_image(img)
+				item_textures[i_id] = tex
+
+		if tex and spr:
+			spr.texture = tex
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
+
+		# Lighting
+		var tile_idx = clamp(ty, 0, 111) * 112 + clamp(tx, 0, 111)
+		if has_light and spr:
+			var light_val = light_grid[tile_idx]
+			var brightness = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+			spr.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), brightness)
+
+		# Ground item label
+		var lbl = node.get_node_or_null("Label") as Label
+		if lbl and iname != "":
+			lbl.text = iname
+			if quality == 1:
+				lbl.modulate = Color(0.40, 0.65, 1.0) # Magic Blue
+			elif quality == 2:
+				lbl.modulate = Color(1.0, 0.88, 0.35) # Unique Gold
+			else:
+				lbl.modulate = Color(0.95, 0.95, 0.95) # Normal White
+			var lbl_w = lbl.get_combined_minimum_size().x
+			var h_off = float(tex.get_height()) if tex else 24.0
+			lbl.position = Vector2(-lbl_w * 0.5, -h_off - 8.0)
+
+	for i_id in item_nodes:
+		if not seen_ids.has(i_id):
+			item_nodes[i_id].visible = false
+
+# Milestone 4: Corpses & Fallen Monsters on the Floor
+func update_corpses():
+	if not diablo_bridge or not diablo_bridge.has_method("get_active_corpses"):
+		return
+
+	var corpses: Array = diablo_bridge.get_active_corpses()
+	var seen_keys: Dictionary = {}
+
+	for c in corpses:
+		var tx = c.get("tile_x", 0)
+		var ty = c.get("tile_y", 0)
+		var corpse_idx = c.get("corpse_idx", 0)
+		var dir = c.get("dir", 0)
+
+		var pos_key = Vector2i(tx, ty)
+		seen_keys[pos_key] = true
+
+		var spr: Sprite2D = corpse_sprites.get(pos_key, null)
+		if spr == null:
+			spr = Sprite2D.new()
+			spr.name = "Corpse_%d_%d" % [tx, ty]
+			spr.centered = false
+			spr.z_index = -1 # Floor level
+			world_root.add_child(spr)
+			corpse_sprites[pos_key] = spr
+
+		spr.visible = true
+		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0)
+		spr.position = tile_pos
+
+		var cache_key = "%d_%d" % [corpse_idx, dir]
+		var tex: ImageTexture = corpse_textures.get(cache_key, null)
+		if tex == null and diablo_bridge.has_method("get_corpse_sprite_data"):
+			var s_data = diablo_bridge.get_corpse_sprite_data(corpse_idx, dir)
+			var sw = s_data.get("width", 0)
+			var sh = s_data.get("height", 0)
+			var rgba = s_data.get("rgba", PackedByteArray())
+			if sw > 0 and sh > 0 and rgba.size() == sw * sh * 4:
+				var img = Image.create_from_data(sw, sh, false, Image.FORMAT_RGBA8, rgba)
+				tex = ImageTexture.create_from_image(img)
+				corpse_textures[cache_key] = tex
+
+		if tex:
+			spr.texture = tex
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
+
+	for k in corpse_sprites:
+		if not seen_keys.has(k):
+			corpse_sprites[k].visible = false
 
 func handle_input(event: InputEvent) -> bool:
 	if not is_active:

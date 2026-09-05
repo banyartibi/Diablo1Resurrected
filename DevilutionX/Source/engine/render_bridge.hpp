@@ -340,5 +340,86 @@ struct D1TilePieceRgba {
 
 D1TilePieceRgba GetDungeonPieceRgba(int pieceId);
 
+// Special CELs (Archways, Column Tops, Doorways)
+struct D1SpecialCelRgba {
+	int width = 0;
+	int height = 0;
+	std::vector<uint8_t> rgba;
+};
+
+D1SpecialCelRgba GetSpecialCelRgba(int specialId);
+void CopyD1SpecialGrid(int32_t *dest, size_t maxTiles);
+
+// Per-Tile Lighting & Transparency (Fog of War & Room Transparency)
+void CopyD1LightGrid(uint8_t *dest, size_t maxTiles);
+void CopyD1TransGrid(uint8_t *dest, size_t maxTiles);
+std::vector<uint8_t> GetTransList();
+
+// Native Godot 2.5D Dungeon Objects (Torches, Barrels, Chests, Shrines)
+struct D1ObjectInfo {
+	int id;
+	int type;
+	int tileX;
+	int tileY;
+	int animFrame;
+	int animTotal;
+	bool preFlag;
+	bool solid;
+	bool selectable;
+	int width;
+	int height;
+};
+
+struct D1ObjectSpriteRgba {
+	int width = 0;
+	int height = 0;
+	std::vector<uint8_t> rgba;
+};
+
+std::vector<D1ObjectInfo> GetActiveObjectsList();
+D1ObjectSpriteRgba GetObjectSpriteRgba(int objectId);
+
+// Native Godot 2.5D Ground Items & Loot
+struct D1ItemInfo {
+	int id;
+	int tileX;
+	int tileY;
+	int cursId;
+	int quality;
+	bool identified;
+	char name[64];
+	int width;
+	int height;
+};
+
+struct D1ItemSpriteRgba {
+	int width = 0;
+	int height = 0;
+	std::vector<uint8_t> rgba;
+};
+
+std::vector<D1ItemInfo> GetActiveItemsList();
+D1ItemSpriteRgba GetGroundItemSpriteRgba(int itemId);
+
+// Native Godot 2.5D Corpses & Fallen Monsters
+struct D1CorpseInfo {
+	int tileX;
+	int tileY;
+	int corpseIdx;
+	int dir;
+	int frame;
+	int width;
+	int height;
+};
+
+struct D1CorpseSpriteRgba {
+	int width = 0;
+	int height = 0;
+	std::vector<uint8_t> rgba;
+};
+
+std::vector<D1CorpseInfo> GetActiveCorpsesList();
+D1CorpseSpriteRgba GetCorpseSpriteRgba(int corpseIdx, int dir);
+
 } // namespace devilution
 

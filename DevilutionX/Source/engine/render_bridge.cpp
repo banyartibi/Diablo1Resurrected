@@ -40,6 +40,7 @@
 #include "objects.h"
 #include "objdat.h"
 #include "itemdat.h"
+#include "dead.h"
 #include <cmath>
 
 namespace devilution {
@@ -1705,6 +1706,283 @@ D1TilePieceRgba GetDungeonPieceRgba(int pieceId)
 		}
 	}
 
+	return result;
+}
+
+D1SpecialCelRgba GetSpecialCelRgba(int specialId)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1SpecialCelRgba result;
+	if (!gbRunGame || !pSpecialCels.has_value() || specialId <= 0 || static_cast<size_t>(specialId) > pSpecialCels->numSprites())
+		return result;
+
+	const ClxSprite sprite = (*pSpecialCels)[specialId - 1];
+	int w = sprite.width();
+	int h = sprite.height();
+	if (w <= 0 || h <= 0 || w > 512 || h > 512)
+		return result;
+
+	result.width = w;
+	result.height = h;
+
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+	RenderClxSprite(surface, sprite, { 0, 0 });
+
+	result.rgba.resize(w * h * 4, 0);
+	uint8_t *dst = result.rgba.data();
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = orig_palette[idx];
+				int px = (y * w + x) * 4;
+				dst[px + 0] = c.r;
+				dst[px + 1] = c.g;
+				dst[px + 2] = c.b;
+				dst[px + 3] = 255;
+			}
+		}
+	}
+	return result;
+}
+
+void CopyD1SpecialGrid(int32_t *dest, size_t maxTiles)
+{
+	if (dest == nullptr) return;
+	size_t count = std::min<size_t>(maxTiles, 112 * 112);
+	for (size_t y = 0; y < 112; ++y) {
+		for (size_t x = 0; x < 112; ++x) {
+			size_t idx = y * 112 + x;
+			if (idx < count) {
+				dest[idx] = static_cast<int32_t>(dSpecial[x][y]);
+			}
+		}
+	}
+}
+
+void CopyD1LightGrid(uint8_t *dest, size_t maxTiles)
+{
+	if (dest == nullptr) return;
+	size_t count = std::min<size_t>(maxTiles, 112 * 112);
+	for (size_t y = 0; y < 112; ++y) {
+		for (size_t x = 0; x < 112; ++x) {
+			size_t idx = y * 112 + x;
+			if (idx < count) {
+				dest[idx] = dLight[x][y];
+			}
+		}
+	}
+}
+
+void CopyD1TransGrid(uint8_t *dest, size_t maxTiles)
+{
+	if (dest == nullptr) return;
+	size_t count = std::min<size_t>(maxTiles, 112 * 112);
+	for (size_t y = 0; y < 112; ++y) {
+		for (size_t x = 0; x < 112; ++x) {
+			size_t idx = y * 112 + x;
+			if (idx < count) {
+				dest[idx] = static_cast<uint8_t>(dTransVal[x][y]);
+			}
+		}
+	}
+}
+
+std::vector<uint8_t> GetTransList()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	std::vector<uint8_t> result(256, 0);
+	for (size_t i = 0; i < 256; ++i) {
+		result[i] = TransList[i] ? 1 : 0;
+	}
+	return result;
+}
+
+static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH, std::vector<uint8_t> &outRgba, const uint8_t *trn = nullptr)
+{
+	int w = sprite.width();
+	int h = sprite.height();
+	if (w <= 0 || h <= 0 || w > 1024 || h > 1024) {
+		outW = 0;
+		outH = 0;
+		outRgba.clear();
+		return;
+	}
+
+	outW = w;
+	outH = h;
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+	RenderClxSprite(surface, sprite, { 0, 0 });
+
+	outRgba.resize(w * h * 4, 0);
+	uint8_t *dst = outRgba.data();
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = orig_palette[trn ? trn[idx] : idx];
+				int px = (y * w + x) * 4;
+				dst[px + 0] = c.r;
+				dst[px + 1] = c.g;
+				dst[px + 2] = c.b;
+				dst[px + 3] = 255;
+			}
+		}
+	}
+}
+
+std::vector<D1ObjectInfo> GetActiveObjectsList()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	std::vector<D1ObjectInfo> list;
+	if (!gbRunGame) return list;
+
+	for (int i = 0; i < ActiveObjectCount; ++i) {
+		int oi = ActiveObjects[i];
+		if (oi < 0 || oi >= MAXOBJECTS) continue;
+		const Object &obj = Objects[oi];
+
+		D1ObjectInfo info;
+		info.id = oi;
+		info.type = obj._otype;
+		info.tileX = obj.position.x;
+		info.tileY = obj.position.y;
+		info.animFrame = obj._oAnimFrame;
+		info.animTotal = obj._oAnimLen;
+		info.preFlag = obj._oPreFlag;
+		info.solid = obj._oSolidFlag;
+		info.selectable = (obj._oSelFlag != 0);
+		info.width = 0;
+		info.height = 0;
+		if (obj._oAnimData.has_value() && obj._oAnimFrame > 0 &&
+		    static_cast<size_t>(obj._oAnimFrame) <= (*obj._oAnimData).numSprites()) {
+			const ClxSprite sprite = (*obj._oAnimData)[obj._oAnimFrame - 1];
+			info.width = sprite.width();
+			info.height = sprite.height();
+		}
+		list.push_back(info);
+	}
+	return list;
+}
+
+D1ObjectSpriteRgba GetObjectSpriteRgba(int objectId)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1ObjectSpriteRgba result;
+	if (!gbRunGame || objectId < 0 || objectId >= MAXOBJECTS) return result;
+	const Object &obj = Objects[objectId];
+	if (!obj._oAnimData.has_value() || obj._oAnimFrame <= 0 ||
+	    static_cast<size_t>(obj._oAnimFrame) > (*obj._oAnimData).numSprites())
+		return result;
+
+	const ClxSprite sprite = (*obj._oAnimData)[obj._oAnimFrame - 1];
+	RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba);
+	return result;
+}
+
+std::vector<D1ItemInfo> GetActiveItemsList()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	std::vector<D1ItemInfo> list;
+	if (!gbRunGame) return list;
+
+	for (int i = 0; i < ActiveItemCount; ++i) {
+		int ii = ActiveItems[i];
+		if (ii < 0 || ii >= MAXITEMS) continue;
+		const Item &item = Items[ii];
+		if (item.isEmpty()) continue;
+
+		D1ItemInfo info;
+		info.id = ii;
+		info.tileX = item.position.x;
+		info.tileY = item.position.y;
+		info.cursId = item._iCurs;
+		info.quality = static_cast<int>(item._iMagical);
+		info.identified = item._iIdentified;
+		const char *srcName = item._iIdentified ? item._iIName : item._iName;
+		strncpy(info.name, srcName ? srcName : "", sizeof(info.name) - 1);
+		info.name[sizeof(info.name) - 1] = '\0';
+		info.width = 0;
+		info.height = 0;
+		if (item.AnimInfo.sprites.has_value()) {
+			const ClxSprite sprite = item.AnimInfo.currentSprite();
+			info.width = sprite.width();
+			info.height = sprite.height();
+		}
+		list.push_back(info);
+	}
+	return list;
+}
+
+D1ItemSpriteRgba GetGroundItemSpriteRgba(int itemId)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1ItemSpriteRgba result;
+	if (!gbRunGame || itemId < 0 || itemId >= MAXITEMS) return result;
+	const Item &item = Items[itemId];
+	if (!item.AnimInfo.sprites.has_value()) return result;
+
+	const ClxSprite sprite = item.AnimInfo.currentSprite();
+	RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba);
+	return result;
+}
+
+std::vector<D1CorpseInfo> GetActiveCorpsesList()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	std::vector<D1CorpseInfo> list;
+	if (!gbRunGame) return list;
+
+	for (int y = 0; y < 112; ++y) {
+		for (int x = 0; x < 112; ++x) {
+			int8_t bDead = dCorpse[x][y];
+			if (bDead == 0) continue;
+			int corpseIdx = (bDead & 0x1F) - 1;
+			if (corpseIdx < 0 || corpseIdx >= static_cast<int>(MaxCorpses)) continue;
+			int dir = (bDead >> 5) & 7;
+			const Corpse &corpse = Corpses[corpseIdx];
+			if (!corpse.sprites.has_value()) continue;
+
+			D1CorpseInfo info;
+			info.tileX = x;
+			info.tileY = y;
+			info.corpseIdx = corpseIdx;
+			info.dir = dir;
+			info.frame = corpse.frame;
+			info.width = corpse.width;
+			info.height = 0;
+			list.push_back(info);
+		}
+	}
+	return list;
+}
+
+D1CorpseSpriteRgba GetCorpseSpriteRgba(int corpseIdx, int dir)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1CorpseSpriteRgba result;
+	if (!gbRunGame || corpseIdx < 0 || corpseIdx >= static_cast<int>(MaxCorpses))
+		return result;
+
+	const Corpse &corpse = Corpses[corpseIdx];
+	if (!corpse.sprites.has_value())
+		return result;
+
+	Direction d = static_cast<Direction>(std::clamp(dir, 0, 7));
+	auto sprites = corpse.spritesForDirection(d);
+	if (corpse.frame < 0 || static_cast<size_t>(corpse.frame) >= sprites.numSprites())
+		return result;
+
+	const ClxSprite sprite = sprites[corpse.frame];
+	const uint8_t *trn = nullptr;
+	if (corpse.translationPaletteIndex != 0 && static_cast<size_t>(corpse.translationPaletteIndex - 1) < MaxMonsters) {
+		trn = Monsters[corpse.translationPaletteIndex - 1].uniqueMonsterTRN.get();
+	}
+	RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba, trn);
 	return result;
 }
 
