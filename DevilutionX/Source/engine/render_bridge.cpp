@@ -1032,6 +1032,7 @@ bool IsCharacterSheetOpen()
 
 void ToggleCharacterSheet()
 {
+	PlaySFX(IS_TITLEMOV);
 	chrflag = !chrflag;
 	if (chrflag && QuestLogIsOpen)
 		QuestLogIsOpen = false;
@@ -1044,6 +1045,7 @@ bool IsQuestLogOpen()
 
 void ToggleQuestLog()
 {
+	PlaySFX(IS_TITLEMOV);
 	QuestLogIsOpen = !QuestLogIsOpen;
 	if (QuestLogIsOpen) {
 		if (chrflag) chrflag = false;
@@ -1058,6 +1060,7 @@ bool IsInventoryOpen()
 
 void ToggleInventory()
 {
+	PlaySFX(IS_TITLEMOV);
 	sbookflag = false;
 	CloseGoldWithdraw();
 	CloseStash();

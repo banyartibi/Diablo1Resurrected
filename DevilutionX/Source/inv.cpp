@@ -1073,8 +1073,8 @@ void DrawInv(const Surface &out)
 				Point pt = topPos + Displacement { x, y };
 				if (out.InBounds(pt)) {
 					std::uint8_t &pix = out[pt];
-					if (pix >= PAL16_BEIGE && pix < PAL16_BEIGE + 16) {
-						pix = PAL16_GRAY + (pix - PAL16_BEIGE);
+					if (pix >= 176 && pix <= 191) {
+						pix = 224 + (pix - 176);
 					}
 				}
 			}

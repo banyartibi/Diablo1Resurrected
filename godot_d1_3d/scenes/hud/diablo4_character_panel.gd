@@ -6,7 +6,7 @@ var diablo_bridge = null
 @onready var name_label: Label = $Content/VBox/HeaderRow/TitleVBox/NameLabel
 @onready var class_level_label: Label = $Content/VBox/HeaderRow/TitleVBox/ClassLevelLabel
 @onready var gold_label: Label = $Content/VBox/HeaderRow/GoldLabel
-@onready var close_btn: Button = get_node_or_null("CloseBtnContainer/CloseBtn")
+@onready var close_btn: Button = find_child("CloseBtn", true, false)
 
 @onready var level_up_banner: PanelContainer = $Content/VBox/LevelUpBanner
 @onready var level_up_banner_label: Label = $Content/VBox/LevelUpBanner/Margin/Label

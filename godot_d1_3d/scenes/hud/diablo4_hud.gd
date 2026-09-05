@@ -824,7 +824,8 @@ func update_panels():
 	var pos_x = lp.position.x * scale_x
 	var pos_y = lp.position.y * scale_y
 	var size_w = lp.size.x * scale_x
-	var size_h = lp.size.y * scale_y
+	var panel_aspect = 1480.0 / 896.0
+	var size_h = min(size_w * panel_aspect, vp_size.y - pos_y - 12.0)
 
 	if char_panel:
 		char_panel.position = Vector2(pos_x, pos_y)
@@ -841,7 +842,7 @@ func update_panels():
 	var rpos_x = rp.position.x * scale_x
 	var rpos_y = rp.position.y * scale_y
 	var rsize_w = rp.size.x * scale_x
-	var rsize_h = rp.size.y * scale_y
+	var rsize_h = (rp.size.y + 30.0) * scale_y
 
 	if inv_frame:
 		inv_frame.position = Vector2(rpos_x, rpos_y)

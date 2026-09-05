@@ -2,7 +2,7 @@ extends Control
 
 var diablo_bridge = null
 
-@onready var close_btn: Button = get_node_or_null("CloseBtnContainer/CloseBtn")
+@onready var close_btn: Button = find_child("CloseBtn", true, false)
 @onready var quest_list: VBoxContainer = $Content/VBox/Scroll/QuestList
 @onready var empty_label: Label = $Content/VBox/EmptyLabel
 

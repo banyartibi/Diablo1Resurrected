@@ -38,10 +38,10 @@ stretch_mode = 0
 [node name="Content" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
-anchor_left = 0.20
-anchor_top = 0.21
-anchor_right = 0.80
-anchor_bottom = 0.85
+anchor_left = 0.19
+anchor_top = 0.24
+anchor_right = 0.81
+anchor_bottom = 0.88
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 4
@@ -106,9 +106,9 @@ theme_override_constants/separation = 4
 layout_mode = 1
 anchors_preset = 15
 anchor_left = 0.35
-anchor_top = 0.88
+anchor_top = 0.90
 anchor_right = 0.65
-anchor_bottom = 0.94
+anchor_bottom = 0.95
 grow_horizontal = 2
 grow_vertical = 2
 
