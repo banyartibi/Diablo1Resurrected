@@ -115,19 +115,8 @@ corner_radius_bottom_left = 4
 shadow_color = Color(0, 0, 0, 0.8)
 shadow_size = 10
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_skill_panel"]
-bg_color = Color(0.06, 0.05, 0.08, 0.97)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.65, 0.52, 0.28, 1)
-corner_radius_top_left = 5
-corner_radius_top_right = 5
-corner_radius_bottom_right = 5
-corner_radius_bottom_left = 5
-shadow_color = Color(0, 0, 0, 0.85)
-shadow_size = 12
+[sub_resource type="StyleBoxEmpty" id="StyleBoxFlat_skill_panel"]
+
 
 [node name="Diablo4HUD" type="CanvasLayer"]
 layer = 100
@@ -956,9 +945,7 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -220.0
 offset_top = -206.0
-offset_right = 220.0
 offset_bottom = -146.0
 grow_horizontal = 2
 grow_vertical = 0

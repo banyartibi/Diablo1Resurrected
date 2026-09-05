@@ -148,65 +148,7 @@ vec3 apply_color_grading(vec3 c, int profile) {
     return c;
 }
 
-// Transform classic beige/limestone panels into solid Dark Gothic Resurrected Slate
-vec3 apply_gothic_panel_style(vec3 c) {
-    float max_c = max(c.r, max(c.g, c.b));
-    float min_c = min(c.r, min(c.g, c.b));
-    float sat = max_c - min_c;
-    float luma = dot(c, vec3(0.299, 0.587, 0.114));
 
-    // 1. Radiant Gold Text (Character Name, Sorcerer/Warrior title, Level, Experience, Next Level, GOLD header, Coins):
-    if (c.r > 0.48 && c.g > 0.32 && c.b < 0.28 && (c.r - c.b) > 0.20 && luma > 0.30) {
-        return vec3(1.0, 0.84, 0.30) * clamp(luma / 0.55, 0.75, 1.0);
-    }
-
-    // 2. Crisp Antique Bone Silver Text & Stat Numbers (Strength, Magic, Dexterity, Vitality numbers & labels):
-    // Silver/white text has nearly equal RGB (low saturation: sat < 0.15 or abs(r-b) < 0.08), unlike warm beige stone (sat > 0.20)
-    if ((sat < 0.15 || abs(c.r - c.b) < 0.08) && luma > 0.28) {
-        return vec3(0.96, 0.95, 0.93) * clamp(luma / 0.60, 0.70, 1.0);
-    }
-
-    // 3. Vibrant Crimson Red (Points to distribute '+', warning numbers, health potions):
-    if (c.r > 0.38 && c.r > c.g * 1.4 && c.r > c.b * 1.4) {
-        return vec3(1.0, 0.28, 0.28) * clamp(c.r / 0.60, 0.70, 1.0);
-    }
-
-    // 4. Vibrant Arcane Blue (Buffed stats, mana potions, magic item outlines):
-    if (c.b > 0.38 && c.b > c.r * 1.3 && c.b > c.g * 1.1) {
-        return vec3(0.35, 0.68, 1.0) * clamp(c.b / 0.60, 0.70, 1.0);
-    }
-
-    // 5. Colored item sprites in inventory (gems, scrolls, potions, weapons, rings, armor):
-    if (sat > 0.18 || (c.g > c.r * 1.08 && c.g > 0.25)) {
-        return c;
-    }
-
-    // 6. Paperdoll Hero Silhouette (Carved deep obsidian body):
-    if (luma < 0.16 && sat < 0.12) {
-        return vec3(0.065, 0.065, 0.075);
-    }
-
-    // 7. Solid Dark Gothic Slate Stone & Demon Iron Framing:
-    // In classic D1, the beige limestone luma is between 0.10 and 0.75.
-    // We map it to a solid, rich dark charcoal slate palette matching the bottom HUD:
-    vec3 deep_groove = vec3(0.11, 0.11, 0.13);     // Carved slot grooves & inner recesses
-    vec3 slate_body  = vec3(0.19, 0.19, 0.22);     // Solid dark slate tablet slab
-    vec3 demon_iron  = vec3(0.32, 0.31, 0.34);     // Raised bevels, box borders, and iron trim
-    vec3 bronze_trim = vec3(0.50, 0.42, 0.24);     // Subtle antique bronze edge filigree
-
-    vec3 stone_col;
-    if (luma < 0.22) {
-        stone_col = mix(deep_groove, slate_body, clamp(luma / 0.22, 0.0, 1.0));
-    } else if (luma < 0.55) {
-        float t = (luma - 0.22) / 0.33;
-        stone_col = mix(slate_body, demon_iron, t);
-    } else {
-        float t = clamp((luma - 0.55) / 0.20, 0.0, 1.0);
-        stone_col = mix(demon_iron, bronze_trim, t * 0.75);
-    }
-
-    return stone_col;
-}
 
 void fragment() {
     vec2 tex_size = vec2(textureSize(d1_texture, 0));
@@ -302,16 +244,10 @@ void fragment() {
     }
 
     if (in_ui) {
-        if ((in_left_panel || in_right_panel) && hide_vanilla_hud) {
-            // Modern Diablo IV / Resurrected Dark Gothic Panel Styling
-            vec3 styled_ui = apply_gothic_panel_style(base_color);
-            ALBEDO = vec3(0.0);
-            EMISSION = styled_ui;
-        } else {
-            // Vanilla UI untouched
-            ALBEDO = vec3(0.0);
-            EMISSION = base_color;
-        }
+        // UI Areas (HUD, Inventory, Character Sheet, Quest Log):
+        // 100% authentic, razor-sharp original rendering with zero glow bloom!
+        ALBEDO = base_color;
+        EMISSION = vec3(0.0);
         SPECULAR = 0.0;
         ROUGHNESS = 1.0;
         NORMAL = vec3(0.0, 0.0, 1.0);

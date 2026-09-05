@@ -1583,25 +1583,13 @@ void AddMana(Missile &missile, AddMissileParameter & /*parameter*/)
 {
 	Player &player = Players[missile._misource];
 
-	int manaAmount = (GenerateRnd(10) + 1) << 6;
-	for (int i = 0; i < player._pLevel; i++) {
-		manaAmount += (GenerateRnd(4) + 1) << 6;
-	}
-	for (int i = 0; i < missile._mispllvl; i++) {
-		manaAmount += (GenerateRnd(6) + 1) << 6;
-	}
-	if (player._pClass == HeroClass::Sorcerer)
-		manaAmount *= 2;
-	if (player._pClass == HeroClass::Rogue || player._pClass == HeroClass::Bard)
-		manaAmount += manaAmount / 2;
-	player._pMana += manaAmount;
-	if (player._pMana > player._pMaxMana)
-		player._pMana = player._pMaxMana;
-	player._pManaBase += manaAmount;
-	if (player._pManaBase > player._pMaxManaBase)
-		player._pManaBase = player._pMaxManaBase;
+	player._pMana = player._pMaxMana;
+	player._pManaBase = player._pMaxManaBase;
 	missile._miDelFlag = true;
 	RedrawComponent(PanelDrawComponent::Mana);
+	if (&player == MyPlayer) {
+		InitDiabloMsg(_("Mana fully restored"), 2000);
+	}
 }
 
 void AddMagi(Missile &missile, AddMissileParameter & /*parameter*/)
@@ -2542,18 +2530,20 @@ void AddStaffRecharge(Missile &missile, AddMissileParameter & /*parameter*/)
 
 	missile._miDelFlag = true;
 	if (&player == MyPlayer) {
-		Item *staffToRecharge = nullptr;
-		bool hasAnyStaff = false;
-		bool hasFullyChargedStaff = false;
+		bool manaRestored = false;
+		if (player._pMana < player._pMaxMana) {
+			player._pMana = player._pMaxMana;
+			player._pManaBase = player._pMaxManaBase;
+			RedrawComponent(PanelDrawComponent::Mana);
+			manaRestored = true;
+		}
 
+		Item *staffToRecharge = nullptr;
 		auto checkStaff = [&](Item &item) {
 			if (!item.isEmpty() && item._itype == ItemType::Staff && IsValidSpell(item._iSpell)) {
-				hasAnyStaff = true;
 				if (item._iCharges < item._iMaxCharges) {
 					if (staffToRecharge == nullptr)
 						staffToRecharge = &item;
-				} else {
-					hasFullyChargedStaff = true;
 				}
 			}
 		};
@@ -2567,32 +2557,17 @@ void AddStaffRecharge(Missile &missile, AddMissileParameter & /*parameter*/)
 		if (staffToRecharge != nullptr) {
 			RechargeItem(*staffToRecharge, player);
 			CalcPlrInv(player, true);
-			PlaySFX(IS_MAGIC);
+		}
+
+		PlaySFX(IS_MAGIC);
+
+		if (manaRestored) {
+			InitDiabloMsg(_("Mana fully restored"), 2000);
+		} else if (staffToRecharge != nullptr) {
 			InitDiabloMsg(_("Staff recharged"), 2000);
-			return;
+		} else {
+			InitDiabloMsg(_("Mana is already full"), 2000);
 		}
-
-		if (hasFullyChargedStaff) {
-			PlaySFX(IS_MAGIC);
-			InitDiabloMsg(_("Staff is already fully charged"), 2500);
-			return;
-		}
-
-		if (!hasAnyStaff) {
-			PlaySFX(IS_MAGIC);
-			InitDiabloMsg(_("No staff to recharge"), 2500);
-			return;
-		}
-
-		// Fallback only if needed
-		if (sbookflag)
-			sbookflag = false;
-		if (!invflag) {
-			invflag = true;
-			if (ControlMode != ControlTypes::KeyboardAndMouse)
-				FocusOnInventory();
-		}
-		NewCursor(CURSOR_RECHARGE);
 	}
 }
 
