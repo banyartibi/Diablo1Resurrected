@@ -107,6 +107,8 @@ public:
 	// Native 3D World & Entity Tracking
 	Dictionary get_player_continuous_pos() const;
 	Array get_active_monsters_data() const;
+	Dictionary get_player_sprite_data() const;
+	Dictionary get_monster_sprite_data(int monster_id) const;
 
 	// Direct Input Routing (In-memory C++ event dispatch, no SHM!)
 	void send_input(int type, int code, int state, int x, int y);

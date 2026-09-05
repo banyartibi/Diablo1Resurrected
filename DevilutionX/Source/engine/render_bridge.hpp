@@ -300,6 +300,7 @@ struct D1MonsterEntityData {
 	bool isAlive = true;
 	bool isWalking = false;
 	int mode = 0;
+	int animFrame = 0;
 };
 
 struct D1PlayerEntityData {
@@ -310,11 +311,24 @@ struct D1PlayerEntityData {
 	int dir = 0;
 	bool isWalking = false;
 	int mode = 0;
+	int animFrame = 0;
 };
 
 D1PlayerEntityData GetPlayerEntityData();
 std::vector<D1MonsterEntityData> GetActiveMonstersData();
 std::vector<uint8_t> GetDungeonSolidityGrid();
+
+// Native Godot 3D Billboard Sprite Extraction
+struct D1SpriteFrameRgba {
+	int width = 0;
+	int height = 0;
+	int frame = 0;
+	int dir = 0;
+	std::vector<uint8_t> rgba;
+};
+
+D1SpriteFrameRgba GetPlayerSpriteRgba();
+D1SpriteFrameRgba GetMonsterSpriteRgba(int monsterId);
 
 } // namespace devilution
 

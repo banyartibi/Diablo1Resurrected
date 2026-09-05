@@ -1,9 +1,10 @@
 extends Node3D
 
 # ==============================================================================
-# Native Godot 3D Diablo Sandbox (Lépcső 1 / Step 1)
-# Procedural 3D dungeon, continuous player tracking, real-time monster entities,
-# smooth Camera3D with tilt/pitch/yaw controls, and 3D raycast navigation.
+# Native Godot 3D Diablo Sandbox (Lépcső 2 / Step 2: 3D Billboard Sprites & PBR)
+# Authentic animated Diablo 1 character and monster sprites rendered as 3D
+# Billboard Sprites (Sprite3D) with real-time lighting, plus gothic PBR stone
+# materials for procedural 3D dungeon geometry.
 # ==============================================================================
 
 var diablo_bridge = null
@@ -27,17 +28,23 @@ var dungeon_built: bool = false
 var last_solidity_hash: int = 0
 var last_check_timer: float = 0.0
 
-# Player Entity
+# Player Entity (3D Billboard Sprite)
 var player_root: Node3D
-var player_mesh: MeshInstance3D
+var player_sprite: Sprite3D
+var player_texture: ImageTexture = null
+var last_player_frame: int = -1
+var last_player_dir: int = -1
 var player_lantern: OmniLight3D
 var player_ring: MeshInstance3D
 var player_arrow: MeshInstance3D
 var player_target_pos: Vector3 = Vector3.ZERO
 
-# Monster Entities
+# Monster Entities (3D Billboard Sprites)
 var monsters_root: Node3D
-var monster_instances: Dictionary = {} # id (int) -> Node3D
+var monster_instances: Dictionary = {}    # id (int) -> Node3D
+var monster_textures: Dictionary = {}     # id (int) -> ImageTexture
+var monster_last_frame: Dictionary = {}   # id (int) -> int
+var monster_last_dir: Dictionary = {}     # id (int) -> int
 
 # Waypoint / Click Feedback
 var click_marker: MeshInstance3D
@@ -83,10 +90,10 @@ func setup_scene_nodes():
 	dir_light.shadow_enabled = true
 	add_child(dir_light)
 
-	# 3. Procedural MultiMeshes for Dungeon Geometry
+	# 3. Procedural MultiMeshes for Dungeon Geometry with PBR stone relief
 	setup_dungeon_multimeshes()
 
-	# 4. Player Entity
+	# 4. Player Entity with authentic animated 3D Billboard Sprite
 	setup_player_entity()
 
 	# 5. Monsters Container
@@ -107,39 +114,68 @@ func setup_scene_nodes():
 		add_child(camera)
 
 func setup_dungeon_multimeshes():
-	# Floor MultiMesh
+	# Floor MultiMesh (Andezite flagstones with procedural relief)
 	floor_mmi = MultiMeshInstance3D.new()
 	floor_mmi.name = "FloorMultiMesh"
 	var floor_mm = MultiMesh.new()
 	floor_mm.transform_format = MultiMesh.TRANSFORM_3D
 	var floor_box = BoxMesh.new()
 	floor_box.size = Vector3(1.06, 0.10, 1.06)
+
+	var floor_noise = FastNoiseLite.new()
+	floor_noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	floor_noise.frequency = 0.09
+	floor_noise.cellular_distance_function = FastNoiseLite.DISTANCE_MANHATTAN
+	var floor_tex = NoiseTexture2D.new()
+	floor_tex.width = 256
+	floor_tex.height = 256
+	floor_tex.as_normal_map = true
+	floor_tex.bump_strength = 6.0
+	floor_tex.noise = floor_noise
+
 	var floor_mat = StandardMaterial3D.new()
-	floor_mat.albedo_color = Color(0.22, 0.20, 0.19)
+	floor_mat.albedo_color = Color(0.24, 0.22, 0.20)
 	floor_mat.roughness = 0.65
-	floor_mat.metallic = 0.05
+	floor_mat.metallic = 0.08
+	floor_mat.normal_enabled = true
+	floor_mat.normal_scale = 0.75
+	floor_mat.normal_texture = floor_tex
 	floor_box.material = floor_mat
 	floor_mm.mesh = floor_box
 	floor_mmi.multimesh = floor_mm
 	add_child(floor_mmi)
 
-	# Wall MultiMesh
+	# Wall MultiMesh (Ancient subterranean basalt masonry)
 	wall_mmi = MultiMeshInstance3D.new()
 	wall_mmi.name = "WallMultiMesh"
 	var wall_mm = MultiMesh.new()
 	wall_mm.transform_format = MultiMesh.TRANSFORM_3D
 	var wall_box = BoxMesh.new()
 	wall_box.size = Vector3(1.06, 2.2, 1.06)
+
+	var wall_noise = FastNoiseLite.new()
+	wall_noise.noise_type = FastNoiseLite.TYPE_PERLIN
+	wall_noise.frequency = 0.06
+	var wall_tex = NoiseTexture2D.new()
+	wall_tex.width = 256
+	wall_tex.height = 256
+	wall_tex.as_normal_map = true
+	wall_tex.bump_strength = 8.0
+	wall_tex.noise = wall_noise
+
 	var wall_mat = StandardMaterial3D.new()
 	wall_mat.albedo_color = Color(0.36, 0.30, 0.26)
 	wall_mat.roughness = 0.85
-	wall_mat.metallic = 0.0
+	wall_mat.metallic = 0.02
+	wall_mat.normal_enabled = true
+	wall_mat.normal_scale = 1.0
+	wall_mat.normal_texture = wall_tex
 	wall_box.material = wall_mat
 	wall_mm.mesh = wall_box
 	wall_mmi.multimesh = wall_mm
 	add_child(wall_mmi)
 
-	# Door / Archway MultiMesh
+	# Door / Archway MultiMesh (Carved stone with aged bronze trim)
 	door_mmi = MultiMeshInstance3D.new()
 	door_mmi.name = "DoorMultiMesh"
 	var door_mm = MultiMesh.new()
@@ -147,7 +183,7 @@ func setup_dungeon_multimeshes():
 	var door_box = BoxMesh.new()
 	door_box.size = Vector3(1.06, 2.0, 0.35)
 	var door_mat = StandardMaterial3D.new()
-	door_mat.albedo_color = Color(0.50, 0.38, 0.24)
+	door_mat.albedo_color = Color(0.48, 0.36, 0.22)
 	door_mat.roughness = 0.5
 	door_mat.metallic = 0.25
 	door_box.material = door_mat
@@ -160,31 +196,26 @@ func setup_player_entity():
 	player_root.name = "PlayerEntity"
 	add_child(player_root)
 
-	# Hero 3D Body
-	player_mesh = MeshInstance3D.new()
-	var hero_capsule = CapsuleMesh.new()
-	hero_capsule.radius = 0.36
-	hero_capsule.height = 1.65
-	player_mesh.mesh = hero_capsule
-	player_mesh.position.y = 0.82
-	var hero_mat = StandardMaterial3D.new()
-	hero_mat.albedo_color = Color(0.20, 0.48, 0.88) # Paladin/Warrior Cobalt
-	hero_mat.metallic = 0.65
-	hero_mat.roughness = 0.35
-	hero_mat.emission_enabled = true
-	hero_mat.emission = Color(0.05, 0.15, 0.35)
-	player_mesh.material_override = hero_mat
-	player_root.add_child(player_mesh)
+	# Hero 3D Billboard Sprite (Authentic Animated Diablo Pixel Art)
+	player_sprite = Sprite3D.new()
+	player_sprite.name = "PlayerSprite3D"
+	player_sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	player_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	player_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	player_sprite.shaded = true
+	player_sprite.pixel_size = 0.016
+	player_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	player_root.add_child(player_sprite)
 
 	# Rune Ring at Feet
 	player_ring = MeshInstance3D.new()
 	var ring_torus = TorusMesh.new()
-	ring_torus.inner_radius = 0.48
-	ring_torus.outer_radius = 0.56
+	ring_torus.inner_radius = 0.44
+	ring_torus.outer_radius = 0.52
 	ring_torus.rings = 16
 	ring_torus.ring_segments = 8
 	player_ring.mesh = ring_torus
-	player_ring.position.y = 0.04
+	player_ring.position.y = 0.03
 	var ring_mat = StandardMaterial3D.new()
 	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring_mat.albedo_color = Color(1.0, 0.85, 0.4, 0.85)
@@ -206,10 +237,10 @@ func setup_player_entity():
 	# Direction Indicator (Subtle Forward Arrow)
 	player_arrow = MeshInstance3D.new()
 	var arrow_mesh = PrismMesh.new()
-	arrow_mesh.size = Vector3(0.28, 0.4, 0.08)
+	arrow_mesh.size = Vector3(0.24, 0.35, 0.06)
 	player_arrow.mesh = arrow_mesh
 	player_arrow.rotation_degrees = Vector3(-90, 0, 0)
-	player_arrow.position = Vector3(0, 0.05, 0.75)
+	player_arrow.position = Vector3(0, 0.04, 0.70)
 	var arrow_mat = StandardMaterial3D.new()
 	arrow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	arrow_mat.albedo_color = Color(1.0, 0.8, 0.2, 0.7)
@@ -251,7 +282,7 @@ func activate():
 		camera.make_current()
 	rebuild_dungeon_if_needed(true)
 	snap_camera_to_player()
-	print("[Native 3D Sandbox] Activated! Real-time 3D camera and geometry live.")
+	print("[Native 3D Sandbox] Activated! Real-time 3D camera, Billboard Sprites and geometry live.")
 
 func deactivate():
 	is_sandbox_active = false
@@ -375,14 +406,32 @@ func update_player_entity(delta: float):
 	var px = p_data.get("pos_x", 25.0)
 	var py = p_data.get("pos_y", 25.0)
 	var dir = p_data.get("dir", 0)
+	var anim_frame = p_data.get("anim_frame", -1)
 
 	player_target_pos = tile_to_world_3d(px, py)
 	player_root.position = player_root.position.lerp(player_target_pos, delta * 14.0)
 
-	# Rotation to match Diablo direction (0 = South, 4 = North, etc.)
-	# In our 3D basis: 0 deg = South (+Z), 90 deg = West (-X), 180 deg = North (-Z), 270 deg = East (+X)
+	# Rotation of direction indicator arrow
 	var target_rot_y = float(dir) * 45.0
-	player_root.rotation_degrees.y = lerp_angle(deg_to_rad(player_root.rotation_degrees.y), deg_to_rad(target_rot_y), delta * 12.0) * (180.0 / PI)
+	player_arrow.rotation_degrees.y = float(dir) * 45.0
+
+	# Fetch & update authentic animated player 3D billboard sprite
+	if diablo_bridge and diablo_bridge.has_method("get_player_sprite_data"):
+		if anim_frame != last_player_frame or dir != last_player_dir or player_texture == null:
+			last_player_frame = anim_frame
+			last_player_dir = dir
+			var s_data: Dictionary = diablo_bridge.get_player_sprite_data()
+			var sw = s_data.get("width", 0)
+			var sh = s_data.get("height", 0)
+			var rgba: PackedByteArray = s_data.get("rgba", PackedByteArray())
+			if sw > 0 and sh > 0 and rgba.size() == sw * sh * 4:
+				var img = Image.create_from_data(sw, sh, false, Image.FORMAT_RGBA8, rgba)
+				if player_texture == null or player_texture.get_width() != sw or player_texture.get_height() != sh:
+					player_texture = ImageTexture.create_from_image(img)
+					player_sprite.texture = player_texture
+				else:
+					player_texture.update(img)
+				player_sprite.offset = Vector2(0, float(sh) * 0.5)
 
 	# Lantern flicker
 	if player_lantern:
@@ -413,13 +462,49 @@ func update_monster_entities(delta: float):
 		var mx = m.get("pos_x", 0.0)
 		var my = m.get("pos_y", 0.0)
 		var dir = m.get("dir", 0)
+		var anim_frame = m.get("anim_frame", -1)
 		var hp = m.get("hp", 1)
 		var max_hp = max(1, m.get("max_hp", 1))
 		var m_name = m.get("name", "Monster")
 
 		var target_pos = tile_to_world_3d(mx, my)
 		node.position = node.position.lerp(target_pos, delta * 12.0)
-		node.rotation_degrees.y = float(dir) * 45.0
+
+		# Update animated monster 3D billboard sprite
+		var m_sprite = node.get_node_or_null("MonsterSprite3D") as Sprite3D
+		var last_f = monster_last_frame.get(m_id, -999)
+		var last_d = monster_last_dir.get(m_id, -999)
+		var cur_tex: ImageTexture = monster_textures.get(m_id, null)
+
+		if diablo_bridge and diablo_bridge.has_method("get_monster_sprite_data"):
+			if anim_frame != last_f or dir != last_d or cur_tex == null:
+				monster_last_frame[m_id] = anim_frame
+				monster_last_dir[m_id] = dir
+				var ms_data: Dictionary = diablo_bridge.get_monster_sprite_data(m_id)
+				var mw = ms_data.get("width", 0)
+				var mh = ms_data.get("height", 0)
+				var m_rgba: PackedByteArray = ms_data.get("rgba", PackedByteArray())
+				if mw > 0 and mh > 0 and m_rgba.size() == mw * mh * 4:
+					var m_img = Image.create_from_data(mw, mh, false, Image.FORMAT_RGBA8, m_rgba)
+					if cur_tex == null or cur_tex.get_width() != mw or cur_tex.get_height() != mh:
+						cur_tex = ImageTexture.create_from_image(m_img)
+						monster_textures[m_id] = cur_tex
+						if m_sprite:
+							m_sprite.texture = cur_tex
+					else:
+						cur_tex.update(m_img)
+					if m_sprite:
+						m_sprite.offset = Vector2(0, float(mh) * 0.5)
+
+					# Dynamically adjust HP bar and name height to sit above monster head
+					var hp_y = float(mh) * 0.016 + 0.15
+					var name_y = hp_y + 0.22
+					var hp_r = node.get_node_or_null("HPRoot")
+					if hp_r:
+						hp_r.position.y = hp_y
+					var n_lbl = node.get_node_or_null("NameLabel")
+					if n_lbl:
+						n_lbl.position.y = name_y
 
 		# Update HP Bar
 		var hp_bar = node.get_node_or_null("HPRoot/HPBar") as MeshInstance3D
@@ -451,26 +536,21 @@ func get_or_create_monster_node(m_id: int) -> Node3D:
 	var node = Node3D.new()
 	node.name = "Monster_%d" % m_id
 
-	# 3D Demon / Creature Capsule
-	var body = MeshInstance3D.new()
-	var caps = CapsuleMesh.new()
-	caps.radius = 0.32
-	caps.height = 1.35
-	body.mesh = caps
-	body.position.y = 0.68
-	var b_mat = StandardMaterial3D.new()
-	b_mat.albedo_color = Color(0.82, 0.18, 0.14) # Demonic Crimson
-	b_mat.roughness = 0.70
-	b_mat.metallic = 0.15
-	b_mat.emission_enabled = true
-	b_mat.emission = Color(0.25, 0.04, 0.02)
-	body.material_override = b_mat
-	node.add_child(body)
+	# 3D Billboard Sprite for Monster
+	var sprite = Sprite3D.new()
+	sprite.name = "MonsterSprite3D"
+	sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sprite.shaded = true
+	sprite.pixel_size = 0.016
+	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	node.add_child(sprite)
 
 	# Name Label3D
 	var label = Label3D.new()
 	label.name = "NameLabel"
-	label.position = Vector3(0, 1.75, 0)
+	label.position = Vector3(0, 1.85, 0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
 	label.font_size = 17
@@ -483,7 +563,7 @@ func get_or_create_monster_node(m_id: int) -> Node3D:
 	# 3D HP Bar
 	var hp_root = Node3D.new()
 	hp_root.name = "HPRoot"
-	hp_root.position = Vector3(0, 1.50, 0)
+	hp_root.position = Vector3(0, 1.60, 0)
 
 	var hp_bg = MeshInstance3D.new()
 	var q_bg = QuadMesh.new()

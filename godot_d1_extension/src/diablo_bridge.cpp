@@ -80,6 +80,8 @@ void DiabloBridge::_bind_methods() {
 	// Native 3D World & Entity Tracking
 	ClassDB::bind_method(D_METHOD("get_player_continuous_pos"), &DiabloBridge::get_player_continuous_pos);
 	ClassDB::bind_method(D_METHOD("get_active_monsters_data"), &DiabloBridge::get_active_monsters_data);
+	ClassDB::bind_method(D_METHOD("get_player_sprite_data"), &DiabloBridge::get_player_sprite_data);
+	ClassDB::bind_method(D_METHOD("get_monster_sprite_data", "monster_id"), &DiabloBridge::get_monster_sprite_data);
 
 	// Direct Input
 	ClassDB::bind_method(D_METHOD("send_input", "type", "code", "state", "x", "y"), &DiabloBridge::send_input);
@@ -381,6 +383,7 @@ Dictionary DiabloBridge::get_player_continuous_pos() const {
 	d["dir"] = data.dir;
 	d["is_walking"] = data.isWalking;
 	d["mode"] = data.mode;
+	d["anim_frame"] = data.animFrame;
 	return d;
 }
 
@@ -400,9 +403,42 @@ Array DiabloBridge::get_active_monsters_data() const {
 		md["is_alive"] = m.isAlive;
 		md["is_walking"] = m.isWalking;
 		md["mode"] = m.mode;
+		md["anim_frame"] = m.animFrame;
 		arr.push_back(md);
 	}
 	return arr;
+}
+
+Dictionary DiabloBridge::get_player_sprite_data() const {
+	Dictionary d;
+	devilution::D1SpriteFrameRgba s = devilution::GetPlayerSpriteRgba();
+	d["width"] = s.width;
+	d["height"] = s.height;
+	d["frame"] = s.frame;
+	d["dir"] = s.dir;
+	PackedByteArray bytes;
+	if (!s.rgba.empty()) {
+		bytes.resize(s.rgba.size());
+		std::memcpy(bytes.ptrw(), s.rgba.data(), s.rgba.size());
+	}
+	d["rgba"] = bytes;
+	return d;
+}
+
+Dictionary DiabloBridge::get_monster_sprite_data(int monster_id) const {
+	Dictionary d;
+	devilution::D1SpriteFrameRgba s = devilution::GetMonsterSpriteRgba(monster_id);
+	d["width"] = s.width;
+	d["height"] = s.height;
+	d["frame"] = s.frame;
+	d["dir"] = s.dir;
+	PackedByteArray bytes;
+	if (!s.rgba.empty()) {
+		bytes.resize(s.rgba.size());
+		std::memcpy(bytes.ptrw(), s.rgba.data(), s.rgba.size());
+	}
+	d["rgba"] = bytes;
+	return d;
 }
 
 void DiabloBridge::send_input(int type, int code, int state, int x, int y) {

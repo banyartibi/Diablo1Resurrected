@@ -1452,6 +1452,7 @@ D1PlayerEntityData GetPlayerEntityData()
 	data.dir = static_cast<int>(player._pdir);
 	data.mode = static_cast<int>(player._pmode);
 	data.isWalking = player.isWalking();
+	data.animFrame = player.AnimInfo.getFrameToUseForRendering();
 
 	if (player.isWalking() && player.AnimInfo.numberOfFrames > 0) {
 		float progress = static_cast<float>(player.AnimInfo.currentFrame) / static_cast<float>(player.AnimInfo.numberOfFrames);
@@ -1490,6 +1491,7 @@ std::vector<D1MonsterEntityData> GetActiveMonstersData()
 		med.maxHp = m.maxHitPoints >> 6;
 		med.isAlive = (m.hitPoints > 0 && m.mode != MonsterMode::Death);
 		med.isWalking = m.isWalking();
+		med.animFrame = m.animInfo.sprites ? m.animInfo.getFrameToUseForRendering() : 0;
 
 		string_view nameView = m.name();
 		size_t copyLen = std::min(nameView.size(), sizeof(med.name) - 1);
@@ -1536,6 +1538,105 @@ std::vector<uint8_t> GetDungeonSolidityGrid()
 		}
 	}
 	return grid;
+}
+
+D1SpriteFrameRgba GetPlayerSpriteRgba()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1SpriteFrameRgba result;
+	if (!gbRunGame || MyPlayer == nullptr)
+		return result;
+
+	const Player &player = *MyPlayer;
+	if (!player.AnimInfo.sprites)
+		return result;
+
+	const ClxSprite sprite = player.previewCelSprite ? *player.previewCelSprite : player.AnimInfo.currentSprite();
+	int w = sprite.width();
+	int h = sprite.height();
+	if (w <= 0 || h <= 0 || w > 512 || h > 512)
+		return result;
+
+	result.width = w;
+	result.height = h;
+	result.frame = player.AnimInfo.getFrameToUseForRendering();
+	result.dir = static_cast<int>(player._pdir);
+
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+	RenderClxSprite(surface, sprite, { 0, 0 });
+
+	result.rgba.resize(w * h * 4, 0);
+	uint8_t *dst = result.rgba.data();
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = orig_palette[idx];
+				int px = (y * w + x) * 4;
+				dst[px + 0] = c.r;
+				dst[px + 1] = c.g;
+				dst[px + 2] = c.b;
+				dst[px + 3] = 255;
+			}
+		}
+	}
+	return result;
+}
+
+D1SpriteFrameRgba GetMonsterSpriteRgba(int monsterId)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1SpriteFrameRgba result;
+	if (!gbRunGame || monsterId < 0 || monsterId >= static_cast<int>(MaxMonsters))
+		return result;
+
+	const Monster &m = Monsters[monsterId];
+	if (!m.animInfo.sprites)
+		return result;
+
+	const ClxSprite sprite = m.animInfo.currentSprite();
+	int w = sprite.width();
+	int h = sprite.height();
+	if (w <= 0 || h <= 0 || w > 512 || h > 512)
+		return result;
+
+	result.width = w;
+	result.height = h;
+	result.frame = m.animInfo.getFrameToUseForRendering();
+	result.dir = static_cast<int>(m.direction);
+
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+
+	uint8_t *trn = nullptr;
+	if (m.isUnique())
+		trn = m.uniqueMonsterTRN.get();
+
+	if (trn != nullptr) {
+		ClxDrawTRN(surface, { 0, h - 1 }, sprite, trn);
+	} else {
+		RenderClxSprite(surface, sprite, { 0, 0 });
+	}
+
+	result.rgba.resize(w * h * 4, 0);
+	uint8_t *dst = result.rgba.data();
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = orig_palette[idx];
+				int px = (y * w + x) * 4;
+				dst[px + 0] = c.r;
+				dst[px + 1] = c.g;
+				dst[px + 2] = c.b;
+				dst[px + 3] = 255;
+			}
+		}
+	}
+	return result;
 }
 
 } // namespace devilution
