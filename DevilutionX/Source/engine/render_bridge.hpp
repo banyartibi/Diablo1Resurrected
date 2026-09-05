@@ -301,6 +301,7 @@ struct D1MonsterEntityData {
 	bool isWalking = false;
 	int mode = 0;
 	int animFrame = 0;
+	bool isVisible = true;
 };
 
 struct D1PlayerEntityData {
@@ -428,6 +429,7 @@ Point MapIsometricToScreenCoords(float isoX, float isoY);
 struct D1MissileInfo {
 	int id;
 	int type;
+	int dir;
 	float posX;
 	float posY;
 	int tileX;

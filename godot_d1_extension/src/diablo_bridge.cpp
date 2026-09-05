@@ -550,6 +550,7 @@ Array DiabloBridge::get_active_monsters_data() const {
 		md["is_walking"] = m.isWalking;
 		md["mode"] = m.mode;
 		md["anim_frame"] = m.animFrame;
+		md["is_visible"] = m.isVisible;
 		arr.push_back(md);
 	}
 	return arr;
@@ -1047,6 +1048,7 @@ Array DiabloBridge::get_active_missiles() const {
 		Dictionary d;
 		d["id"] = m.id;
 		d["type"] = m.type;
+		d["dir"] = m.dir;
 		d["pos_x"] = m.posX;
 		d["pos_y"] = m.posY;
 		d["tile_x"] = m.tileX;

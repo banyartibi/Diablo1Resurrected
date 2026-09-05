@@ -13,7 +13,6 @@ var world_root: Node2D = null
 var player_node: Node2D = null
 var player_sprite: Sprite2D = null
 var player_light: PointLight2D = null
-var player_arrow: Line2D = null
 var canvas_modulate: CanvasModulate = null
 
 # State tracking
@@ -103,21 +102,14 @@ func setup_player_node():
 	player_sprite.centered = true
 	player_node.add_child(player_sprite)
 
-	# Hero Facing Direction Arrow
-	player_arrow = Line2D.new()
-	player_arrow.name = "HeroArrow"
-	player_arrow.points = PackedVector2Array([Vector2.ZERO, Vector2(0, 24)])
-	player_arrow.width = 2.5
-	player_arrow.default_color = Color(1.0, 0.85, 0.25, 0.65)
-	player_node.add_child(player_arrow)
-
-	# Hero Torch Light (Subtle warm candlelight glow)
+	# Hero Torch Light (Disabled by default to preserve authentic dLight contrast)
 	player_light = PointLight2D.new()
 	player_light.name = "HeroTorchLight"
 	player_light.texture = create_radial_light_texture(512)
 	player_light.texture_scale = 1.35
 	player_light.color = Color(1.0, 0.90, 0.75)
-	player_light.energy = 0.45
+	player_light.energy = 0.0
+	player_light.enabled = false
 	player_light.position = Vector2(0, -16)
 	player_node.add_child(player_light)
 
@@ -253,7 +245,7 @@ func rebuild_dungeon_tiles():
 					spr.position = tile_pos
 					spr.offset = Vector2(-32.0, 16.0 - float(h))
 					# Initialize in deep gothic darkness / fog of war
-					spr.self_modulate = Color(0.04, 0.07, 0.11)
+					spr.self_modulate = Color(0.0, 0.0, 0.0)
 					if h <= 32:
 						spr.z_index = -1
 					else:
@@ -273,7 +265,7 @@ func rebuild_dungeon_tiles():
 					arch_spr.position = tile_pos
 					arch_spr.offset = Vector2(-32.0, 16.0 - float(ah))
 					# Initialize in deep gothic darkness / fog of war
-					arch_spr.self_modulate = Color(0.04, 0.07, 0.11)
+					arch_spr.self_modulate = Color(0.0, 0.0, 0.0)
 					arch_spr.z_index = 0 # Y-sorted with walls!
 					world_root.add_child(arch_spr)
 					special_sprites[Vector2i(x, y)] = arch_spr
@@ -323,12 +315,15 @@ func update_lighting_and_transparency():
 			var idx = ty * 112 + tx
 
 			# Milestone 2: Per-Tile Authentic Lighting (dLight: 0 = fully lit, 15 = pitch black)
-			var tile_mod = Color.WHITE
+			var tile_mod = Color(0.0, 0.0, 0.0)
 			if has_light:
 				var light_val = light_grid[idx]
-				var brightness = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
-				# Crypt Cyan Gothic color grading: deep cold slate in shadows, warm amber in light
-				tile_mod = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), brightness)
+				if light_val < 15:
+					var norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+					var factor = pow(norm, 1.8)
+					tile_mod = Color(1.0, 0.94, 0.88) * factor
+				else:
+					tile_mod = Color(0.0, 0.0, 0.0) # Pitch black outside light!
 
 			# Milestone 3: Front-Wall Transparency (TransList)
 			# NOTE: Only wall tiles and archways (height > 32) become transparent.
@@ -374,16 +369,6 @@ func update_player(delta: float):
 	if camera:
 		camera.position = camera.position.lerp(player_node.position, delta * 12.0)
 
-	# Facing arrow direction (Diablo 1 uses 8 directions: 0 = S, 1 = SW, 2 = W, etc.)
-	# In isometric space, angle = dir * 45 deg - 90 deg
-	var angle_rad = float(dir) * (PI / 4.0) - (PI / 2.0)
-	player_arrow.rotation = angle_rad
-
-	# Torch light breathing flicker (Soft warm candle glow)
-	if player_light:
-		var flicker = 0.45 + 0.05 * sin(time_accum * 5.4) * cos(time_accum * 2.8)
-		player_light.energy = flicker
-
 	# Update animated player sprite (updates on frame, dir, or mode changes like attack/cast)
 	if diablo_bridge.has_method("get_player_sprite_data"):
 		if anim_frame != last_player_frame or dir != last_player_dir or mode != last_player_mode or player_texture == null:
@@ -404,6 +389,15 @@ func update_player(delta: float):
 				# Offset so player feet rest precisely in the center of the diamond
 				player_sprite.offset = Vector2(0, -float(sh) * 0.5 + 16.0)
 
+	# Authentic per-tile lighting on player
+	var p_light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
+	var p_tile_idx = clamp(int(py), 0, 111) * 112 + clamp(int(px), 0, 111)
+	if p_light_grid.size() >= 112 * 112:
+		var p_light = p_light_grid[p_tile_idx]
+		var p_norm = clamp(1.0 - float(p_light) / 14.5, 0.0, 1.0)
+		var p_bright = pow(p_norm, 1.8)
+		player_sprite.self_modulate = Color(1.0, 0.96, 0.92) * p_bright
+
 func update_monsters(delta: float):
 	if not diablo_bridge or not diablo_bridge.has_method("get_active_monsters_data"):
 		return
@@ -414,12 +408,14 @@ func update_monsters(delta: float):
 	for m in monsters:
 		var m_id = m.get("id", -1)
 		var is_alive = m.get("is_alive", true)
-		if m_id < 0 or not is_alive:
+		var is_visible = m.get("is_visible", true)
+		if m_id < 0 or not is_alive or not is_visible:
+			if monster_nodes.has(m_id) and is_instance_valid(monster_nodes[m_id]):
+				monster_nodes[m_id].visible = false
 			continue
 
 		seen_ids[m_id] = true
 		var node = get_or_create_monster_node(m_id)
-		node.visible = true
 
 		var mx = m.get("pos_x", 0.0)
 		var my = m.get("pos_y", 0.0)
@@ -462,11 +458,14 @@ func update_monsters(delta: float):
 		var m_idx = m_ty * 112 + m_tx
 		if light_grid.size() >= 112 * 112:
 			var m_light = light_grid[m_idx]
-			var m_bright = clamp(1.0 - float(m_light) / 14.5, 0.0, 1.0)
+			if m_light >= 15:
+				node.visible = false
+				continue
+			var m_norm = clamp(1.0 - float(m_light) / 14.5, 0.0, 1.0)
+			var m_bright = pow(m_norm, 1.8)
 			if m_sprite:
-				m_sprite.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), m_bright)
-			# Hide monsters completely if they are shrouded in pitch black fog of war (dLight >= 15)
-			node.visible = (m_light < 15)
+				m_sprite.self_modulate = Color(1.0, 0.96, 0.92) * m_bright
+			node.visible = true
 
 	# Hide monsters that are no longer active
 	for m_id in monster_nodes:
@@ -508,17 +507,7 @@ func update_torches():
 		torch_lights.append(pl)
 
 	for i in range(torch_lights.size()):
-		if i < needed:
-			var l = lights[i]
-			var tx = l.get("tile_x", 0)
-			var ty = l.get("tile_y", 0)
-			var pl: PointLight2D = torch_lights[i]
-			pl.visible = true
-			pl.position = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0)
-			var flicker = 0.60 + 0.10 * sin(time_accum * 4.8 + float(i))
-			pl.energy = flicker
-		else:
-			torch_lights[i].visible = false
+		torch_lights[i].visible = false
 
 # Milestone 4: Dungeon Objects (Animated Torches, Barrels, Chests, Shrines)
 func update_objects():
@@ -530,10 +519,6 @@ func update_objects():
 
 	var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
 	var has_light = (light_grid.size() >= 112 * 112)
-
-	var trans_grid = diablo_bridge.get_dungeon_trans_grid() if diablo_bridge.has_method("get_dungeon_trans_grid") else PackedByteArray()
-	var trans_list = diablo_bridge.get_trans_list() if diablo_bridge.has_method("get_trans_list") else PackedByteArray()
-	var has_trans = (trans_grid.size() >= 112 * 112 and trans_list.size() >= 256)
 
 	for obj in objects:
 		var o_id = obj.get("id", -1)
@@ -577,22 +562,21 @@ func update_objects():
 			spr.texture = tex
 			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
 
-		# Authentic per-tile lighting & wall transparency
+		# Authentic per-tile lighting (Objects in Diablo 1 are NEVER transparent!)
+		spr.modulate.a = 1.0
+
 		var tile_idx = clamp(ty, 0, 111) * 112 + clamp(tx, 0, 111)
 		var is_torch = (o_type == 1 or o_type == 2 or o_type == 3 or o_type == 4 or o_type == 6 or o_type == 7 or o_type == 8 or o_type == 9)
 		if has_light:
 			var light_val = light_grid[tile_idx]
-			var brightness = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
-			if is_torch:
-				brightness = max(0.85, brightness)
-			spr.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), brightness)
-
-		if has_trans:
-			var t_id = trans_grid[tile_idx]
-			if t_id > 0 and t_id < trans_list.size() and trans_list[t_id] == 1:
-				spr.modulate.a = 0.38
+			if light_val >= 15 and not is_torch:
+				spr.self_modulate = Color(0.0, 0.0, 0.0)
 			else:
-				spr.modulate.a = 1.0
+				var o_norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+				var o_factor = pow(o_norm, 1.8)
+				if is_torch:
+					o_factor = max(0.85, o_factor)
+				spr.self_modulate = Color(1.0, 0.96, 0.92) * o_factor
 
 	for o_id in object_sprites:
 		if not seen_ids.has(o_id):
@@ -764,6 +748,7 @@ func update_missiles():
 		seen_ids[m_id] = true
 
 		var m_type = m.get("type", 0)
+		var m_dir = m.get("dir", 0)
 		var px = m.get("pos_x", 0.0)
 		var py = m.get("pos_y", 0.0)
 		var anim_frame = m.get("anim_frame", 0)
@@ -778,14 +763,8 @@ func update_missiles():
 
 			var spr = Sprite2D.new()
 			spr.name = "Sprite"
-			spr.centered = true
+			spr.centered = false
 			node.add_child(spr)
-
-			var light = PointLight2D.new()
-			light.name = "Light"
-			light.texture = create_radial_light_texture(256)
-			light.texture_scale = 1.0
-			node.add_child(light)
 
 			missile_nodes[m_id] = node
 
@@ -793,8 +772,8 @@ func update_missiles():
 		node.position = Vector2(px, py)
 		node.z_index = -1 if pre_flag else 0
 
-		# Texture caching by (type, anim_frame)
-		var cache_key = "%d_%d" % [m_type, anim_frame]
+		# Texture caching by (type, dir, anim_frame)
+		var cache_key = "%d_%d_%d" % [m_type, m_dir, anim_frame]
 		var tex: ImageTexture = missile_textures.get(cache_key, null)
 		if tex == null and diablo_bridge.has_method("get_missile_sprite_data"):
 			var s_data = diablo_bridge.get_missile_sprite_data(m_id)
@@ -809,23 +788,7 @@ func update_missiles():
 		var spr = node.get_node_or_null("Sprite") as Sprite2D
 		if spr and tex:
 			spr.texture = tex
-
-		# Dynamic spell lighting (Fire: warm fiery glow; Lightning: electric cyan; Holy Bolt: pure gold)
-		var light = node.get_node_or_null("Light") as PointLight2D
-		if light:
-			if light_flag:
-				light.enabled = true
-				if m_type == 9 or m_type == 14 or m_type == 31: # Lightning / Nova / Chain
-					light.color = Color(0.45, 0.85, 1.0)
-					light.energy = 0.95
-				elif m_type == 25: # Holy Bolt
-					light.color = Color(1.0, 1.0, 0.6)
-					light.energy = 0.85
-				else: # Firebolt, Fireball, Flame Wave, etc.
-					light.color = Color(1.0, 0.65, 0.25)
-					light.energy = 0.90
-			else:
-				light.enabled = false
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, -float(tex.get_height()))
 
 	# Hide inactive missiles
 	for m_id in missile_nodes:

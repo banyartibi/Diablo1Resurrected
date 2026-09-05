@@ -1511,6 +1511,16 @@ std::vector<D1MonsterEntityData> GetActiveMonstersData()
 			med.posY = static_cast<float>(m.position.tile.y);
 		}
 
+		Point mTile = m.position.tile;
+		bool isLit = IsTileLit(mTile);
+		bool isVis = IsTileVisible(mTile);
+		if (m.isWalking()) {
+			isLit = isLit || IsTileLit(m.position.future);
+			isVis = isVis || IsTileVisible(m.position.future);
+		}
+		bool hasInfra = (MyPlayer != nullptr && MyPlayer->_pInfraFlag);
+		med.isVisible = (isVis && isLit) || (hasInfra && isLit);
+
 		result.push_back(med);
 	}
 	return result;
@@ -2018,16 +2028,20 @@ std::vector<D1MissileInfo> GetActiveMissilesList()
 		int w = sprite.width();
 		int h = sprite.height();
 
-		float isoX = static_cast<float>(missile.position.tile.x - missile.position.tile.y) * 32.0f + static_cast<float>(missile.position.offset.deltaX);
-		float isoY = static_cast<float>(missile.position.tile.x + missile.position.tile.y) * 16.0f + static_cast<float>(missile.position.offset.deltaY);
+		Point mTile = (missile.position.tileForRendering != Point { 0, 0 }) ? missile.position.tileForRendering : missile.position.tile;
+		Displacement mOffset = (missile.position.offsetForRendering != Displacement {}) ? missile.position.offsetForRendering : missile.position.offset;
+
+		float isoX = static_cast<float>(mTile.x - mTile.y) * 32.0f + static_cast<float>(mOffset.deltaX);
+		float isoY = static_cast<float>(mTile.x + mTile.y) * 16.0f + static_cast<float>(mOffset.deltaY);
 
 		D1MissileInfo info;
 		info.id = currentId;
 		info.type = static_cast<int>(missile._mitype);
+		info.dir = static_cast<int>(missile._mimfnum);
 		info.posX = isoX;
 		info.posY = isoY;
-		info.tileX = missile.position.tile.x;
-		info.tileY = missile.position.tile.y;
+		info.tileX = mTile.x;
+		info.tileY = mTile.y;
 		info.animFrame = missile._miAnimFrame;
 		info.width = w;
 		info.height = h;
