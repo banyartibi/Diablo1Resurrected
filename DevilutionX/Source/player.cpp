@@ -426,6 +426,7 @@ void InitLevelChange(Player &player)
 	player._pLvlChanging = true;
 
 	if (&player == MyPlayer) {
+		g_D1LevelTransitioning = true;
 		player.pLvlLoad = 10;
 	}
 }

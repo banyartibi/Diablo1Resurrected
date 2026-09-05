@@ -3114,6 +3114,7 @@ void LoadGameLevel(bool firstflag, lvl_entry lvldir)
 	ResetItemlabelHighlighted(); // level changed => item changed
 	pcursmonst = -1;             // ensure pcurstemp is set to a valid value
 	CheckCursMove();
+	g_D1LevelTransitioning = false;
 }
 
 bool game_loop(bool bStartup)

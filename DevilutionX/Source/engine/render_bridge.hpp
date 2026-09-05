@@ -54,6 +54,7 @@ struct D1BridgeHeader {
 static_assert(sizeof(D1BridgeHeader) == 4096, "D1BridgeHeader must be exactly 4096 bytes");
 
 extern bool gbGodotBridgeActive;
+extern std::atomic<bool> g_D1LevelTransitioning;
 
 struct D1EngineData {
 	uint32_t frameId = 0;
@@ -100,6 +101,7 @@ struct D1EngineData {
 	char hoverItemStats[512] = { 0 };
 	int hoverItemQuality = 0;
 	bool isInventoryHover = false;
+	bool isMonsterHover = false;
 	int hoverMouseX = 0;
 	int hoverMouseY = 0;
 	int zoomMode = 2; // 0=1.0x, 1=1.5x, 2=2.0x, 3=2.5x, 4=3.0x
@@ -354,6 +356,7 @@ void CopyD1SpecialGrid(int32_t *dest, size_t maxTiles);
 // Per-Tile Lighting & Transparency (Fog of War & Room Transparency)
 void CopyD1LightGrid(uint8_t *dest, size_t maxTiles);
 void CopyD1TransGrid(uint8_t *dest, size_t maxTiles);
+void CopyD1TransparencyMask(uint8_t *dest, size_t maxTiles);
 std::vector<uint8_t> GetTransList();
 
 // Native Godot 2.5D Dungeon Objects (Torches, Barrels, Chests, Shrines)

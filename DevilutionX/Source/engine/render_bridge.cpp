@@ -48,7 +48,13 @@ namespace devilution {
 
 bool gbGodotBridgeActive = true;
 bool gbHideVanillaHUD = false;
+std::atomic<bool> g_D1LevelTransitioning{false};
 D1EngineData g_D1EngineData;
+
+static inline bool IsBridgeSafeToRead()
+{
+	return gbRunGame && !g_D1LevelTransitioning.load() && MyPlayer != nullptr && MyPlayer->_pmode != PM_NEWLVL && !MyPlayer->_pLvlChanging;
+}
 
 void SetVanillaHUDHidden(bool hidden)
 {
@@ -226,12 +232,14 @@ void ExportGodotFrame(const SDL_Surface *surface)
 			g_D1EngineData.isInventoryHover = IsRightPanelOpen() &&
 				(MousePosition.x >= rpRect.position.x && MousePosition.x <= rpRect.position.x + rpRect.size.width &&
 				 MousePosition.y >= rpRect.position.y && MousePosition.y <= rpRect.position.y + rpRect.size.height);
+			g_D1EngineData.isMonsterHover = (pcursmonst != -1);
 		} else {
 			g_D1EngineData.hasHoverInfo = false;
 			g_D1EngineData.hoverItemName[0] = '\0';
 			g_D1EngineData.hoverItemStats[0] = '\0';
 			g_D1EngineData.hoverItemQuality = 0;
 			g_D1EngineData.isInventoryHover = false;
+			g_D1EngineData.isMonsterHover = false;
 		}
 
 		g_D1EngineData.isGameRunning = gbRunGame;
@@ -1446,7 +1454,7 @@ D1PlayerEntityData GetPlayerEntityData()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1PlayerEntityData data;
-	if (!gbRunGame || MyPlayer == nullptr)
+	if (!IsBridgeSafeToRead())
 		return data;
 
 	const Player &player = *MyPlayer;
@@ -1458,10 +1466,16 @@ D1PlayerEntityData GetPlayerEntityData()
 	data.animFrame = player.AnimInfo.getFrameToUseForRendering();
 
 	if (player.isWalking() && player.AnimInfo.numberOfFrames > 0) {
+		Point origin = player.position.tile;
+		Point target = player.position.future;
+		if (player._pmode == PM_WALK_SOUTHWARDS) {
+			origin = player.position.temp;
+			target = player.position.tile;
+		}
 		float progress = static_cast<float>(player.AnimInfo.currentFrame) / static_cast<float>(player.AnimInfo.numberOfFrames);
 		progress = std::clamp(progress, 0.0f, 1.0f);
-		data.posX = player.position.tile.x + (player.position.future.x - player.position.tile.x) * progress;
-		data.posY = player.position.tile.y + (player.position.future.y - player.position.tile.y) * progress;
+		data.posX = static_cast<float>(origin.x) + static_cast<float>(target.x - origin.x) * progress;
+		data.posY = static_cast<float>(origin.y) + static_cast<float>(target.y - origin.y) * progress;
 	} else {
 		data.posX = static_cast<float>(player.position.tile.x);
 		data.posY = static_cast<float>(player.position.tile.y);
@@ -1473,7 +1487,7 @@ std::vector<D1MonsterEntityData> GetActiveMonstersData()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	std::vector<D1MonsterEntityData> result;
-	if (!gbRunGame || currlevel == 0) // Town has no hostile monsters
+	if (!IsBridgeSafeToRead() || currlevel == 0) // Town has no hostile monsters
 		return result;
 
 	size_t count = std::min(ActiveMonsterCount, MaxMonsters);
@@ -1502,10 +1516,16 @@ std::vector<D1MonsterEntityData> GetActiveMonstersData()
 		med.name[copyLen] = '\0';
 
 		if (m.isWalking() && m.animInfo.numberOfFrames > 0) {
+			Point origin = m.position.tile;
+			Point target = m.position.future;
+			if (m.mode == MonsterMode::MoveSouthwards) {
+				origin = m.position.old;
+				target = m.position.tile;
+			}
 			float progress = static_cast<float>(m.animInfo.currentFrame) / static_cast<float>(m.animInfo.numberOfFrames);
 			progress = std::clamp(progress, 0.0f, 1.0f);
-			med.posX = m.position.tile.x + (m.position.future.x - m.position.tile.x) * progress;
-			med.posY = m.position.tile.y + (m.position.future.y - m.position.tile.y) * progress;
+			med.posX = static_cast<float>(origin.x) + static_cast<float>(target.x - origin.x) * progress;
+			med.posY = static_cast<float>(origin.y) + static_cast<float>(target.y - origin.y) * progress;
 		} else {
 			med.posX = static_cast<float>(m.position.tile.x);
 			med.posY = static_cast<float>(m.position.tile.y);
@@ -1530,7 +1550,7 @@ std::vector<uint8_t> GetDungeonSolidityGrid()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	std::vector<uint8_t> grid(MAXDUNX * MAXDUNY, 0);
-	if (!gbRunGame)
+	if (!IsBridgeSafeToRead())
 		return grid;
 
 	for (int y = 0; y < MAXDUNY; ++y) {
@@ -1557,7 +1577,7 @@ D1SpriteFrameRgba GetPlayerSpriteRgba()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1SpriteFrameRgba result;
-	if (!gbRunGame || MyPlayer == nullptr)
+	if (!IsBridgeSafeToRead())
 		return result;
 
 	const Player &player = *MyPlayer;
@@ -1602,7 +1622,7 @@ D1SpriteFrameRgba GetMonsterSpriteRgba(int monsterId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1SpriteFrameRgba result;
-	if (!gbRunGame || monsterId < 0 || monsterId >= static_cast<int>(MaxMonsters))
+	if (!IsBridgeSafeToRead() || monsterId < 0 || monsterId >= static_cast<int>(MaxMonsters))
 		return result;
 
 	const Monster &m = Monsters[monsterId];
@@ -1656,7 +1676,7 @@ D1TilePieceRgba GetDungeonPieceRgba(int pieceId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1TilePieceRgba result;
-	if (!gbRunGame || pieceId <= 0 || pieceId >= MAXTILES || pDungeonCels == nullptr)
+	if (!IsBridgeSafeToRead() || pieceId <= 0 || pieceId >= MAXTILES || pDungeonCels == nullptr)
 		return result;
 
 	const MICROS &micros = DPieceMicros[pieceId];
@@ -1724,7 +1744,7 @@ D1SpecialCelRgba GetSpecialCelRgba(int specialId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1SpecialCelRgba result;
-	if (!gbRunGame || !pSpecialCels.has_value() || specialId <= 0 || static_cast<size_t>(specialId) > pSpecialCels->numSprites())
+	if (!IsBridgeSafeToRead() || !pSpecialCels.has_value() || specialId <= 0 || static_cast<size_t>(specialId) > pSpecialCels->numSprites())
 		return result;
 
 	const ClxSprite sprite = (*pSpecialCels)[specialId - 1];
@@ -1763,6 +1783,10 @@ void CopyD1SpecialGrid(int32_t *dest, size_t maxTiles)
 {
 	if (dest == nullptr) return;
 	size_t count = std::min<size_t>(maxTiles, 112 * 112);
+	if (!IsBridgeSafeToRead()) {
+		std::memset(dest, 0, count * sizeof(int32_t));
+		return;
+	}
 	for (size_t y = 0; y < 112; ++y) {
 		for (size_t x = 0; x < 112; ++x) {
 			size_t idx = y * 112 + x;
@@ -1777,11 +1801,20 @@ void CopyD1LightGrid(uint8_t *dest, size_t maxTiles)
 {
 	if (dest == nullptr) return;
 	size_t count = std::min<size_t>(maxTiles, 112 * 112);
+	if (!IsBridgeSafeToRead()) {
+		std::memset(dest, 15, count);
+		return;
+	}
+	bool isTown = (leveltype == DTYPE_TOWN);
 	for (size_t y = 0; y < 112; ++y) {
 		for (size_t x = 0; x < 112; ++x) {
 			size_t idx = y * 112 + x;
 			if (idx < count) {
-				dest[idx] = dLight[x][y];
+				if (!isTown && !HasAnyOf(dFlags[x][y], DungeonFlag::Lit | DungeonFlag::Visible)) {
+					dest[idx] = 15;
+				} else {
+					dest[idx] = dLight[x][y];
+				}
 			}
 		}
 	}
@@ -1791,6 +1824,10 @@ void CopyD1TransGrid(uint8_t *dest, size_t maxTiles)
 {
 	if (dest == nullptr) return;
 	size_t count = std::min<size_t>(maxTiles, 112 * 112);
+	if (!IsBridgeSafeToRead()) {
+		std::memset(dest, 0, count);
+		return;
+	}
 	for (size_t y = 0; y < 112; ++y) {
 		for (size_t x = 0; x < 112; ++x) {
 			size_t idx = y * 112 + x;
@@ -1801,10 +1838,31 @@ void CopyD1TransGrid(uint8_t *dest, size_t maxTiles)
 	}
 }
 
+void CopyD1TransparencyMask(uint8_t *dest, size_t maxTiles)
+{
+	if (dest == nullptr) return;
+	size_t count = std::min<size_t>(maxTiles, 112 * 112);
+	if (!IsBridgeSafeToRead()) {
+		std::memset(dest, 0, count);
+		return;
+	}
+	for (size_t y = 0; y < 112; ++y) {
+		for (size_t x = 0; x < 112; ++x) {
+			size_t idx = y * 112 + x;
+			if (idx < count) {
+				int piece = dPiece[x][y];
+				dest[idx] = (piece > 0 && TileHasAny(piece, TileProperties::Transparent)) ? 1 : 0;
+			}
+		}
+	}
+}
+
 std::vector<uint8_t> GetTransList()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	std::vector<uint8_t> result(256, 0);
+	if (!IsBridgeSafeToRead())
+		return result;
 	for (size_t i = 0; i < 256; ++i) {
 		result[i] = TransList[i] ? 1 : 0;
 	}
@@ -1850,7 +1908,7 @@ std::vector<D1ObjectInfo> GetActiveObjectsList()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	std::vector<D1ObjectInfo> list;
-	if (!gbRunGame) return list;
+	if (!IsBridgeSafeToRead()) return list;
 
 	for (int i = 0; i < ActiveObjectCount; ++i) {
 		int oi = ActiveObjects[i];
@@ -1884,7 +1942,7 @@ D1ObjectSpriteRgba GetObjectSpriteRgba(int objectId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1ObjectSpriteRgba result;
-	if (!gbRunGame || objectId < 0 || objectId >= MAXOBJECTS) return result;
+	if (!IsBridgeSafeToRead() || objectId < 0 || objectId >= MAXOBJECTS) return result;
 	const Object &obj = Objects[objectId];
 	if (!obj._oAnimData.has_value() || obj._oAnimFrame <= 0 ||
 	    static_cast<size_t>(obj._oAnimFrame) > (*obj._oAnimData).numSprites())
@@ -1899,7 +1957,7 @@ std::vector<D1ItemInfo> GetActiveItemsList()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	std::vector<D1ItemInfo> list;
-	if (!gbRunGame) return list;
+	if (!IsBridgeSafeToRead()) return list;
 
 	for (int i = 0; i < ActiveItemCount; ++i) {
 		int ii = ActiveItems[i];
@@ -1933,7 +1991,7 @@ D1ItemSpriteRgba GetGroundItemSpriteRgba(int itemId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1ItemSpriteRgba result;
-	if (!gbRunGame || itemId < 0 || itemId >= MAXITEMS) return result;
+	if (!IsBridgeSafeToRead() || itemId < 0 || itemId >= MAXITEMS) return result;
 	const Item &item = Items[itemId];
 	if (!item.AnimInfo.sprites.has_value()) return result;
 
@@ -1946,7 +2004,7 @@ std::vector<D1CorpseInfo> GetActiveCorpsesList()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	std::vector<D1CorpseInfo> list;
-	if (!gbRunGame) return list;
+	if (!IsBridgeSafeToRead()) return list;
 
 	for (int y = 0; y < 112; ++y) {
 		for (int x = 0; x < 112; ++x) {
@@ -1976,7 +2034,7 @@ D1CorpseSpriteRgba GetCorpseSpriteRgba(int corpseIdx, int dir)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1CorpseSpriteRgba result;
-	if (!gbRunGame || corpseIdx < 0 || corpseIdx >= static_cast<int>(MaxCorpses))
+	if (!IsBridgeSafeToRead() || corpseIdx < 0 || corpseIdx >= static_cast<int>(MaxCorpses))
 		return result;
 
 	const Corpse &corpse = Corpses[corpseIdx];
@@ -2014,7 +2072,7 @@ std::vector<D1MissileInfo> GetActiveMissilesList()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	std::vector<D1MissileInfo> list;
-	if (!gbRunGame) return list;
+	if (!IsBridgeSafeToRead()) return list;
 
 	int index = 0;
 	for (const auto &missile : Missiles) {
@@ -2036,7 +2094,7 @@ std::vector<D1MissileInfo> GetActiveMissilesList()
 
 		D1MissileInfo info;
 		info.id = currentId;
-		info.type = static_cast<int>(missile._mitype);
+		info.type = static_cast<int>(missile._miAnimType);
 		info.dir = static_cast<int>(missile._mimfnum);
 		info.posX = isoX;
 		info.posY = isoY;
@@ -2056,7 +2114,7 @@ D1MissileSpriteRgba GetMissileSpriteRgba(int missileId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1MissileSpriteRgba result;
-	if (!gbRunGame || missileId < 0) return result;
+	if (!IsBridgeSafeToRead() || missileId < 0) return result;
 
 	int index = 0;
 	for (const auto &missile : Missiles) {

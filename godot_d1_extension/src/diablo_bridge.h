@@ -70,6 +70,7 @@ public:
 	void set_vanilla_hud_hidden(bool hidden);
 	bool is_vanilla_hud_hidden() const;
 	bool is_game_running() const;
+	bool is_level_loading() const;
 	Ref<ImageTexture> get_spell_icon_texture(int spell_id, int spell_type);
 	Ref<ImageTexture> get_belt_item_texture(int slot_index);
 	bool has_hover_item() const;
@@ -119,6 +120,7 @@ public:
 	// Per-Tile Lighting & Transparency (Fog of War & Room Transparency)
 	PackedByteArray get_dungeon_light_grid() const;
 	PackedByteArray get_dungeon_trans_grid() const;
+	PackedByteArray get_dungeon_trans_mask() const;
 	PackedByteArray get_trans_list() const;
 
 	// Native Godot 2.5D Dungeon Objects (Torches, Barrels, Chests, Shrines)

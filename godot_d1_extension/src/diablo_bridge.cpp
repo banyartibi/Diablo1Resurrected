@@ -43,6 +43,7 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_vanilla_hud_hidden", "hidden"), &DiabloBridge::set_vanilla_hud_hidden);
 	ClassDB::bind_method(D_METHOD("is_vanilla_hud_hidden"), &DiabloBridge::is_vanilla_hud_hidden);
 	ClassDB::bind_method(D_METHOD("is_game_running"), &DiabloBridge::is_game_running);
+	ClassDB::bind_method(D_METHOD("is_level_loading"), &DiabloBridge::is_level_loading);
 	ClassDB::bind_method(D_METHOD("get_spell_icon_texture", "spell_id", "spell_type"), &DiabloBridge::get_spell_icon_texture);
 	ClassDB::bind_method(D_METHOD("get_belt_item_texture", "slot_index"), &DiabloBridge::get_belt_item_texture);
 	ClassDB::bind_method(D_METHOD("has_hover_item"), &DiabloBridge::has_hover_item);
@@ -84,6 +85,7 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_special_cel_texture", "special_id"), &DiabloBridge::get_special_cel_texture);
 	ClassDB::bind_method(D_METHOD("get_dungeon_light_grid"), &DiabloBridge::get_dungeon_light_grid);
 	ClassDB::bind_method(D_METHOD("get_dungeon_trans_grid"), &DiabloBridge::get_dungeon_trans_grid);
+	ClassDB::bind_method(D_METHOD("get_dungeon_trans_mask"), &DiabloBridge::get_dungeon_trans_mask);
 	ClassDB::bind_method(D_METHOD("get_trans_list"), &DiabloBridge::get_trans_list);
 
 	// Native Godot 2.5D Dungeon Objects (Torches, Barrels, Chests, Shrines)
@@ -303,6 +305,10 @@ bool DiabloBridge::is_game_running() const {
 	return devilution::g_D1EngineData.isGameRunning;
 }
 
+bool DiabloBridge::is_level_loading() const {
+	return devilution::g_D1LevelTransitioning.load();
+}
+
 Ref<ImageTexture> DiabloBridge::get_spell_icon_texture(int spell_id, int spell_type) {
 	std::vector<uint8_t> rgba = devilution::GetSpellIconRgba(spell_id, spell_type);
 	if (rgba.empty())
@@ -346,6 +352,7 @@ Dictionary DiabloBridge::get_hover_item_info() const {
 	d["stats"] = String::utf8(devilution::g_D1EngineData.hoverItemStats);
 	d["quality"] = devilution::g_D1EngineData.hoverItemQuality;
 	d["is_inventory"] = devilution::g_D1EngineData.isInventoryHover;
+	d["is_monster"] = devilution::g_D1EngineData.isMonsterHover;
 	d["mouse_pos"] = Vector2i(devilution::g_D1EngineData.hoverMouseX, devilution::g_D1EngineData.hoverMouseY);
 	return d;
 }
@@ -506,6 +513,14 @@ PackedByteArray DiabloBridge::get_dungeon_trans_grid() const {
 	arr.resize(112 * 112);
 	uint8_t *w = arr.ptrw();
 	devilution::CopyD1TransGrid(w, 112 * 112);
+	return arr;
+}
+
+PackedByteArray DiabloBridge::get_dungeon_trans_mask() const {
+	PackedByteArray arr;
+	arr.resize(112 * 112);
+	uint8_t *w = arr.ptrw();
+	devilution::CopyD1TransparencyMask(w, 112 * 112);
 	return arr;
 }
 

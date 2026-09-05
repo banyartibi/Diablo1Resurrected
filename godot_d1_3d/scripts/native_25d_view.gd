@@ -13,12 +13,15 @@ var world_root: Node2D = null
 var player_node: Node2D = null
 var player_sprite: Sprite2D = null
 var player_light: PointLight2D = null
+var player_shadow: Sprite2D = null
+var shadow_texture: ImageTexture = null
 var canvas_modulate: CanvasModulate = null
 
 # State tracking
 var last_level_idx: int = -999
 var tile_sprites: Dictionary = {} # Vector2i -> Sprite2D
 var special_sprites: Dictionary = {} # Vector2i -> Sprite2D (Arches, Doorways, Column Tops)
+var last_visible_tiles: Dictionary = {} # Vector2i -> bool (track visible tiles for efficient culling)
 var last_player_frame: int = -999
 var last_player_dir: int = -999
 var player_texture: ImageTexture = null
@@ -67,10 +70,11 @@ func _ready():
 	setup_scene_hierarchy()
 
 func setup_scene_hierarchy():
-	# 2D World Root with Y-sorting
+	# 2D World Root with Y-sorting and pixel-perfect nearest-neighbor filtering
 	world_root = Node2D.new()
 	world_root.name = "WorldRoot"
 	world_root.y_sort_enabled = true
+	world_root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(world_root)
 
 	# Atmospheric Gothic Crypt Canvas Modulate (Pure 1.0 ambient so dLight controls contrast cleanly)
@@ -90,11 +94,43 @@ func setup_scene_hierarchy():
 	# Player Entity (participates in Y-sorting under world_root)
 	setup_player_node()
 
+func get_or_create_shadow_texture() -> ImageTexture:
+	if shadow_texture != null:
+		return shadow_texture
+	var sw = 36
+	var sh = 18
+	var img = Image.create(sw, sh, false, Image.FORMAT_RGBA8)
+	var cx = float(sw) * 0.5
+	var cy = float(sh) * 0.5
+	var rx = cx - 1.0
+	var ry = cy - 1.0
+	for y in range(sh):
+		for x in range(sw):
+			var nx = (float(x) + 0.5 - cx) / rx
+			var ny = (float(y) + 0.5 - cy) / ry
+			var dist_sq = nx * nx + ny * ny
+			if dist_sq < 1.0:
+				var alpha = clampf((1.0 - sqrt(dist_sq)) * 1.5, 0.0, 1.0)
+				img.set_pixel(x, y, Color(0.0, 0.0, 0.0, alpha * 0.55))
+			else:
+				img.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+	shadow_texture = ImageTexture.create_from_image(img)
+	return shadow_texture
+
 func setup_player_node():
 	player_node = Node2D.new()
 	player_node.name = "PlayerEntity"
 	player_node.z_index = 0
 	world_root.add_child(player_node)
+
+	# Ground Blob Shadow (beneath hero sprite, above floor)
+	player_shadow = Sprite2D.new()
+	player_shadow.name = "PlayerShadow"
+	player_shadow.texture = get_or_create_shadow_texture()
+	player_shadow.centered = true
+	player_shadow.position = Vector2(0, 8)
+	player_shadow.z_index = -1
+	player_node.add_child(player_shadow)
 
 	# Hero Sprite2D (authentic animated Diablo 1 pixel art)
 	player_sprite = Sprite2D.new()
@@ -145,6 +181,11 @@ func _process(delta: float):
 	if not is_active or diablo_bridge == null:
 		return
 
+	# During level transitions, DevilutionX is tearing down and rebuilding memory.
+	# Freeze rendering updates until the new level is 100% ready to eliminate race conditions.
+	if diablo_bridge.has_method("is_level_loading") and diablo_bridge.is_level_loading():
+		return
+
 	time_accum += delta
 
 	# Check level change
@@ -179,6 +220,7 @@ func rebuild_dungeon_tiles():
 		if is_instance_valid(spr):
 			spr.queue_free()
 	tile_sprites.clear()
+	last_visible_tiles.clear()
 
 	# Clear previous special cel sprites (arches / column tops)
 	for pos_key in special_sprites:
@@ -244,8 +286,9 @@ func rebuild_dungeon_tiles():
 					var h = tex.get_height()
 					spr.position = tile_pos
 					spr.offset = Vector2(-32.0, 16.0 - float(h))
-					# Initialize in deep gothic darkness / fog of war
+					# Initialize hidden in deep gothic darkness / fog of war
 					spr.self_modulate = Color(0.0, 0.0, 0.0)
+					spr.visible = false
 					if h <= 32:
 						spr.z_index = -1
 					else:
@@ -264,8 +307,9 @@ func rebuild_dungeon_tiles():
 					var ah = arch_tex.get_height()
 					arch_spr.position = tile_pos
 					arch_spr.offset = Vector2(-32.0, 16.0 - float(ah))
-					# Initialize in deep gothic darkness / fog of war
+					# Initialize hidden in deep gothic darkness / fog of war
 					arch_spr.self_modulate = Color(0.0, 0.0, 0.0)
+					arch_spr.visible = false
 					arch_spr.z_index = 0 # Y-sorted with walls!
 					world_root.add_child(arch_spr)
 					special_sprites[Vector2i(x, y)] = arch_spr
@@ -285,12 +329,17 @@ func update_lighting_and_transparency():
 	if diablo_bridge.has_method("get_dungeon_trans_grid"):
 		trans_grid = diablo_bridge.get_dungeon_trans_grid()
 
+	var trans_mask: PackedByteArray = PackedByteArray()
+	if diablo_bridge.has_method("get_dungeon_trans_mask"):
+		trans_mask = diablo_bridge.get_dungeon_trans_mask()
+
 	var trans_list: PackedByteArray = PackedByteArray()
 	if diablo_bridge.has_method("get_trans_list"):
 		trans_list = diablo_bridge.get_trans_list()
 
 	var has_light = (light_grid.size() >= 112 * 112)
 	var has_trans = (trans_grid.size() >= 112 * 112 and trans_list.size() >= 256)
+	var has_trans_mask = (trans_mask.size() >= 112 * 112)
 
 	var p_pos = diablo_bridge.get_player_continuous_pos() if diablo_bridge.has_method("get_player_continuous_pos") else {}
 	var p_tx = int(p_pos.get("pos_x", 25.0))
@@ -304,6 +353,8 @@ func update_lighting_and_transparency():
 	var min_y = max(0, p_ty - rad_y)
 	var max_y = min(111, p_ty + rad_y)
 
+	var new_active_keys: Dictionary = {}
+
 	for ty in range(min_y, max_y + 1):
 		for tx in range(min_x, max_x + 1):
 			var pos_key = Vector2i(tx, ty)
@@ -315,19 +366,21 @@ func update_lighting_and_transparency():
 			var idx = ty * 112 + tx
 
 			# Milestone 2: Per-Tile Authentic Lighting (dLight: 0 = fully lit, 15 = pitch black)
-			var tile_mod = Color(0.0, 0.0, 0.0)
-			if has_light:
-				var light_val = light_grid[idx]
-				if light_val < 15:
-					var norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
-					var factor = pow(norm, 1.8)
-					tile_mod = Color(1.0, 0.94, 0.88) * factor
-				else:
-					tile_mod = Color(0.0, 0.0, 0.0) # Pitch black outside light!
+			var light_val = light_grid[idx] if has_light else 0
+			if light_val >= 15:
+				if spr: spr.visible = false
+				if arch_spr: arch_spr.visible = false
+				continue
 
-			# Milestone 3: Front-Wall Transparency (TransList)
-			# NOTE: Only wall tiles and archways (height > 32) become transparent.
-			# Floor tiles (height <= 32) MUST ALWAYS remain 100% solid!
+			new_active_keys[pos_key] = true
+
+			var norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+			var factor = pow(norm, 1.8)
+			var tile_mod = Color(1.0, 0.94, 0.88) * factor
+
+			# Milestone 3: Authentic Front-Wall Transparency (TransList + TileProperties::Transparent)
+			# Only tiles that have the Diablo 1 Transparent flag (front walls/doors) become transparent!
+			# Sarcophagi, statues, back walls, altars and floors (height <= 32) remain 100% solid!
 			var alpha_val = 1.0
 			if has_trans:
 				var t_id = trans_grid[idx]
@@ -335,20 +388,28 @@ func update_lighting_and_transparency():
 					alpha_val = 0.38 # Transparent front wall!
 
 			if spr:
+				spr.visible = true
 				spr.self_modulate = tile_mod
-				if spr.texture and spr.texture.get_height() > 32:
+				var is_wall = (spr.texture and spr.texture.get_height() > 32)
+				var can_be_trans = has_trans_mask and (trans_mask[idx] == 1)
+				if is_wall and can_be_trans:
 					spr.modulate.a = alpha_val
 				else:
 					spr.modulate.a = 1.0
 
 			if arch_spr:
+				arch_spr.visible = true
 				arch_spr.self_modulate = tile_mod
 				arch_spr.modulate.a = alpha_val
 
-			var c_spr = corpse_sprites.get(pos_key, null)
-			if c_spr:
-				c_spr.self_modulate = tile_mod
-				c_spr.modulate.a = 1.0
+	# Hide tiles that moved outside viewport or active range
+	for prev_key in last_visible_tiles:
+		if not new_active_keys.has(prev_key):
+			var old_spr = tile_sprites.get(prev_key, null)
+			if old_spr: old_spr.visible = false
+			var old_arch = special_sprites.get(prev_key, null)
+			if old_arch: old_arch.visible = false
+	last_visible_tiles = new_active_keys
 
 func update_player(delta: float):
 	if not diablo_bridge or not diablo_bridge.has_method("get_player_continuous_pos"):
@@ -363,11 +424,14 @@ func update_player(delta: float):
 
 	# Target position in isometric coordinates
 	player_target_pos = Vector2(float(px - py) * 32.0, float(px + py) * 16.0)
-	player_node.position = player_node.position.lerp(player_target_pos, delta * 14.0)
+	if player_node.position == Vector2.ZERO or player_node.position.distance_to(player_target_pos) > 200.0:
+		player_node.position = player_target_pos
+	else:
+		player_node.position = player_node.position.lerp(player_target_pos, delta * 18.0)
 
-	# Smooth camera follow
+	# Smooth camera follow with integer rounding to eliminate sub-pixel tile seams
 	if camera:
-		camera.position = camera.position.lerp(player_node.position, delta * 12.0)
+		camera.position = camera.position.lerp(player_node.position, delta * 14.0).round()
 
 	# Update animated player sprite (updates on frame, dir, or mode changes like attack/cast)
 	if diablo_bridge.has_method("get_player_sprite_data"):
@@ -389,7 +453,7 @@ func update_player(delta: float):
 				# Offset so player feet rest precisely in the center of the diamond
 				player_sprite.offset = Vector2(0, -float(sh) * 0.5 + 16.0)
 
-	# Authentic per-tile lighting on player
+	# Authentic per-tile lighting on player & blob ground shadow
 	var p_light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
 	var p_tile_idx = clamp(int(py), 0, 111) * 112 + clamp(int(px), 0, 111)
 	if p_light_grid.size() >= 112 * 112:
@@ -397,6 +461,8 @@ func update_player(delta: float):
 		var p_norm = clamp(1.0 - float(p_light) / 14.5, 0.0, 1.0)
 		var p_bright = pow(p_norm, 1.8)
 		player_sprite.self_modulate = Color(1.0, 0.96, 0.92) * p_bright
+		if player_shadow:
+			player_shadow.self_modulate = Color(1.0, 1.0, 1.0, p_bright)
 
 func update_monsters(delta: float):
 	if not diablo_bridge or not diablo_bridge.has_method("get_active_monsters_data"):
@@ -415,6 +481,7 @@ func update_monsters(delta: float):
 			continue
 
 		seen_ids[m_id] = true
+		var is_new = not monster_nodes.has(m_id)
 		var node = get_or_create_monster_node(m_id)
 
 		var mx = m.get("pos_x", 0.0)
@@ -423,7 +490,10 @@ func update_monsters(delta: float):
 		var anim_frame = m.get("anim_frame", -1)
 
 		var target_pos = Vector2(float(mx - my) * 32.0, float(mx + my) * 16.0)
-		node.position = node.position.lerp(target_pos, delta * 12.0)
+		if is_new or node.position == Vector2.ZERO or node.position.distance_to(target_pos) > 200.0:
+			node.position = target_pos
+		else:
+			node.position = node.position.lerp(target_pos, delta * 18.0)
 
 		# Update monster sprite
 		var m_sprite = node.get_node_or_null("Sprite") as Sprite2D
@@ -451,7 +521,7 @@ func update_monsters(delta: float):
 					if m_sprite:
 						m_sprite.offset = Vector2(0, -float(mh) * 0.5 + 16.0)
 
-		# Milestone 2: Per-Tile Authentic Lighting on Monsters & Fog of War
+		# Milestone 2: Per-Tile Authentic Lighting on Monsters, Ground Shadows & Fog of War
 		var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
 		var m_tx = clamp(int(mx), 0, 111)
 		var m_ty = clamp(int(my), 0, 111)
@@ -465,6 +535,9 @@ func update_monsters(delta: float):
 			var m_bright = pow(m_norm, 1.8)
 			if m_sprite:
 				m_sprite.self_modulate = Color(1.0, 0.96, 0.92) * m_bright
+			var m_shadow = node.get_node_or_null("Shadow") as Sprite2D
+			if m_shadow:
+				m_shadow.self_modulate = Color(1.0, 1.0, 1.0, m_bright)
 			node.visible = true
 
 	# Hide monsters that are no longer active
@@ -480,6 +553,14 @@ func get_or_create_monster_node(m_id: int) -> Node2D:
 	m_root.name = "Monster_%d" % m_id
 	m_root.z_index = 0
 	world_root.add_child(m_root)
+
+	var shadow = Sprite2D.new()
+	shadow.name = "Shadow"
+	shadow.texture = get_or_create_shadow_texture()
+	shadow.centered = true
+	shadow.position = Vector2(0, 8)
+	shadow.z_index = -1
+	m_root.add_child(shadow)
 
 	var spr = Sprite2D.new()
 	spr.name = "Sprite"
@@ -570,13 +651,16 @@ func update_objects():
 		if has_light:
 			var light_val = light_grid[tile_idx]
 			if light_val >= 15 and not is_torch:
-				spr.self_modulate = Color(0.0, 0.0, 0.0)
-			else:
-				var o_norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
-				var o_factor = pow(o_norm, 1.8)
-				if is_torch:
-					o_factor = max(0.85, o_factor)
-				spr.self_modulate = Color(1.0, 0.96, 0.92) * o_factor
+				spr.visible = false
+				continue
+			spr.visible = true
+			var o_norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+			var o_factor = pow(o_norm, 1.8)
+			if is_torch:
+				o_factor = max(0.85, o_factor)
+			spr.self_modulate = Color(1.0, 0.96, 0.92) * o_factor
+		else:
+			spr.visible = true
 
 	for o_id in object_sprites:
 		if not seen_ids.has(o_id):
@@ -658,11 +742,15 @@ func update_ground_items():
 			spr.texture = tex
 			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
 
-		# Lighting
+		# Lighting & Fog of War
 		var tile_idx = clamp(ty, 0, 111) * 112 + clamp(tx, 0, 111)
 		if has_light and spr:
 			var light_val = light_grid[tile_idx]
-			var brightness = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+			if light_val >= 15:
+				node.visible = false
+				continue
+			node.visible = true
+			var brightness = pow(clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0), 1.8)
 			spr.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), brightness)
 
 		# Ground item label
@@ -691,6 +779,11 @@ func update_corpses():
 	var corpses: Array = diablo_bridge.get_active_corpses()
 	var seen_keys: Dictionary = {}
 
+	var light_grid: PackedByteArray = PackedByteArray()
+	if diablo_bridge.has_method("get_dungeon_light_grid"):
+		light_grid = diablo_bridge.get_dungeon_light_grid()
+	var has_light = (light_grid.size() >= 112 * 112)
+
 	for c in corpses:
 		var tx = c.get("tile_x", 0)
 		var ty = c.get("tile_y", 0)
@@ -708,6 +801,16 @@ func update_corpses():
 			spr.z_index = -1 # Floor level
 			world_root.add_child(spr)
 			corpse_sprites[pos_key] = spr
+
+		# Lighting & Fog of War
+		var tile_idx = clamp(ty, 0, 111) * 112 + clamp(tx, 0, 111)
+		if has_light:
+			var light_val = light_grid[tile_idx]
+			if light_val >= 15:
+				spr.visible = false
+				continue
+			var brightness = pow(clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0), 1.8)
+			spr.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), brightness)
 
 		spr.visible = true
 		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0)
@@ -741,6 +844,11 @@ func update_missiles():
 	var missiles: Array = diablo_bridge.get_active_missiles()
 	var seen_ids: Dictionary = {}
 
+	var light_grid: PackedByteArray = PackedByteArray()
+	if diablo_bridge.has_method("get_dungeon_light_grid"):
+		light_grid = diablo_bridge.get_dungeon_light_grid()
+	var has_light = (light_grid.size() >= 112 * 112)
+
 	for m in missiles:
 		var m_id = m.get("id", -1)
 		if m_id < 0:
@@ -751,6 +859,8 @@ func update_missiles():
 		var m_dir = m.get("dir", 0)
 		var px = m.get("pos_x", 0.0)
 		var py = m.get("pos_y", 0.0)
+		var m_tx = m.get("tile_x", 0)
+		var m_ty = m.get("tile_y", 0)
 		var anim_frame = m.get("anim_frame", 0)
 		var light_flag = m.get("light_flag", false)
 		var pre_flag = m.get("pre_flag", false)
@@ -768,9 +878,26 @@ func update_missiles():
 
 			missile_nodes[m_id] = node
 
-		node.visible = true
+		node.z_index = 0
 		node.position = Vector2(px, py)
-		node.z_index = -1 if pre_flag else 0
+
+		var spr = node.get_node_or_null("Sprite") as Sprite2D
+
+		# Lighting: glowing spell missiles (fireball, firebolt, lightning) stay fully lit
+		# Non-glowing missiles (arrows) sample the dungeon light grid
+		if spr:
+			if light_flag:
+				spr.self_modulate = Color(1.0, 1.0, 1.0)
+			elif has_light:
+				var tile_idx = clamp(m_ty, 0, 111) * 112 + clamp(m_tx, 0, 111)
+				var l_val = light_grid[tile_idx]
+				if l_val >= 15:
+					node.visible = false
+					continue
+				var brightness = pow(clamp(1.0 - float(l_val) / 14.5, 0.0, 1.0), 1.8)
+				spr.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), brightness)
+
+		node.visible = true
 
 		# Texture caching by (type, dir, anim_frame)
 		var cache_key = "%d_%d_%d" % [m_type, m_dir, anim_frame]
@@ -785,10 +912,9 @@ func update_missiles():
 				tex = ImageTexture.create_from_image(img)
 				missile_textures[cache_key] = tex
 
-		var spr = node.get_node_or_null("Sprite") as Sprite2D
 		if spr and tex:
 			spr.texture = tex
-			spr.offset = Vector2(-float(tex.get_width()) * 0.5, -float(tex.get_height()))
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
 
 	# Hide inactive missiles
 	for m_id in missile_nodes:

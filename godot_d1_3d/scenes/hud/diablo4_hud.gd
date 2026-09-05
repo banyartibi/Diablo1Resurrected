@@ -736,8 +736,14 @@ func update_item_tooltip():
 	if item_divider:
 		item_divider.visible = has_stats
 
+	var is_monster: bool = info.get("is_monster", false)
+
 	var title_col = QUALITY_TITLE_COLORS.get(quality, QUALITY_TITLE_COLORS[0])
 	var border_col = QUALITY_BORDER_COLORS.get(quality, QUALITY_BORDER_COLORS[0])
+	if is_monster and quality == 0:
+		title_col = Color(0.96, 0.32, 0.32)
+		border_col = Color(0.68, 0.18, 0.18)
+
 	item_title_label.add_theme_color_override("font_color", title_col)
 	if tooltip_style:
 		tooltip_style.border_color = border_col
@@ -767,6 +773,10 @@ func update_item_tooltip():
 		target_pos.y = clampf(float(mouse_pos.y) * scale_y - tooltip_h * 0.35, 20.0, vp_size.y - tooltip_h - 20.0)
 		if target_pos.x < 10.0:
 			target_pos.x = 10.0
+	elif is_monster:
+		# Monster Info Card: Top-center of screen (authentic ARPG header)
+		target_pos.x = (vp_size.x - tooltip_w) * 0.5
+		target_pos.y = 28.0
 	else:
 		# Ground / Belt hover: next to mouse cursor
 		target_pos.x = float(mouse_pos.x) * scale_x + 18.0

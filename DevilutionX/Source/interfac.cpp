@@ -24,6 +24,7 @@
 #include "loadsave.h"
 #include "pfile.h"
 #include "plrmsg.h"
+#include "engine/render_bridge.hpp"
 #include "utils/sdl_geometry.h"
 #include "utils/stdcompat/optional.hpp"
 
@@ -329,6 +330,8 @@ void ShowProgress(interface_mode uMsg)
 	}
 
 	Player &myPlayer = *MyPlayer;
+
+	g_D1LevelTransitioning = true;
 
 	switch (uMsg) {
 	case WM_DIABLOADGAME:

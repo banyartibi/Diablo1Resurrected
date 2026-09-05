@@ -302,6 +302,8 @@ func snap_camera_to_player():
 func _process(delta: float):
 	if not is_sandbox_active or not diablo_bridge:
 		return
+	if diablo_bridge.has_method("is_level_loading") and diablo_bridge.is_level_loading():
+		return
 
 	time_accum += delta
 	last_check_timer += delta
@@ -332,6 +334,8 @@ func _process(delta: float):
 
 func rebuild_dungeon_if_needed(force: bool = false):
 	if not diablo_bridge or not diablo_bridge.has_method("get_dungeon_solidity_grid"):
+		return
+	if diablo_bridge.has_method("is_level_loading") and diablo_bridge.is_level_loading():
 		return
 
 	var solidity: PackedByteArray = diablo_bridge.get_dungeon_solidity_grid()
