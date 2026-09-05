@@ -1,11 +1,11 @@
-[gd_scene load_steps=5 format=3 uid="uid://bldspl001"]
+[gd_scene load_steps=6 format=3 uid="uid://bldspl001"]
 
 [ext_resource type="Script" path="res://scripts/one_shot_particles.gd" id="1_osp"]
+[ext_resource type="Shader" path="res://shaders/blood_particle.gdshader" id="2_bld"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blood"]
-shading_mode = 0
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.85, 0.02, 0.04, 1)
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_blood"]
+render_priority = 0
+shader = ExtResource("2_bld")
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_blood"]
 lifetime_randomness = 0.35
@@ -16,13 +16,13 @@ initial_velocity_max = 4.2
 gravity = Vector3(0, -5.5, -0.5)
 damping_min = 1.2
 damping_max = 2.5
-scale_min = 0.8
-scale_max = 1.8
-color = Color(0.88, 0.03, 0.05, 0.98)
+scale_min = 0.6
+scale_max = 1.4
+color = Color(1, 1, 1, 1)
 
-[sub_resource type="BoxMesh" id="BoxMesh_drop"]
-material = SubResource("StandardMaterial3D_blood")
-size = Vector3(0.09, 0.09, 0.09)
+[sub_resource type="QuadMesh" id="QuadMesh_drop"]
+material = SubResource("ShaderMaterial_blood")
+size = Vector2(0.18, 0.18)
 
 [node name="BloodSplatter" type="GPUParticles3D"]
 emitting = false
@@ -32,5 +32,5 @@ one_shot = true
 explosiveness = 0.92
 randomness = 0.4
 process_material = SubResource("ParticleProcessMaterial_blood")
-draw_pass_1 = SubResource("BoxMesh_drop")
+draw_pass_1 = SubResource("QuadMesh_drop")
 script = ExtResource("1_osp")

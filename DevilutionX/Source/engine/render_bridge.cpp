@@ -1,5 +1,6 @@
 #include "engine/render_bridge.hpp"
 #include "engine/render/scrollrt.h"
+#include "engine/render/clx_render.hpp"
 #include "engine/dx.h"
 #include "engine/backbuffer_state.hpp"
 
@@ -129,7 +130,7 @@ void ExportGodotFrame(const SDL_Surface *surface)
 			for (size_t i = 0; i < 8; ++i) {
 				if (i < sizeof(MyPlayer->SpdList) / sizeof(MyPlayer->SpdList[0]) && !MyPlayer->SpdList[i].isEmpty()) {
 					const Item &item = MyPlayer->SpdList[i];
-					int type = 7;
+					int type = 11;
 					if (item._iMiscId == IMISC_HEAL) type = 1;
 					else if (item._iMiscId == IMISC_FULLHEAL) type = 2;
 					else if (item._iMiscId == IMISC_MANA) type = 3;
@@ -138,6 +139,8 @@ void ExportGodotFrame(const SDL_Surface *surface)
 					else if (item._iMiscId == IMISC_FULLREJUV) type = 6;
 					else if (item._iMiscId > IMISC_OILFIRST && item._iMiscId < IMISC_OILLAST) type = 9;
 					else if (item.isScroll()) type = 8;
+					else if (item.isRune()) type = 10;
+					else if (item._iMiscId == IMISC_ELIXSTR || item._iMiscId == IMISC_ELIXMAG || item._iMiscId == IMISC_ELIXDEX || item._iMiscId == IMISC_ELIXVIT) type = 7;
 					g_D1EngineData.beltTypes[i] = type;
 					g_D1EngineData.beltCounts[i] = 1;
 					std::strncpy(g_D1EngineData.beltNames[i], item._iIName, 63);
@@ -607,6 +610,55 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 		return {};
 
 	return rgba;
+}
+
+D1ItemIconRgba GetBeltItemIconRgba(int slotIndex)
+{
+	if (!gbRunGame || MyPlayer == nullptr || slotIndex < 0 || slotIndex >= 8)
+		return {};
+
+	if (MyPlayer->SpdList[slotIndex].isEmpty())
+		return {};
+
+	const Item &item = MyPlayer->SpdList[slotIndex];
+	int cursId = item._iCurs + CURSOR_FIRSTITEM;
+	const ClxSprite sprite = GetInvItemSprite(cursId);
+	int w = sprite.width();
+	int h = sprite.height();
+	if (w <= 0 || h <= 0 || w > 64 || h > 64)
+		return {};
+
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+
+	ClxDraw(surface, { 0, h - 1 }, sprite);
+
+	const auto &pal = orig_palette;
+	D1ItemIconRgba res;
+	res.width = w;
+	res.height = h;
+	res.rgba.resize(w * h * 4, 0);
+
+	bool hasPixels = false;
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		uint8_t *dst = res.rgba.data() + (y * w * 4);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = pal[idx];
+				hasPixels = true;
+				dst[x * 4 + 0] = c.r;
+				dst[x * 4 + 1] = c.g;
+				dst[x * 4 + 2] = c.b;
+				dst[x * 4 + 3] = 255;
+			}
+		}
+	}
+	if (!hasPixels)
+		return {};
+
+	return res;
 }
 
 std::vector<AvailableSpellItem> GetAvailableSpells()

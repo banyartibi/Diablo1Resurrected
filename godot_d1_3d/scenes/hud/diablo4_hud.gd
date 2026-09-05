@@ -52,6 +52,7 @@ var current_spell_id: int = -1
 var current_spell_type: int = -1
 var is_speedbook_showing: bool = false
 var spell_icon_cache: Dictionary = {}
+var belt_icon_cache: Dictionary = {}
 var tooltip_style: StyleBoxFlat
 
 const QUALITY_TITLE_COLORS = {
@@ -534,28 +535,43 @@ func update_belt_potions():
 		var count_lbl = slot.get_node_or_null("CountLabel") as Label
 
 		if icon:
-			match type:
-				1, 2:
-					icon.texture = TEX_HEAL
-					icon.visible = true
-				3, 4:
-					icon.texture = TEX_MANA
-					icon.visible = true
-				5, 6:
-					icon.texture = TEX_REJUV
-					icon.visible = true
-				8:
-					icon.texture = TEX_SCROLL
-					icon.visible = true
-				9:
-					icon.texture = TEX_OIL
-					icon.visible = true
-				7:
-					icon.texture = TEX_REJUV
-					icon.visible = true
-				_:
-					icon.texture = null
-					icon.visible = false
+			var slot_tex: Texture2D = null
+			if item_name != "" and diablo_bridge and diablo_bridge.has_method("get_belt_item_texture"):
+				var cache_key = "%d_%s" % [i, item_name]
+				if belt_icon_cache.has(cache_key):
+					slot_tex = belt_icon_cache[cache_key]
+				else:
+					var engine_tex = diablo_bridge.get_belt_item_texture(i)
+					if engine_tex:
+						slot_tex = engine_tex
+						belt_icon_cache[cache_key] = slot_tex
+
+			if slot_tex:
+				icon.texture = slot_tex
+				icon.visible = true
+			else:
+				match type:
+					1, 2:
+						icon.texture = TEX_HEAL
+						icon.visible = true
+					3, 4:
+						icon.texture = TEX_MANA
+						icon.visible = true
+					5, 6:
+						icon.texture = TEX_REJUV
+						icon.visible = true
+					8:
+						icon.texture = TEX_SCROLL
+						icon.visible = true
+					9:
+						icon.texture = TEX_OIL
+						icon.visible = true
+					7:
+						icon.texture = TEX_REJUV
+						icon.visible = true
+					_:
+						icon.texture = null
+						icon.visible = false
 
 		if count_lbl:
 			if count > 1:
@@ -570,7 +586,9 @@ func update_belt_potions():
 			var action_str = "Drink potion"
 			if type == 8: action_str = "Cast scroll"
 			elif type == 9: action_str = "Use oil"
+			elif type == 10: action_str = "Cast rune"
 			elif type == 7: action_str = "Drink elixir"
+			elif type == 11: action_str = "Use item"
 			tip = "%s (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] %s" % [item_name, i + 1, i + 1, action_str]
 		else:
 			match type:
@@ -583,6 +601,7 @@ func update_belt_potions():
 				7: tip = "Elixir (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink elixir" % [i + 1, i + 1]
 				8: tip = "Scroll (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Cast scroll" % [i + 1, i + 1]
 				9: tip = "Oil (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Use oil" % [i + 1, i + 1]
+				10: tip = "Rune (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Cast rune" % [i + 1, i + 1]
 				_: tip = "Empty Belt Slot %d\n[LMB] Place item from cursor" % (i + 1)
 		slot.tooltip_text = tip
 

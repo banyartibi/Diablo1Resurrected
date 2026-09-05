@@ -97,6 +97,7 @@ omni_attenuation = 1.2
 
 [node name="DungeonEmbers3D" type="GPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.5)
+visible = false
 amount = 64
 lifetime = 3.5
 preprocess = 1.0

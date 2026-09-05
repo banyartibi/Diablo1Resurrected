@@ -67,6 +67,7 @@ public:
 	bool is_vanilla_hud_hidden() const;
 	bool is_game_running() const;
 	Ref<ImageTexture> get_spell_icon_texture(int spell_id, int spell_type);
+	Ref<ImageTexture> get_belt_item_texture(int slot_index);
 	bool has_hover_item() const;
 	Dictionary get_hover_item_info() const;
 	Array get_available_spells() const;

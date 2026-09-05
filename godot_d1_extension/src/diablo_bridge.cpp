@@ -44,6 +44,7 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_vanilla_hud_hidden"), &DiabloBridge::is_vanilla_hud_hidden);
 	ClassDB::bind_method(D_METHOD("is_game_running"), &DiabloBridge::is_game_running);
 	ClassDB::bind_method(D_METHOD("get_spell_icon_texture", "spell_id", "spell_type"), &DiabloBridge::get_spell_icon_texture);
+	ClassDB::bind_method(D_METHOD("get_belt_item_texture", "slot_index"), &DiabloBridge::get_belt_item_texture);
 	ClassDB::bind_method(D_METHOD("has_hover_item"), &DiabloBridge::has_hover_item);
 	ClassDB::bind_method(D_METHOD("get_hover_item_info"), &DiabloBridge::get_hover_item_info);
 	ClassDB::bind_method(D_METHOD("get_available_spells"), &DiabloBridge::get_available_spells);
@@ -256,6 +257,22 @@ Ref<ImageTexture> DiabloBridge::get_spell_icon_texture(int spell_id, int spell_t
 	std::memcpy(pba.ptrw(), rgba.data(), rgba.size());
 
 	Ref<Image> img = Image::create_from_data(56, 56, false, Image::FORMAT_RGBA8, pba);
+	if (img.is_null())
+		return Ref<ImageTexture>();
+
+	return ImageTexture::create_from_image(img);
+}
+
+Ref<ImageTexture> DiabloBridge::get_belt_item_texture(int slot_index) {
+	auto icon = devilution::GetBeltItemIconRgba(slot_index);
+	if (icon.rgba.empty() || icon.width <= 0 || icon.height <= 0)
+		return Ref<ImageTexture>();
+
+	PackedByteArray pba;
+	pba.resize(icon.rgba.size());
+	std::memcpy(pba.ptrw(), icon.rgba.data(), icon.rgba.size());
+
+	Ref<Image> img = Image::create_from_data(icon.width, icon.height, false, Image::FORMAT_RGBA8, pba);
 	if (img.is_null())
 		return Ref<ImageTexture>();
 
