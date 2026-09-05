@@ -16,61 +16,7 @@ uniform vec4 left_panel_rect = vec4(0.0, 0.0, 320.0, 352.0);
 uniform vec4 right_panel_rect = vec4(320.0, 0.0, 320.0, 352.0);
 uniform bool hide_vanilla_hud = true;                      // Modern Diablo IV HUD active (full-screen playfield)
 
-// Strict Torch, Fire & Spell Detection (Guaranteed 0% false positives on UI windows & inventory)
-bool is_fire_or_magic(vec3 col) {
-    // 1. Explicitly reject parchment, stone UI panels, light grays, and UI gold borders
-    // UI panel borders have yellowish tan / gold with r and g close to each other
-    if (col.b > 0.20) return false;
-    if (col.r > 0.35 && col.g > 0.35 && (col.r - col.g) < 0.22) return false;
-    if (abs(col.r - col.g) < 0.08 && col.r > 0.45) return false;
 
-    // 2. Real dungeon fire: intensely rich red/amber with very low blue
-    bool is_torch_fire = (col.r > 0.52 && col.g > 0.16 && col.g < 0.75 && col.b < 0.20 && col.r > col.b * 2.8 && col.r >= col.g * 1.04);
-
-    // 3. Blinding lightning / holy spells: pure white-hot electrical core
-    bool is_lightning = (col.r > 0.92 && col.g > 0.92 && col.b > 0.90 && length(col - vec3(1.0)) < 0.12);
-
-    return is_torch_fire || is_lightning;
-}
-
-// Procedural flame noise generator
-float flame_hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-}
-
-float flame_noise(vec2 p, float t) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-
-    float a = flame_hash(i + vec2(0.0, 0.0));
-    float b = flame_hash(i + vec2(1.0, 0.0));
-    float c = flame_hash(i + vec2(0.0, 1.0));
-    float d = flame_hash(i + vec2(1.0, 1.0));
-
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
-vec3 render_engine_flame(vec2 uv, vec3 orig_color, float t) {
-    // Dynamic flame turbulence
-    vec2 flame_uv = uv * 350.0;
-    float n1 = flame_noise(flame_uv + vec2(0.0, -t * 12.0), t);
-    float n2 = flame_noise(flame_uv * 2.0 + vec2(sin(t * 4.0) * 2.0, -t * 22.0), t);
-    float flame_shape = clamp((n1 * 0.6 + n2 * 0.4) * 1.5, 0.0, 1.0);
-
-    // Natural flame flicker
-    float flicker = 0.90 + 0.30 * sin(t * 16.0) * cos(t * 6.5 + 1.2);
-
-    // HDR color ramp: blinding yellow-hot core -> rich amber -> deep crimson licking tips
-    vec3 core = vec3(3.8, 3.1, 1.3) * flicker;
-    vec3 mid  = vec3(2.8, 1.3, 0.20) * flicker;
-    vec3 tip  = vec3(1.6, 0.4, 0.05) * flicker;
-
-    vec3 flame_color = mix(tip, mid, flame_shape);
-    flame_color = mix(flame_color, core, clamp(flame_shape * 1.8 - 0.7, 0.0, 1.0));
-
-    return flame_color;
-}
 
 // 16-tap Catmull-Rom Bicubic Spline (8K Continuous Vector Interpolation)
 vec4 catmull_rom_weights(float t) {
@@ -265,16 +211,11 @@ void fragment() {
         base_color = raw_pixel;
     }
 
-    // Check if this pixel is part of a torch flame, fire or magic glow
-    // (Checked across playfield, strictly excluding HUD and UI panels)
-    bool is_flame = (hdr_glow_mult > 0.05) && (!in_ui) && is_fire_or_magic(raw_pixel);
-
     // 3D Normal Mapping & Tactile Albedo Relief
     float gx = 0.0;
     float gy = 0.0;
-    float relief_shading = 1.0;
 
-    if (relief_mode > 0 && !is_flame && !in_ui) {
+    if (relief_mode > 0 && !in_ui) {
         const vec3 luma = vec3(0.299, 0.587, 0.114);
 
         float l_tl = dot(texture(d1_texture, sample_uv + vec2(-1.0, -1.0) * texel_size).bgr, luma);
@@ -289,86 +230,46 @@ void fragment() {
         gx = (l_tr + 2.0 * l_mr + l_br) - (l_tl + 2.0 * l_ml + l_bl);
         gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);
 
-        // Strength scales with relief_mode (Mode 3 Deep 3D is default)
-        float mult = 0.8;
-        if (relief_mode == 2) mult = 1.6;
-        else if (relief_mode == 3) mult = 2.6;
-        else if (relief_mode == 4) mult = 4.0;
+        // Smooth, subtle 3D bump mapping (no jagged dark crags)
+        float mult = 0.35;
+        if (relief_mode == 2) mult = 0.65;
+        else if (relief_mode == 3) mult = 1.0;
+        else if (relief_mode == 4) mult = 1.5;
 
         float strength = bump_strength * mult;
         vec3 normal_tangent = normalize(vec3(-gx * strength, -gy * strength, 1.0));
         NORMAL = (VIEW_MATRIX * vec4(normal_tangent, 0.0)).xyz;
-
-        // Tactile directional light relief directly in albedo:
-        relief_shading = clamp(1.0 + (-gx * 0.7 - gy * 0.7) * (mult * 0.22), 0.65, 1.40);
     }
 
-    if (is_flame) {
-        // Re-draw flame dynamically with procedural engine fire & adjustable HDR emission!
-        vec3 engine_flame = render_engine_flame(sample_uv, raw_pixel, TIME);
-        ALBEDO = clamp(engine_flame, 0.0, 1.0);
-        EMISSION = engine_flame * (hdr_glow_mult * 1.15); // Dynamic HDR Glow level!
-        ROUGHNESS = 0.1;
+    if (in_ui) {
+        // UI Areas (HUD, Inventory, Character Sheet): 100% UNTOUCHED original colors & text
+        ALBEDO = base_color;
     } else {
-        if (in_ui) {
-            // UI Areas (HUD, Inventory, Character Sheet): 100% UNTOUCHED, pure original 1996 colors & text!
-            ALBEDO = base_color;
-            EMISSION = vec3(0.0);
-        } else {
-            // Playfield: Apply tuned atmospheric color grading & 3D relief shading!
-            ALBEDO = apply_color_grading(base_color, color_profile) * relief_shading;
-            EMISSION = vec3(0.0);
-        }
+        // Playfield: Atmospheric color grading
+        ALBEDO = apply_color_grading(base_color, color_profile);
     }
+    EMISSION = vec3(0.0);
 
-    // Engine Light & Wall Occlusion Mask:
-    // DevilutionX already calculates true raytraced line-of-sight and wall occlusion.
-    // Pixels that are blocked by walls or unrevealed are pitch-black in the backbuffer.
-    float pixel_luma = dot(raw_pixel, vec3(0.299, 0.587, 0.114));
-    float engine_lit = in_ui ? 1.0 : smoothstep(0.012, 0.065, pixel_luma);
+    // Void & Darkness Protection:
+    // Pure black void outside dungeon bounds or unrevealed areas must never receive specular glints
+    float raw_luma = dot(raw_pixel, vec3(0.299, 0.587, 0.114));
+    bool is_void = (!in_ui && raw_luma < 0.005);
 
-    // Wet Cobblestone Floor: Deep water-absorbed stone color + glossy puddle reflections
-    if (wet_floor && !in_ui) {
+    if (is_void) {
+        ALBEDO = vec3(0.0);
+        SPECULAR = 0.0;
+        ROUGHNESS = 1.0;
+        NORMAL = vec3(0.0, 0.0, 1.0);
+    } else if (wet_floor && !in_ui) {
         float edge_val = clamp(length(vec2(gx, gy)) * 1.6, 0.0, 1.0);
-        // Low crevice areas accumulate water into glossy puddles
         float puddle_mask = clamp(1.0 - edge_val * 1.5, 0.0, 1.0);
-        
-        // Wet stone is naturally darker and richer in saturation
-        ALBEDO = mix(ALBEDO, ALBEDO * 0.80, 0.65);
-        
-        // Puddles reflect light with smooth PBR specular gloss (only on lit areas!)
-        ROUGHNESS = mix(1.0, mix(0.70, 0.18, puddle_mask), engine_lit);
-        SPECULAR = mix(0.0, mix(0.08, 0.65, puddle_mask), engine_lit);
+        // Soft, authentic PBR wet cobblestones (never darkens albedo!)
+        ROUGHNESS = mix(0.85, 0.35, puddle_mask);
+        SPECULAR = mix(0.02, 0.28, puddle_mask);
     } else {
-        // Dry, dusty stone floor: completely matte
         ROUGHNESS = 0.95;
         SPECULAR = 0.0;
     }
 
-    // Zero out albedo in completely unlit areas to prevent any ambient light bleed
-    if (!in_ui && engine_lit < 0.001) {
-        ALBEDO = vec3(0.0);
-        NORMAL = vec3(0.0, 0.0, 1.0);
-    }
-
     METALLIC = 0.0;
-}
-
-void light() {
-    // True Wall Light Occlusion:
-    // If the pixel is unlit by the engine (behind walls or in darkness),
-    // strictly reject all dynamic 3D light and specular contributions!
-    vec3 px = texture(d1_texture, UV).bgr;
-    float luma = dot(px, vec3(0.299, 0.587, 0.114));
-    float wall_mask = smoothstep(0.012, 0.065, luma);
-
-    if (wall_mask > 0.001) {
-        float NdotL = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
-        DIFFUSE_LIGHT += LIGHT_COLOR * (ALBEDO * NdotL * ATTENUATION * wall_mask);
-
-        vec3 half_v = normalize(VIEW + LIGHT);
-        float NdotH = clamp(dot(NORMAL, half_v), 0.0, 1.0);
-        float spec_power = mix(16.0, 64.0, 1.0 - ROUGHNESS);
-        SPECULAR_LIGHT += LIGHT_COLOR * (SPECULAR_AMOUNT * pow(NdotH, spec_power) * ATTENUATION * wall_mask);
-    }
 }

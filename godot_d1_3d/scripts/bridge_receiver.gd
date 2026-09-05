@@ -20,9 +20,9 @@ var show_fps: bool = true               # Default: ON (Immediate performance rea
 var current_fog_mode: int = 1           # Default: 1 = Crypt Mist (Subtle Dungeon Atmosphere)
 var current_color_profile: int = 1      # Default: 1 = Dark Gothic (Deep OLED Slate Contrast - Default)
 var current_upscaler_mode: int = 3      # Default: 3 = 8K Catmull-Rom Bicubic Spline!
-var current_relief_mode: int = 3        # Default: 3 = Deep 3D Embossed Contour & Normal Relief
-var current_hdr_level: int = 3          # Default: 3 = 3.0x Blazing HDR Glow (0: OFF, 1: 1.0x, 2: 2.0x, 3: 3.0x)
-var hero_light_enabled: bool = true         # Default: ON (Dynamic 3D Lighting & Shadows)
+var current_relief_mode: int = 1        # Default: 1 = Subtle Natural Stone Relief (gentle, no harsh dark crags)
+var current_hdr_level: int = 1          # Default: 1 = Balanced Gothic Glow (1.0x)
+var hero_light_enabled: bool = false    # Default: OFF (No spotlight on player body; preserves authentic sprite)
 
 # Dynamic 3D Lights, Shadows & Particles
 @onready var torch_container: Node3D = get_node_or_null("TorchLightsContainer")
@@ -39,7 +39,7 @@ var pooled_shadow_boxes: Array = []
 var hero_sparks: GPUParticles3D = null
 var occluder_box_mesh: BoxMesh = null
 
-var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections, Darker Damp Stone + Glossy Puddles)
+var wet_floor: bool = false             # Default: OFF (Authentic dry dungeon stone, no artificial darkening)
 var playfield_zoom: float = 1.0
 var left_panel_open: bool = false
 var right_panel_open: bool = false
@@ -375,18 +375,15 @@ func _process(delta: float):
 				if cur_zoom >= 0 and cur_zoom < zoom_step_names.size() and cur_zoom != current_zoom_step:
 					current_zoom_step = cur_zoom
 
-			# Dynamic 3D Lights, Shadows & Native Particles
-			if hero_light_enabled and is_ingame:
+			# Dynamic 3D Lights & Native Particles
+			if is_ingame:
 				update_dynamic_lighting(delta)
-				update_shadow_casters()
 				process_visual_events()
 			else:
 				if hero_light:
 					hero_light.visible = false
 				for tl in pooled_torch_lights:
 					tl.visible = false
-				for sb in pooled_shadow_boxes:
-					sb.visible = false
 		return
 			
 	if not FileAccess.file_exists("/dev/shm/d1_godot_frame"):
@@ -614,16 +611,19 @@ func update_dynamic_lighting(delta: float) -> void:
 			light.visible = false
 		return
 
-	# 1. Hero Torch (Type 0, index 0)
+	# 1. Hero Torch (Type 0, index 0 - togglable via F6, default off to keep character sprite clean)
 	if hero_light:
-		var hero_info = active_lights[0]
-		hero_light.visible = true
-		var hp = hero_info["world_pos"]
-		hero_light.position = Vector3(hp.x, hp.y, 0.35)
-		var h_flicker = 1.0 + 0.12 * sin(time_accum * 11.7) * cos(time_accum * 6.3)
-		hero_light.light_energy = 1.25 * h_flicker
-		hero_light.omni_range = clamp(hero_info["radius"] * 0.30, 2.2, 3.4)
-		hero_light.omni_attenuation = 2.0
+		if hero_light_enabled and active_lights.size() > 0:
+			var hero_info = active_lights[0]
+			hero_light.visible = true
+			var hp = hero_info["world_pos"]
+			hero_light.position = Vector3(hp.x, hp.y, 0.45)
+			var h_flicker = 1.0 + 0.08 * sin(time_accum * 11.7) * cos(time_accum * 6.3)
+			hero_light.light_energy = 0.45 * h_flicker
+			hero_light.omni_range = clamp(hero_info["radius"] * 0.28, 2.0, 3.0)
+			hero_light.omni_attenuation = 2.0
+		else:
+			hero_light.visible = false
 
 	# 2. Environmental & Spell Lights (Wall torches, braziers, fireballs)
 	var env_count = active_lights.size() - 1

@@ -807,7 +807,11 @@ std::vector<D1EngineLight> GetActiveEngineLights()
 
 	// 1. Hero Torch (Type 0)
 	{
-		Point heroScreen = TileToScreenCoords(MyPlayer->position.tile);
+		Displacement walkOffset = {};
+		if (MyPlayer->isWalking()) {
+			walkOffset = GetOffsetForWalking(MyPlayer->AnimInfo, MyPlayer->_pdir);
+		}
+		Point heroScreen = TileToScreenCoords(MyPlayer->position.tile, walkOffset);
 		int yOffset = 26;
 		if (CurrentZoomMode == ZoomMode::Balanced_1_5x) yOffset = 39;
 		else if (CurrentZoomMode == ZoomMode::Zoomed_2x) yOffset = 52;

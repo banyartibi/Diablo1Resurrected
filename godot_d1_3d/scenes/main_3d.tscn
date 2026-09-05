@@ -6,10 +6,10 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_d1"]
 render_priority = 0
 shader = ExtResource("2_shd")
-shader_parameter/bump_strength = 2.4
-shader_parameter/roughness_val = 0.35
-shader_parameter/specular_val = 0.70
-shader_parameter/wetness_amount = 0.90
+shader_parameter/bump_strength = 0.35
+shader_parameter/roughness_val = 0.75
+shader_parameter/specular_val = 0.15
+shader_parameter/wetness_amount = 0.30
 
 [sub_resource type="QuadMesh" id="QuadMesh_d1"]
 size = Vector2(16, 9)
@@ -78,16 +78,13 @@ shadow_enabled = false
 
 [node name="HeroTorchLight" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.65)
-visible = true
+visible = false
 light_color = Color(1, 0.72, 0.38, 1)
-light_energy = 1.25
-light_specular = 0.5
-shadow_enabled = true
-shadow_bias = 0.05
-shadow_normal_bias = 1.0
-shadow_blur = 1.5
-omni_range = 6.0
-omni_attenuation = 1.2
+light_energy = 0.50
+light_specular = 0.2
+shadow_enabled = false
+omni_range = 3.0
+omni_attenuation = 2.0
 
 [node name="TorchLightsContainer" type="Node3D" parent="."]
 
