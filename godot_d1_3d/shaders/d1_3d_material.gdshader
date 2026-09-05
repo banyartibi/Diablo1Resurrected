@@ -183,7 +183,8 @@ void fragment() {
          pixel_pos.y >= left_panel_rect.y && pixel_pos.y <= (left_panel_rect.y + left_panel_rect.w));
 
     // 3. Right UI Panel (Inventory / Spellbook)
-    bool in_right_panel = right_panel_open &&
+    // In Modern HUD mode, panels are on CanvasLayer, so floor receives uniform color grading!
+    bool in_right_panel = (!hide_vanilla_hud && right_panel_open) &&
         (pixel_pos.x >= right_panel_rect.x && pixel_pos.x <= (right_panel_rect.x + right_panel_rect.z) &&
          pixel_pos.y >= right_panel_rect.y && pixel_pos.y <= (right_panel_rect.y + right_panel_rect.w));
 
@@ -269,7 +270,7 @@ void fragment() {
                 panel_shadow = min(panel_shadow, mix(0.40, 1.0, s));
             }
         }
-        if (right_panel_open) {
+        if (!hide_vanilla_hud && right_panel_open) {
             vec2 rp_min = right_panel_rect.xy;
             vec2 rp_max = right_panel_rect.xy + right_panel_rect.zw;
             vec2 d = max(rp_min - pixel_pos, pixel_pos - rp_max);

@@ -23,7 +23,7 @@ const CELL_GAP = 1.0
 const CELL_STEP = CELL_SIZE + CELL_GAP # 25.0
 
 # Node references
-@onready var gold_label: Label = $Content/VBox/HeaderRow/GoldLabel
+@onready var gold_label: Label = find_child("GoldLabel", true, false)
 @onready var close_btn: Button = find_child("CloseBtn", true, false)
 
 # Paperdoll slots

@@ -33,9 +33,9 @@ const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 @onready var secondary_icon: TextureRect = $Root/HBox/CenterPanel/VBox/ActionBar/SecondarySlot/Icon
 
 # XP & Level
-@onready var xp_bar: ProgressBar = $Root/HBox/CenterPanel/VBox/XPContainer/XPBar
-@onready var level_label: Label = $Root/HBox/CenterPanel/VBox/XPContainer/LevelLabel
-@onready var gold_label: Label = $Root/HBox/CenterPanel/VBox/XPContainer/GoldLabel
+@onready var xp_bar: ProgressBar = find_child("XPBar", true, false)
+@onready var level_label: Label = find_child("LevelLabel", true, false)
+@onready var gold_label: Label = find_child("GoldLabel", true, false)
 
 # Item Tooltip Popup
 @onready var item_tooltip: PanelContainer = $ItemTooltip
@@ -540,9 +540,6 @@ func update_xp_and_level():
 
 	if level_label:
 		level_label.text = "Lv %d" % lvl
-
-	if gold_label:
-		gold_label.text = "%s G" % format_number(gold)
 
 	if xp_bar:
 		var ratio = 0.0
