@@ -869,8 +869,10 @@ func update_panels():
 		var inv_open = diablo_bridge.is_inventory_open() if diablo_bridge.has_method("is_inventory_open") else false
 		if inv_frame.visible != inv_open:
 			inv_frame.visible = inv_open
-		if inv_open and inv_frame.has_method("update_inventory"):
-			inv_frame.update_inventory()
+			if inv_open and inv_frame.has_method("update_inventory"):
+				inv_frame.update_inventory()
+		elif inv_open and inv_frame.has_method("check_and_update"):
+			inv_frame.check_and_update()
 
 	# Level-up indicator on HUD & BtnChar
 	var stat_pts = 0

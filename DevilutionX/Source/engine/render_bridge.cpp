@@ -12,6 +12,7 @@
 #include <vector>
 #include <thread>
 #include <atomic>
+#include <fmt/format.h>
 
 #include "control.h"
 #include "player.h"
@@ -36,6 +37,7 @@
 #include "lighting.h"
 #include "objects.h"
 #include "objdat.h"
+#include "itemdat.h"
 #include <cmath>
 
 namespace devilution {
@@ -1112,18 +1114,93 @@ void SelectQuest(int questIdx)
 }
 
 // Native Godot Diablo IV Inventory Bridge
+static std::mutex g_InventoryMutex;
+static std::atomic<uint32_t> g_InventoryVersion { 1 };
+
+uint32_t GetInventoryVersion()
+{
+	return g_InventoryVersion.load();
+}
+
+static std::string SanitizeUtf8(std::string_view sv)
+{
+	std::string out;
+	out.reserve(sv.size());
+	for (size_t i = 0; i < sv.size(); ++i) {
+		unsigned char c = static_cast<unsigned char>(sv[i]);
+		if (c >= 32 && c <= 126) {
+			out.push_back(c);
+		} else if (c == '\n' || c == '\t' || c == '\r') {
+			out.push_back(c);
+		} else if (c >= 0xC0 && c <= 0xFD && i + 1 < sv.size()) {
+			out.push_back(c);
+			while (i + 1 < sv.size() && (static_cast<unsigned char>(sv[i + 1]) & 0xC0) == 0x80) {
+				out.push_back(sv[++i]);
+			}
+		} else if (c == 0xA0) {
+			out.push_back(' ');
+		}
+	}
+	return out;
+}
+
 static std::string FormatItemStats(const Item &item)
 {
-	std::string saved = std::string(InfoString.str());
-	InfoString = StringOrView {};
-	if (item._iIdentified) {
-		PrintItemDetails(item);
-	} else {
-		PrintItemDur(item);
+	std::string res;
+	auto addLine = [&](const std::string &line) {
+		if (line.empty()) return;
+		if (!res.empty()) res += "\n";
+		res += line;
+	};
+
+	if (item._iClass == ICLASS_WEAPON) {
+		if (item._iMinDam == item._iMaxDam) {
+			if (item._iMaxDur == DUR_INDESTRUCTIBLE)
+				addLine(fmt::format("Damage: {:d}  Indestructible", item._iMinDam));
+			else
+				addLine(fmt::format("Damage: {:d}  Dur: {:d}/{:d}", item._iMinDam, item._iDurability, item._iMaxDur));
+		} else {
+			if (item._iMaxDur == DUR_INDESTRUCTIBLE)
+				addLine(fmt::format("Damage: {:d}-{:d}  Indestructible", item._iMinDam, item._iMaxDam));
+			else
+				addLine(fmt::format("Damage: {:d}-{:d}  Dur: {:d}/{:d}", item._iMinDam, item._iMaxDam, item._iDurability, item._iMaxDur));
+		}
 	}
-	std::string res = std::string(InfoString.str());
-	InfoString = StringOrView(std::move(saved));
-	return res;
+	if (item._iClass == ICLASS_ARMOR) {
+		if (item._iMaxDur == DUR_INDESTRUCTIBLE)
+			addLine(fmt::format("Armor: {:d}  Indestructible", item._iAC));
+		else
+			addLine(fmt::format("Armor: {:d}  Dur: {:d}/{:d}", item._iAC, item._iDurability, item._iMaxDur));
+	}
+	if (item._iMiscId == IMISC_STAFF && item._iMaxCharges != 0) {
+		addLine(fmt::format("Charges: {:d}/{:d}", item._iCharges, item._iMaxCharges));
+	}
+	if (item._iIdentified) {
+		if (item._iPrePower != -1) {
+			addLine(std::string(PrintItemPower(item._iPrePower, item).str()));
+		}
+		if (item._iSufPower != -1) {
+			addLine(std::string(PrintItemPower(item._iSufPower, item).str()));
+		}
+		if (item._iMagical == ITEM_QUALITY_UNIQUE && item._iUid >= 0) {
+			addLine("Unique Item");
+			const UniqueItem &uitem = UniqueItems[item._iUid];
+			for (const auto &power : uitem.powers) {
+				if (power.type == IPL_INVALID) break;
+				addLine(std::string(PrintItemPower(power.type, item).str()));
+			}
+		}
+	} else {
+		if (item._iMagical != ITEM_QUALITY_NORMAL) {
+			addLine("Not Identified");
+		}
+	}
+
+	if (item._iMinStr > 0) addLine(fmt::format("Required Strength: {:d}", item._iMinStr));
+	if (item._iMinMag > 0) addLine(fmt::format("Required Magic: {:d}", item._iMinMag));
+	if (item._iMinDex > 0) addLine(fmt::format("Required Dexterity: {:d}", item._iMinDex));
+
+	return SanitizeUtf8(res);
 }
 
 static D1InvItemData ConvertItemToInvData(const Item &item, int slotId, int cellX, int cellY, int invListIndex)
@@ -1135,9 +1212,9 @@ static D1InvItemData ConvertItemToInvData(const Item &item, int slotId, int cell
 	data.cursId = item._iCurs + CURSOR_FIRSTITEM;
 	data.quality = static_cast<int>(item._iMagical);
 
-	std::string_view nameSv = item.getName();
-	size_t nameLen = std::min(nameSv.size(), sizeof(data.name) - 1);
-	std::memcpy(data.name, nameSv.data(), nameLen);
+	std::string cleanName = SanitizeUtf8(item.getName());
+	size_t nameLen = std::min(cleanName.size(), sizeof(data.name) - 1);
+	std::memcpy(data.name, cleanName.data(), nameLen);
 	data.name[nameLen] = '\0';
 
 	std::string statsStr = FormatItemStats(item);
@@ -1167,6 +1244,7 @@ static D1InvItemData ConvertItemToInvData(const Item &item, int slotId, int cell
 
 std::vector<D1InvItemData> GetPlayerEquipmentData()
 {
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || MyPlayer == nullptr)
 		return {};
 
@@ -1183,6 +1261,7 @@ std::vector<D1InvItemData> GetPlayerEquipmentData()
 
 std::vector<D1InvItemData> GetPlayerBackpackData()
 {
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || MyPlayer == nullptr)
 		return {};
 
@@ -1193,8 +1272,10 @@ std::vector<D1InvItemData> GetPlayerBackpackData()
 			int ii = player.InvGrid[j] - 1;
 			if (ii >= 0 && ii < player._pNumInv) {
 				const Item &item = player.InvList[ii];
+				Size sz = GetInventorySize(item);
 				int cellX = j % 10;
-				int cellY = j / 10;
+				int bottomRow = j / 10;
+				int cellY = bottomRow - (sz.height - 1);
 				result.push_back(ConvertItemToInvData(item, j, cellX, cellY, ii));
 			}
 		}
@@ -1204,6 +1285,7 @@ std::vector<D1InvItemData> GetPlayerBackpackData()
 
 D1InvItemData GetPlayerHoldItemData()
 {
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || MyPlayer == nullptr || MyPlayer->HoldItem.isEmpty())
 		return {};
 
@@ -1212,6 +1294,7 @@ D1InvItemData GetPlayerHoldItemData()
 
 int GetPlayerGold()
 {
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || MyPlayer == nullptr)
 		return 0;
 	return MyPlayer->_pGold;
@@ -1219,6 +1302,7 @@ int GetPlayerGold()
 
 D1ItemIconRgba GetItemSpriteRgba(int cursId)
 {
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || cursId <= 0)
 		return {};
 
@@ -1263,6 +1347,7 @@ D1ItemIconRgba GetItemSpriteRgba(int cursId)
 
 void ClickInventorySlot(int slotType, int slotIdx, bool isShift, bool isCtrl)
 {
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || MyPlayer == nullptr)
 		return;
 
@@ -1303,10 +1388,12 @@ void ClickInventorySlot(int slotType, int slotIdx, bool isShift, bool isCtrl)
 		}
 	}
 	CalcPlrInv(player, true);
+	g_InventoryVersion.fetch_add(1);
 }
 
 void UseInventorySlot(int slotType, int slotIdx)
 {
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || MyPlayer == nullptr)
 		return;
 
@@ -1348,6 +1435,7 @@ void UseInventorySlot(int slotType, int slotIdx)
 			}
 		}
 	}
+	g_InventoryVersion.fetch_add(1);
 }
 
 } // namespace devilution

@@ -64,6 +64,7 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("toggle_inventory"), &DiabloBridge::toggle_inventory);
 
 	// Native Godot Diablo IV Inventory
+	ClassDB::bind_method(D_METHOD("get_inventory_version"), &DiabloBridge::get_inventory_version);
 	ClassDB::bind_method(D_METHOD("get_player_equipment"), &DiabloBridge::get_player_equipment);
 	ClassDB::bind_method(D_METHOD("get_player_backpack"), &DiabloBridge::get_player_backpack);
 	ClassDB::bind_method(D_METHOD("get_player_hold_item"), &DiabloBridge::get_player_hold_item);
@@ -640,6 +641,10 @@ static Dictionary InvDataToDict(const devilution::D1InvItemData &item) {
 	d["value"] = item.value;
 	d["inv_list_index"] = item.invListIndex;
 	return d;
+}
+
+int DiabloBridge::get_inventory_version() const {
+	return static_cast<int>(devilution::GetInventoryVersion());
 }
 
 Array DiabloBridge::get_player_equipment() const {

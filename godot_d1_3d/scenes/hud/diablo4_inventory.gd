@@ -27,17 +27,17 @@ const CELL_STEP = CELL_SIZE + CELL_GAP # 25.0
 @onready var close_btn: Button = find_child("CloseBtn", true, false)
 
 # Paperdoll slots
-@onready var slot_head: Control = $Content/VBox/Paperdoll/TopRow/HeadSlot
-@onready var slot_amulet: Control = $Content/VBox/Paperdoll/TopRow/AmuletSlot
-@onready var slot_hand_left: Control = $Content/VBox/Paperdoll/MidRow/HandLeftSlot
-@onready var slot_chest: Control = $Content/VBox/Paperdoll/MidRow/ChestSlot
-@onready var slot_hand_right: Control = $Content/VBox/Paperdoll/MidRow/HandRightSlot
-@onready var slot_ring_left: Control = $Content/VBox/Paperdoll/BotRow/RingLeftSlot
-@onready var slot_ring_right: Control = $Content/VBox/Paperdoll/BotRow/RingRightSlot
+@onready var slot_head: Control = find_child("HeadSlot", true, false)
+@onready var slot_amulet: Control = find_child("AmuletSlot", true, false)
+@onready var slot_hand_left: Control = find_child("HandLeftSlot", true, false)
+@onready var slot_chest: Control = find_child("ChestSlot", true, false)
+@onready var slot_hand_right: Control = find_child("HandRightSlot", true, false)
+@onready var slot_ring_left: Control = find_child("RingLeftSlot", true, false)
+@onready var slot_ring_right: Control = find_child("RingRightSlot", true, false)
 
 # Backpack nodes
-@onready var grid_cells: GridContainer = $Content/VBox/BackpackContainer/GridBackdrop/GridCells
-@onready var items_overlay: Control = $Content/VBox/BackpackContainer/GridBackdrop/ItemsOverlay
+@onready var grid_cells: GridContainer = find_child("GridCells", true, false)
+@onready var items_overlay: Control = find_child("ItemsOverlay", true, false)
 
 # Dedicated Item Tooltip
 @onready var tooltip: PanelContainer = $Tooltip
@@ -47,6 +47,7 @@ const CELL_STEP = CELL_SIZE + CELL_GAP # 25.0
 
 var equip_slots_map: Dictionary = {}
 var hovered_item_data = null
+var last_inventory_version: int = -1
 
 func _ready():
 	equip_slots_map = {
@@ -119,9 +120,20 @@ func _init_backpack_cells():
 		)
 		grid_cells.add_child(cell)
 
+func check_and_update():
+	if not diablo_bridge:
+		return
+	var ver = 0
+	if diablo_bridge.has_method("get_inventory_version"):
+		ver = diablo_bridge.get_inventory_version()
+	if ver != last_inventory_version:
+		update_inventory()
+
 func update_inventory():
 	if not diablo_bridge:
 		return
+	if diablo_bridge.has_method("get_inventory_version"):
+		last_inventory_version = diablo_bridge.get_inventory_version()
 
 	# 1. Update Gold readout
 	if gold_label and diablo_bridge.has_method("get_player_gold"):

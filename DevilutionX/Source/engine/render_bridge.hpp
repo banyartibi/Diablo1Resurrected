@@ -285,6 +285,7 @@ int GetPlayerGold();
 D1ItemIconRgba GetItemSpriteRgba(int cursId);
 void ClickInventorySlot(int slotType, int slotIdx, bool isShift = false, bool isCtrl = false);
 void UseInventorySlot(int slotType, int slotIdx);
+uint32_t GetInventoryVersion();
 
 } // namespace devilution
 

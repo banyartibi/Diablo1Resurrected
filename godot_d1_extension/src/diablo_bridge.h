@@ -91,6 +91,7 @@ public:
 	void toggle_inventory();
 
 	// Native Godot Diablo IV Inventory
+	int get_inventory_version() const;
 	Array get_player_equipment() const;
 	Array get_player_backpack() const;
 	Dictionary get_player_hold_item() const;

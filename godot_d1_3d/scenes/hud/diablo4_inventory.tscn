@@ -112,22 +112,28 @@ layout_mode = 2
 mouse_filter = 2
 color = Color(0.65, 0.52, 0.25, 0.6)
 
-[node name="Paperdoll" type="VBoxContainer" parent="Content/VBox"]
+[node name="Paperdoll" type="HBoxContainer" parent="Content/VBox"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 3
-
-[node name="TopRow" type="HBoxContainer" parent="Content/VBox/Paperdoll"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 10
 alignment = 1
 
-[node name="HeadSlot" type="Control" parent="Content/VBox/Paperdoll/TopRow"]
-custom_minimum_size = Vector2(46, 46)
+[node name="ColLeft" type="VBoxContainer" parent="Content/VBox/Paperdoll"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="TopSpacer" type="Control" parent="Content/VBox/Paperdoll/ColLeft"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="HandLeftSlot" type="Control" parent="Content/VBox/Paperdoll/ColLeft"]
+custom_minimum_size = Vector2(48, 72)
 layout_mode = 2
 
-[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/TopRow/HeadSlot"]
+[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColLeft/HandLeftSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -137,7 +143,97 @@ grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
 
-[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/TopRow/HeadSlot"]
+[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/ColLeft/HandLeftSlot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
+theme_override_font_sizes/font_size = 9
+text = "LEFT
+HAND"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/ColLeft/HandLeftSlot"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RingLeftBox" type="CenterContainer" parent="Content/VBox/Paperdoll/ColLeft"]
+custom_minimum_size = Vector2(48, 30)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RingLeftSlot" type="Control" parent="Content/VBox/Paperdoll/ColLeft/RingLeftBox"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColLeft/RingLeftBox/RingLeftSlot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
+
+[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/ColLeft/RingLeftBox/RingLeftSlot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
+theme_override_font_sizes/font_size = 8
+text = "RING"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/ColLeft/RingLeftBox/RingLeftSlot"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ColCenter" type="VBoxContainer" parent="Content/VBox/Paperdoll"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="HeadSlot" type="Control" parent="Content/VBox/Paperdoll/ColCenter"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+
+[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColCenter/HeadSlot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
+
+[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/ColCenter/HeadSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -150,7 +246,7 @@ text = "HEAD"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/TopRow/HeadSlot"]
+[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/ColCenter/HeadSlot"]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -162,12 +258,11 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="AmuletSlot" type="Control" parent="Content/VBox/Paperdoll/TopRow"]
-custom_minimum_size = Vector2(30, 30)
+[node name="ChestSlot" type="Control" parent="Content/VBox/Paperdoll/ColCenter"]
+custom_minimum_size = Vector2(48, 72)
 layout_mode = 2
-size_flags_vertical = 4
 
-[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/TopRow/AmuletSlot"]
+[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColCenter/ChestSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -177,91 +272,7 @@ grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
 
-[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/TopRow/AmuletSlot"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 8
-text = "NECK"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/TopRow/AmuletSlot"]
-visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="MidRow" type="HBoxContainer" parent="Content/VBox/Paperdoll"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 10
-alignment = 1
-
-[node name="HandLeftSlot" type="Control" parent="Content/VBox/Paperdoll/MidRow"]
-custom_minimum_size = Vector2(46, 68)
-layout_mode = 2
-
-[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/MidRow/HandLeftSlot"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
-
-[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/MidRow/HandLeftSlot"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 9
-text = "LEFT\nHAND"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/MidRow/HandLeftSlot"]
-visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="ChestSlot" type="Control" parent="Content/VBox/Paperdoll/MidRow"]
-custom_minimum_size = Vector2(46, 68)
-layout_mode = 2
-
-[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/MidRow/ChestSlot"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
-
-[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/MidRow/ChestSlot"]
+[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/ColCenter/ChestSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -274,7 +285,7 @@ text = "TORSO"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/MidRow/ChestSlot"]
+[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/ColCenter/ChestSlot"]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -286,11 +297,27 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HandRightSlot" type="Control" parent="Content/VBox/Paperdoll/MidRow"]
-custom_minimum_size = Vector2(46, 68)
+[node name="BotSpacer" type="Control" parent="Content/VBox/Paperdoll/ColCenter"]
+custom_minimum_size = Vector2(48, 30)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ColRight" type="VBoxContainer" parent="Content/VBox/Paperdoll"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="AmuletBox" type="CenterContainer" parent="Content/VBox/Paperdoll/ColRight"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="AmuletSlot" type="Control" parent="Content/VBox/Paperdoll/ColRight/AmuletBox"]
+custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 
-[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/MidRow/HandRightSlot"]
+[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColRight/AmuletBox/AmuletSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -300,7 +327,46 @@ grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
 
-[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/MidRow/HandRightSlot"]
+[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/ColRight/AmuletBox/AmuletSlot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
+theme_override_font_sizes/font_size = 8
+text = "NECK"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/ColRight/AmuletBox/AmuletSlot"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HandRightSlot" type="Control" parent="Content/VBox/Paperdoll/ColRight"]
+custom_minimum_size = Vector2(48, 72)
+layout_mode = 2
+
+[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColRight/HandRightSlot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
+
+[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/ColRight/HandRightSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -309,11 +375,12 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
 theme_override_font_sizes/font_size = 9
-text = "RIGHT\nHAND"
+text = "RIGHT
+HAND"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/MidRow/HandRightSlot"]
+[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/ColRight/HandRightSlot"]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -325,17 +392,16 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="BotRow" type="HBoxContainer" parent="Content/VBox/Paperdoll"]
+[node name="RingRightBox" type="CenterContainer" parent="Content/VBox/Paperdoll/ColRight"]
+custom_minimum_size = Vector2(48, 30)
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 50
-alignment = 1
 
-[node name="RingLeftSlot" type="Control" parent="Content/VBox/Paperdoll/BotRow"]
-custom_minimum_size = Vector2(28, 28)
+[node name="RingRightSlot" type="Control" parent="Content/VBox/Paperdoll/ColRight/RingRightBox"]
+custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 
-[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/BotRow/RingLeftSlot"]
+[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColRight/RingRightBox/RingRightSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -345,7 +411,7 @@ grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
 
-[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/BotRow/RingLeftSlot"]
+[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/ColRight/RingRightBox/RingRightSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -358,46 +424,7 @@ text = "RING"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/BotRow/RingLeftSlot"]
-visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="RingRightSlot" type="Control" parent="Content/VBox/Paperdoll/BotRow"]
-custom_minimum_size = Vector2(28, 28)
-layout_mode = 2
-
-[node name="Border" type="Panel" parent="Content/VBox/Paperdoll/BotRow/RingRightSlot"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_slot")
-
-[node name="Placeholder" type="Label" parent="Content/VBox/Paperdoll/BotRow/RingRightSlot"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 8
-text = "RING"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/BotRow/RingRightSlot"]
+[node name="Icon" type="TextureRect" parent="Content/VBox/Paperdoll/ColRight/RingRightBox/RingRightSlot"]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -427,13 +454,18 @@ theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
 theme_override_constants/shadow_outline_size = 2
 theme_override_font_sizes/font_size = 10
 text = "BACKPACK"
+horizontal_alignment = 1
 
-[node name="GridBackdrop" type="Control" parent="Content/VBox/BackpackContainer"]
+[node name="GridCenter" type="CenterContainer" parent="Content/VBox/BackpackContainer"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="GridBackdrop" type="Control" parent="Content/VBox/BackpackContainer/GridCenter"]
 custom_minimum_size = Vector2(249, 99)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="GridCells" type="GridContainer" parent="Content/VBox/BackpackContainer/GridBackdrop"]
+[node name="GridCells" type="GridContainer" parent="Content/VBox/BackpackContainer/GridCenter/GridBackdrop"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -445,7 +477,7 @@ theme_override_constants/h_separation = 1
 theme_override_constants/v_separation = 1
 columns = 10
 
-[node name="ItemsOverlay" type="Control" parent="Content/VBox/BackpackContainer/GridBackdrop"]
+[node name="ItemsOverlay" type="Control" parent="Content/VBox/BackpackContainer/GridCenter/GridBackdrop"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
