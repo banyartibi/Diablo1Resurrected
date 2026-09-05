@@ -8,6 +8,9 @@ var diablo_bridge = null
 @onready var gold_label: Label = $Margin/VBox/HeaderRow/GoldLabel
 @onready var close_btn: Button = $Margin/VBox/HeaderRow/CloseBtn
 
+@onready var level_up_banner: PanelContainer = $Margin/VBox/LevelUpBanner
+@onready var level_up_banner_label: Label = $Margin/VBox/LevelUpBanner/Margin/Label
+
 @onready var exp_label: Label = $Margin/VBox/ExpPointsRow/ExpLabel
 @onready var stat_points_label: Label = $Margin/VBox/ExpPointsRow/StatPointsLabel
 
@@ -60,6 +63,11 @@ func _ready():
 	if add_vit_btn:
 		add_vit_btn.pressed.connect(func(): _allocate_stat(3))
 
+func _process(_delta: float):
+	if level_up_banner and level_up_banner.visible:
+		var pulse = 0.75 + 0.35 * sin(Time.get_ticks_msec() * 0.007)
+		level_up_banner.modulate = Color(1.0 + pulse * 0.4, 0.85 + pulse * 0.4, 0.2 + pulse * 0.3, 1.0)
+
 func set_bridge(bridge):
 	diablo_bridge = bridge
 
@@ -90,10 +98,16 @@ func update_stats():
 	if gold_label: gold_label.text = "Gold: %s" % _format_number(c_gold)
 	if exp_label: exp_label.text = "XP: %s / %s" % [_format_number(c_exp), _format_number(c_next_exp)]
 
+	# Level Up Banner & Stat Points
+	if level_up_banner:
+		level_up_banner.visible = (stat_pts > 0)
+		if stat_pts > 0 and level_up_banner_label:
+			level_up_banner_label.text = "★ LEVEL UP! %d STAT POINTS TO ALLOCATE ★" % stat_pts
+
 	if stat_points_label:
 		if stat_pts > 0:
 			stat_points_label.text = "Points: %d" % stat_pts
-			stat_points_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2, 1.0))
+			stat_points_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.2, 1.0))
 			stat_points_label.visible = true
 		else:
 			stat_points_label.visible = false
@@ -166,11 +180,11 @@ func update_stats():
 
 func _color_stat_label(lbl: Label, now_val: int, base_val: int, max_val: int):
 	if base_val >= max_val and max_val > 0:
-		lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.35, 1.0)) # Gold maxed
+		lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.35, 1.0))
 	elif now_val > base_val:
-		lbl.add_theme_color_override("font_color", Color(0.4, 0.75, 1.0, 1.0)) # Magic boost
+		lbl.add_theme_color_override("font_color", Color(0.4, 0.75, 1.0, 1.0))
 	elif now_val < base_val:
-		lbl.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35, 1.0)) # Debuff
+		lbl.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35, 1.0))
 	else:
 		lbl.add_theme_color_override("font_color", Color(0.92, 0.90, 0.85, 1.0))
 

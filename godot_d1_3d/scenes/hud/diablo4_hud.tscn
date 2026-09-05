@@ -117,6 +117,20 @@ shadow_size = 10
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxFlat_skill_panel"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_levelup_btn"]
+bg_color = Color(0.18, 0.12, 0.02, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.85, 0.25, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+shadow_color = Color(0, 0, 0, 0.85)
+shadow_size = 10
+
 
 [node name="Diablo4HUD" type="CanvasLayer"]
 layer = 100
@@ -136,6 +150,28 @@ offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
+
+[node name="LevelUpBtn" type="Button" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -110.0
+offset_top = -36.0
+offset_right = 110.0
+offset_bottom = -8.0
+grow_horizontal = 2
+focus_mode = 0
+mouse_filter = 1
+theme_override_colors/font_color = Color(1, 0.9, 0.3, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 4
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBoxFlat_levelup_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_levelup_btn")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_levelup_btn")
+text = "★ LEVEL UP! (5 Points) ★"
 
 [node name="HBox" type="HBoxContainer" parent="Root"]
 layout_mode = 1

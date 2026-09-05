@@ -53,6 +53,8 @@ const QUEST_LOG_SCENE = preload("res://scenes/hud/diablo4_quest_log.tscn")
 var char_panel: PanelContainer = null
 var quest_log: PanelContainer = null
 
+@onready var level_up_btn: Button = $Root/LevelUpBtn
+
 var diablo_bridge = null
 var current_spell_id: int = -1
 var current_spell_type: int = -1
@@ -220,6 +222,17 @@ func setup_button_events():
 		secondary_slot.gui_input.connect(func(event: InputEvent):
 			if event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT):
 				toggle_speedbook()
+		)
+
+	# Level Up Button (opens character sheet)
+	if level_up_btn:
+		level_up_btn.focus_mode = Control.FOCUS_NONE
+		level_up_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+		level_up_btn.pressed.connect(func():
+			if diablo_bridge and diablo_bridge.has_method("toggle_character_sheet"):
+				diablo_bridge.toggle_character_sheet()
+			else:
+				send_key(KEY_C)
 		)
 
 	# Quick utility buttons
@@ -779,7 +792,34 @@ func update_panels():
 	if not is_modern:
 		if char_panel: char_panel.visible = false
 		if quest_log: quest_log.visible = false
+		if level_up_btn: level_up_btn.visible = false
 		return
+
+	# Geometry alignment: dock at the exact classic left panel position
+	var vp_size = get_viewport().get_visible_rect().size
+	var d1_w = float(diablo_bridge.get_frame_width()) if diablo_bridge.has_method("get_frame_width") else 640.0
+	var d1_h = float(diablo_bridge.get_frame_height()) if diablo_bridge.has_method("get_frame_height") else 480.0
+	if d1_w <= 0: d1_w = 640.0
+	if d1_h <= 0: d1_h = 480.0
+
+	var scale_x = vp_size.x / d1_w
+	var scale_y = vp_size.y / d1_h
+
+	var lp = diablo_bridge.get_left_panel_rect() if diablo_bridge.has_method("get_left_panel_rect") else Rect2(0, 0, 320, 352)
+	var pos_x = lp.position.x * scale_x
+	var pos_y = lp.position.y * scale_y
+	var size_w = lp.size.x * scale_x
+	var size_h = lp.size.y * scale_y
+
+	if char_panel:
+		char_panel.position = Vector2(pos_x, pos_y)
+		char_panel.size = Vector2(size_w, size_h)
+		char_panel.custom_minimum_size = Vector2(size_w, size_h)
+
+	if quest_log:
+		quest_log.position = Vector2(pos_x, pos_y)
+		quest_log.size = Vector2(size_w, size_h)
+		quest_log.custom_minimum_size = Vector2(size_w, size_h)
 
 	# Character Panel sync
 	if char_panel:
@@ -797,11 +837,23 @@ func update_panels():
 		if quest_open:
 			quest_log.update_quests()
 
-	# Level-up indicator on BtnChar
-	var btn_char = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnChar
-	if btn_char and diablo_bridge.has_method("get_character_info"):
+	# Level-up indicator on HUD & BtnChar
+	var stat_pts = 0
+	if diablo_bridge.has_method("get_character_info"):
 		var cinfo = diablo_bridge.get_character_info()
-		var stat_pts = cinfo.get("stat_pts", 0)
+		stat_pts = cinfo.get("stat_pts", 0)
+
+	if level_up_btn:
+		if stat_pts > 0:
+			level_up_btn.visible = true
+			level_up_btn.text = "★ LEVEL UP! (%d Points) ★" % stat_pts
+			var pulse = 0.75 + 0.35 * sin(Time.get_ticks_msec() * 0.008)
+			level_up_btn.modulate = Color(1.0 + pulse * 0.5, 0.85 + pulse * 0.4, 0.2 + pulse * 0.3, 1.0)
+		else:
+			level_up_btn.visible = false
+
+	var btn_char = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnChar
+	if btn_char:
 		if stat_pts > 0:
 			var pulse = 0.8 + 0.4 * sin(Time.get_ticks_msec() * 0.006)
 			btn_char.modulate = Color(1.0 + pulse * 0.4, 0.8 + pulse * 0.5, 0.2 + pulse * 0.4, 1.0)
