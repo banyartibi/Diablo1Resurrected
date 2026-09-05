@@ -102,6 +102,11 @@ public:
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap
 	PackedInt32Array get_dungeon_grid() const;
 	int get_dungeon_tile(int x, int y) const;
+	PackedByteArray get_dungeon_solidity_grid() const;
+
+	// Native 3D World & Entity Tracking
+	Dictionary get_player_continuous_pos() const;
+	Array get_active_monsters_data() const;
 
 	// Direct Input Routing (In-memory C++ event dispatch, no SHM!)
 	void send_input(int type, int code, int state, int x, int y);

@@ -287,5 +287,34 @@ void ClickInventorySlot(int slotType, int slotIdx, bool isShift = false, bool is
 void UseInventorySlot(int slotType, int slotIdx);
 uint32_t GetInventoryVersion();
 
+// Native Godot 3D Sandbox & Spatial Entity Tracking
+struct D1MonsterEntityData {
+	int id = 0;
+	char name[64] = { 0 };
+	int type = 0;
+	float posX = 0.0f;
+	float posY = 0.0f;
+	int dir = 0;
+	int hp = 0;
+	int maxHp = 0;
+	bool isAlive = true;
+	bool isWalking = false;
+	int mode = 0;
+};
+
+struct D1PlayerEntityData {
+	float posX = 0.0f;
+	float posY = 0.0f;
+	int tileX = 0;
+	int tileY = 0;
+	int dir = 0;
+	bool isWalking = false;
+	int mode = 0;
+};
+
+D1PlayerEntityData GetPlayerEntityData();
+std::vector<D1MonsterEntityData> GetActiveMonstersData();
+std::vector<uint8_t> GetDungeonSolidityGrid();
+
 } // namespace devilution
 

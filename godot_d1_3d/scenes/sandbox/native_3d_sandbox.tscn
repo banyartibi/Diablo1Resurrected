@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://c6j2y9x51k7vb"]
+
+[ext_resource type="Script" path="res://scripts/native_3d_sandbox.gd" id="1_sandbox"]
+
+[node name="Native3DSandbox" type="Node3D"]
+script = ExtResource("1_sandbox")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+fov = 50.0

@@ -75,6 +75,11 @@ void DiabloBridge::_bind_methods() {
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
 	ClassDB::bind_method(D_METHOD("get_dungeon_tile", "x", "y"), &DiabloBridge::get_dungeon_tile);
+	ClassDB::bind_method(D_METHOD("get_dungeon_solidity_grid"), &DiabloBridge::get_dungeon_solidity_grid);
+
+	// Native 3D World & Entity Tracking
+	ClassDB::bind_method(D_METHOD("get_player_continuous_pos"), &DiabloBridge::get_player_continuous_pos);
+	ClassDB::bind_method(D_METHOD("get_active_monsters_data"), &DiabloBridge::get_active_monsters_data);
 
 	// Direct Input
 	ClassDB::bind_method(D_METHOD("send_input", "type", "code", "state", "x", "y"), &DiabloBridge::send_input);
@@ -354,6 +359,50 @@ int DiabloBridge::get_dungeon_tile(int x, int y) const {
 	int32_t temp[112 * 112];
 	devilution::CopyD1DungeonGrid(temp, 112 * 112);
 	return temp[y * 112 + x];
+}
+
+PackedByteArray DiabloBridge::get_dungeon_solidity_grid() const {
+	PackedByteArray arr;
+	std::vector<uint8_t> grid = devilution::GetDungeonSolidityGrid();
+	arr.resize(grid.size());
+	if (!grid.empty()) {
+		std::memcpy(arr.ptrw(), grid.data(), grid.size());
+	}
+	return arr;
+}
+
+Dictionary DiabloBridge::get_player_continuous_pos() const {
+	Dictionary d;
+	devilution::D1PlayerEntityData data = devilution::GetPlayerEntityData();
+	d["pos_x"] = data.posX;
+	d["pos_y"] = data.posY;
+	d["tile_x"] = data.tileX;
+	d["tile_y"] = data.tileY;
+	d["dir"] = data.dir;
+	d["is_walking"] = data.isWalking;
+	d["mode"] = data.mode;
+	return d;
+}
+
+Array DiabloBridge::get_active_monsters_data() const {
+	Array arr;
+	std::vector<devilution::D1MonsterEntityData> monsters = devilution::GetActiveMonstersData();
+	for (const auto &m : monsters) {
+		Dictionary md;
+		md["id"] = m.id;
+		md["name"] = String(m.name);
+		md["type"] = m.type;
+		md["pos_x"] = m.posX;
+		md["pos_y"] = m.posY;
+		md["dir"] = m.dir;
+		md["hp"] = m.hp;
+		md["max_hp"] = m.maxHp;
+		md["is_alive"] = m.isAlive;
+		md["is_walking"] = m.isWalking;
+		md["mode"] = m.mode;
+		arr.push_back(md);
+	}
+	return arr;
 }
 
 void DiabloBridge::send_input(int type, int code, int state, int x, int y) {

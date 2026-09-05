@@ -51,6 +51,11 @@ var modern_hud = null
 var modern_hud_enabled: bool = true     # Default: Modern Diablo IV Native CanvasLayer HUD
 var last_is_ingame: bool = false
 
+# Native Godot 3D Sandbox (Lépcső 1 / Step 1)
+var sandbox_scene = preload("res://scenes/sandbox/native_3d_sandbox.tscn")
+var sandbox_instance = null
+var sandbox_enabled: bool = false
+
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
 	"1.0x (Normál / Széles Látószög)",
@@ -186,8 +191,15 @@ func _ready():
 	modern_hud.visible = modern_hud_enabled
 	if diablo_bridge:
 		modern_hud.set_bridge(diablo_bridge)
+
+	# Initialize Native 3D Sandbox (Lépcső 1 / Step 1)
+	sandbox_instance = sandbox_scene.instantiate()
+	add_child(sandbox_instance)
+	sandbox_instance.diablo_bridge = diablo_bridge
+	sandbox_instance.main_receiver = self
+	sandbox_instance.deactivate()
 	
-	show_osd("Diablo 1 Resurrected | Modern D4 HUD Active [H] | F4: V-Sync | F12: Wet Floor", 4.0)
+	show_osd("Diablo 1 Resurrected | [F3] Native 3D Sandbox | [H] Modern HUD | [F4] V-Sync", 4.0)
 	print("[Godot-D1 Bridge] Receiver initialized with user defaults. Dark Gothic, 8K Spline & Panel Shield active.")
 
 func _notification(what: int):
@@ -351,6 +363,8 @@ func _process(delta: float):
 					modern_hud.set_bridge(diablo_bridge)
 				if modern_hud_enabled:
 					diablo_bridge.set_vanilla_hud_hidden(true)
+				if sandbox_instance:
+					sandbox_instance.diablo_bridge = diablo_bridge
 			var cur_frame_id = diablo_bridge.get_frame_id()
 			if cur_frame_id != last_frame_id:
 				last_frame_id = cur_frame_id
@@ -467,6 +481,34 @@ func _unhandled_input(event: InputEvent):
 			update_shader_params()
 			show_osd("[H] HUD Mode: " + ("Modern Diablo IV CanvasLayer (Forward+ Vulkan)" if modern_hud_enabled else "Classic 1996 Panel (Vanilla)"))
 			return
+		elif event.keycode == KEY_F3:
+			sandbox_enabled = !sandbox_enabled
+			if sandbox_instance:
+				if sandbox_enabled:
+					if mesh_instance:
+						mesh_instance.visible = false
+					if hero_light:
+						hero_light.visible = false
+					if torch_container:
+						torch_container.visible = false
+					if effects_container:
+						effects_container.visible = false
+					sandbox_instance.activate()
+					show_osd("[F3] Native 3D Sandbox: ENABLED (Smooth Camera, 3D Dungeon, PgUp/PgDn Tilt, Q/E Rotate)", 3.5)
+				else:
+					sandbox_instance.deactivate()
+					if mesh_instance:
+						mesh_instance.visible = true
+					if hero_light:
+						hero_light.visible = hero_light_enabled
+					if torch_container:
+						torch_container.visible = true
+					if effects_container:
+						effects_container.visible = true
+					if camera:
+						camera.make_current()
+					show_osd("[F3] Native 3D Sandbox: DISABLED (Classic 2.5D View Active)", 2.5)
+			return
 		elif event.keycode == KEY_F4:
 			vsync_enabled = !vsync_enabled
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED)
@@ -512,6 +554,10 @@ func _unhandled_input(event: InputEvent):
 			wet_floor = !wet_floor
 			update_shader_params()
 			show_osd("[F12] Dungeon Floor: " + ("Wet & Reflective Cobblestone (Glossy Puddles ON)" if wet_floor else "Dry Dusty Stone Surface (OFF)"))
+			return
+
+	if sandbox_enabled and sandbox_instance != null:
+		if sandbox_instance.handle_input(event):
 			return
 
 	if not use_gdextension and not FileAccess.file_exists("/dev/shm/d1_godot_frame"):

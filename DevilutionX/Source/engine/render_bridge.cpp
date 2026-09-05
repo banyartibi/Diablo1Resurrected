@@ -16,6 +16,7 @@
 
 #include "control.h"
 #include "player.h"
+#include "monster.h"
 #include "levels/gendung.h"
 #include "diablo.h"
 #include "utils/paths.h"
@@ -1436,6 +1437,105 @@ void UseInventorySlot(int slotType, int slotIdx)
 		}
 	}
 	g_InventoryVersion.fetch_add(1);
+}
+
+D1PlayerEntityData GetPlayerEntityData()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1PlayerEntityData data;
+	if (!gbRunGame || MyPlayer == nullptr)
+		return data;
+
+	const Player &player = *MyPlayer;
+	data.tileX = player.position.tile.x;
+	data.tileY = player.position.tile.y;
+	data.dir = static_cast<int>(player._pdir);
+	data.mode = static_cast<int>(player._pmode);
+	data.isWalking = player.isWalking();
+
+	if (player.isWalking() && player.AnimInfo.numberOfFrames > 0) {
+		float progress = static_cast<float>(player.AnimInfo.currentFrame) / static_cast<float>(player.AnimInfo.numberOfFrames);
+		progress = std::clamp(progress, 0.0f, 1.0f);
+		data.posX = player.position.tile.x + (player.position.future.x - player.position.tile.x) * progress;
+		data.posY = player.position.tile.y + (player.position.future.y - player.position.tile.y) * progress;
+	} else {
+		data.posX = static_cast<float>(player.position.tile.x);
+		data.posY = static_cast<float>(player.position.tile.y);
+	}
+	return data;
+}
+
+std::vector<D1MonsterEntityData> GetActiveMonstersData()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	std::vector<D1MonsterEntityData> result;
+	if (!gbRunGame || currlevel == 0) // Town has no hostile monsters
+		return result;
+
+	size_t count = std::min(ActiveMonsterCount, MaxMonsters);
+	result.reserve(count);
+
+	for (size_t i = 0; i < count; ++i) {
+		int mIdx = ActiveMonsters[i];
+		if (mIdx < 0 || mIdx >= static_cast<int>(MaxMonsters))
+			continue;
+
+		const Monster &m = Monsters[mIdx];
+		D1MonsterEntityData med;
+		med.id = mIdx;
+		med.type = static_cast<int>(m.type().type);
+		med.dir = static_cast<int>(m.direction);
+		med.mode = static_cast<int>(m.mode);
+		med.hp = m.hitPoints >> 6;
+		med.maxHp = m.maxHitPoints >> 6;
+		med.isAlive = (m.hitPoints > 0 && m.mode != MonsterMode::Death);
+		med.isWalking = m.isWalking();
+
+		string_view nameView = m.name();
+		size_t copyLen = std::min(nameView.size(), sizeof(med.name) - 1);
+		std::memcpy(med.name, nameView.data(), copyLen);
+		med.name[copyLen] = '\0';
+
+		if (m.isWalking() && m.animInfo.numberOfFrames > 0) {
+			float progress = static_cast<float>(m.animInfo.currentFrame) / static_cast<float>(m.animInfo.numberOfFrames);
+			progress = std::clamp(progress, 0.0f, 1.0f);
+			med.posX = m.position.tile.x + (m.position.future.x - m.position.tile.x) * progress;
+			med.posY = m.position.tile.y + (m.position.future.y - m.position.tile.y) * progress;
+		} else {
+			med.posX = static_cast<float>(m.position.tile.x);
+			med.posY = static_cast<float>(m.position.tile.y);
+		}
+
+		result.push_back(med);
+	}
+	return result;
+}
+
+std::vector<uint8_t> GetDungeonSolidityGrid()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	std::vector<uint8_t> grid(MAXDUNX * MAXDUNY, 0);
+	if (!gbRunGame)
+		return grid;
+
+	for (int y = 0; y < MAXDUNY; ++y) {
+		for (int x = 0; x < MAXDUNX; ++x) {
+			uint16_t piece = dPiece[x][y];
+			if (piece == 0) {
+				grid[y * MAXDUNX + x] = 0; // Void / out-of-bounds
+				continue;
+			}
+
+			if (TileHasAny(piece, TileProperties::Solid)) {
+				grid[y * MAXDUNX + x] = 2; // Solid Wall / Pillar
+			} else if (dSpecial[x][y] != 0) {
+				grid[y * MAXDUNX + x] = 3; // Doorway / Archway
+			} else {
+				grid[y * MAXDUNX + x] = 1; // Walkable Floor
+			}
+		}
+	}
+	return grid;
 }
 
 } // namespace devilution
