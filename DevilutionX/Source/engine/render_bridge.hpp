@@ -421,5 +421,32 @@ struct D1CorpseSpriteRgba {
 std::vector<D1CorpseInfo> GetActiveCorpsesList();
 D1CorpseSpriteRgba GetCorpseSpriteRgba(int corpseIdx, int dir);
 
+// Isometric <-> Screen Coordinate Mapping
+Point MapIsometricToScreenCoords(float isoX, float isoY);
+
+// Missiles & Spell Projectiles (Firebolt, Holy Bolt, Fireball, Lightning, Arrows)
+struct D1MissileInfo {
+	int id;
+	int type;
+	float posX;
+	float posY;
+	int tileX;
+	int tileY;
+	int animFrame;
+	int width;
+	int height;
+	bool lightFlag;
+	bool preFlag;
+};
+
+struct D1MissileSpriteRgba {
+	int width = 0;
+	int height = 0;
+	std::vector<uint8_t> rgba;
+};
+
+std::vector<D1MissileInfo> GetActiveMissilesList();
+D1MissileSpriteRgba GetMissileSpriteRgba(int missileId);
+
 } // namespace devilution
 

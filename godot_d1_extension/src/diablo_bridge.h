@@ -133,6 +133,13 @@ public:
 	Array get_active_corpses() const;
 	Dictionary get_corpse_sprite_data(int corpse_idx, int dir) const;
 
+	// Coordinate Mapping
+	Vector2i map_world_to_screen(const Vector2 &world_pos) const;
+
+	// Native Godot 2.5D Missiles & Spell Projectiles
+	Array get_active_missiles() const;
+	Dictionary get_missile_sprite_data(int missile_id) const;
+
 	// Native 3D World & Entity Tracking
 	Dictionary get_player_continuous_pos() const;
 	Array get_active_monsters_data() const;

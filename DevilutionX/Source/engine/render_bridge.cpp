@@ -41,6 +41,7 @@
 #include "objdat.h"
 #include "itemdat.h"
 #include "dead.h"
+#include "missiles.h"
 #include <cmath>
 
 namespace devilution {
@@ -1553,7 +1554,7 @@ D1SpriteFrameRgba GetPlayerSpriteRgba()
 	if (!player.AnimInfo.sprites)
 		return result;
 
-	const ClxSprite sprite = player.previewCelSprite ? *player.previewCelSprite : player.AnimInfo.currentSprite();
+	const ClxSprite sprite = (player._pmode == PM_STAND && player.previewCelSprite) ? *player.previewCelSprite : player.AnimInfo.currentSprite();
 	int w = sprite.width();
 	int h = sprite.height();
 	if (w <= 0 || h <= 0 || w > 512 || h > 512)
@@ -1983,6 +1984,82 @@ D1CorpseSpriteRgba GetCorpseSpriteRgba(int corpseIdx, int dir)
 		trn = Monsters[corpse.translationPaletteIndex - 1].uniqueMonsterTRN.get();
 	}
 	RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba, trn);
+	return result;
+}
+
+Point MapIsometricToScreenCoords(float isoX, float isoY)
+{
+	float fx = (isoX / 32.0f + isoY / 16.0f) * 0.5f;
+	float fy = (isoY / 16.0f - isoX / 32.0f) * 0.5f;
+	int tx = static_cast<int>(std::floor(fx));
+	int ty = static_cast<int>(std::floor(fy));
+	float subX = fx - static_cast<float>(tx);
+	float subY = fy - static_cast<float>(ty);
+	int dx = static_cast<int>((subX - subY) * 32.0f);
+	int dy = static_cast<int>((subX + subY) * 16.0f);
+	return TileToScreenCoords(Point { tx, ty }, Displacement { dx, dy });
+}
+
+std::vector<D1MissileInfo> GetActiveMissilesList()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	std::vector<D1MissileInfo> list;
+	if (!gbRunGame) return list;
+
+	int index = 0;
+	for (const auto &missile : Missiles) {
+		int currentId = index++;
+		if (!missile._miDrawFlag || !missile._miAnimData.has_value() || missile._miAnimFrame <= 0 ||
+		    static_cast<size_t>(missile._miAnimFrame) > (*missile._miAnimData).numSprites()) {
+			continue;
+		}
+
+		const ClxSprite sprite = (*missile._miAnimData)[missile._miAnimFrame - 1];
+		int w = sprite.width();
+		int h = sprite.height();
+
+		float isoX = static_cast<float>(missile.position.tile.x - missile.position.tile.y) * 32.0f + static_cast<float>(missile.position.offset.deltaX);
+		float isoY = static_cast<float>(missile.position.tile.x + missile.position.tile.y) * 16.0f + static_cast<float>(missile.position.offset.deltaY);
+
+		D1MissileInfo info;
+		info.id = currentId;
+		info.type = static_cast<int>(missile._mitype);
+		info.posX = isoX;
+		info.posY = isoY;
+		info.tileX = missile.position.tile.x;
+		info.tileY = missile.position.tile.y;
+		info.animFrame = missile._miAnimFrame;
+		info.width = w;
+		info.height = h;
+		info.lightFlag = missile._miLightFlag;
+		info.preFlag = missile._miPreFlag;
+		list.push_back(info);
+	}
+	return list;
+}
+
+D1MissileSpriteRgba GetMissileSpriteRgba(int missileId)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1MissileSpriteRgba result;
+	if (!gbRunGame || missileId < 0) return result;
+
+	int index = 0;
+	for (const auto &missile : Missiles) {
+		if (index++ == missileId) {
+			if (!missile._miAnimData.has_value() || missile._miAnimFrame <= 0 ||
+			    static_cast<size_t>(missile._miAnimFrame) > (*missile._miAnimData).numSprites()) {
+				return result;
+			}
+			const ClxSprite sprite = (*missile._miAnimData)[missile._miAnimFrame - 1];
+			const uint8_t *trn = nullptr;
+			if (missile._miUniqTrans != 0 && missile._misource >= 0 && static_cast<size_t>(missile._misource) < MaxMonsters) {
+				trn = Monsters[missile._misource].uniqueMonsterTRN.get();
+			}
+			RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba, trn);
+			return result;
+		}
+	}
 	return result;
 }
 

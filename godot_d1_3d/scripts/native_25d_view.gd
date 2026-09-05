@@ -42,6 +42,11 @@ var item_textures: Dictionary = {} # int (id) -> ImageTexture
 var corpse_sprites: Dictionary = {} # Vector2i -> Sprite2D
 var corpse_textures: Dictionary = {} # String ("corpseIdx_dir") -> ImageTexture
 
+# Missiles & Spell Projectiles
+var missile_nodes: Dictionary = {} # int (id) -> Node2D
+var missile_textures: Dictionary = {} # String ("type_frame") -> ImageTexture
+var last_player_mode: int = -999
+
 # Torch light pool
 var torch_lights: Array = []
 
@@ -165,6 +170,7 @@ func _process(delta: float):
 	update_objects()
 	update_ground_items()
 	update_corpses()
+	update_missiles()
 	update_lighting_and_transparency()
 
 func rebuild_dungeon_tiles():
@@ -213,6 +219,14 @@ func rebuild_dungeon_tiles():
 	corpse_sprites.clear()
 	corpse_textures.clear()
 
+	# Clear previous missiles
+	for m_id in missile_nodes:
+		var node = missile_nodes[m_id]
+		if is_instance_valid(node):
+			node.queue_free()
+	missile_nodes.clear()
+	missile_textures.clear()
+
 	var special_grid = PackedInt32Array()
 	if diablo_bridge.has_method("get_dungeon_special_grid"):
 		special_grid = diablo_bridge.get_dungeon_special_grid()
@@ -238,6 +252,8 @@ func rebuild_dungeon_tiles():
 					var h = tex.get_height()
 					spr.position = tile_pos
 					spr.offset = Vector2(-32.0, 16.0 - float(h))
+					# Initialize in deep gothic darkness / fog of war
+					spr.self_modulate = Color(0.04, 0.07, 0.11)
 					if h <= 32:
 						spr.z_index = -1
 					else:
@@ -256,6 +272,8 @@ func rebuild_dungeon_tiles():
 					var ah = arch_tex.get_height()
 					arch_spr.position = tile_pos
 					arch_spr.offset = Vector2(-32.0, 16.0 - float(ah))
+					# Initialize in deep gothic darkness / fog of war
+					arch_spr.self_modulate = Color(0.04, 0.07, 0.11)
 					arch_spr.z_index = 0 # Y-sorted with walls!
 					world_root.add_child(arch_spr)
 					special_sprites[Vector2i(x, y)] = arch_spr
@@ -286,10 +304,13 @@ func update_lighting_and_transparency():
 	var p_tx = int(p_pos.get("pos_x", 25.0))
 	var p_ty = int(p_pos.get("pos_y", 25.0))
 
-	var min_x = max(0, p_tx - 24)
-	var max_x = min(111, p_tx + 24)
-	var min_y = max(0, p_ty - 24)
-	var max_y = min(111, p_ty + 24)
+	var z = camera.zoom.x if camera else 1.0
+	var rad_x = int(clamp(36.0 / z, 24.0, 64.0))
+	var rad_y = int(clamp(28.0 / z, 18.0, 56.0))
+	var min_x = max(0, p_tx - rad_x)
+	var max_x = min(111, p_tx + rad_x)
+	var min_y = max(0, p_ty - rad_y)
+	var max_y = min(111, p_ty + rad_y)
 
 	for ty in range(min_y, max_y + 1):
 		for tx in range(min_x, max_x + 1):
@@ -310,6 +331,8 @@ func update_lighting_and_transparency():
 				tile_mod = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), brightness)
 
 			# Milestone 3: Front-Wall Transparency (TransList)
+			# NOTE: Only wall tiles and archways (height > 32) become transparent.
+			# Floor tiles (height <= 32) MUST ALWAYS remain 100% solid!
 			var alpha_val = 1.0
 			if has_trans:
 				var t_id = trans_grid[idx]
@@ -318,7 +341,10 @@ func update_lighting_and_transparency():
 
 			if spr:
 				spr.self_modulate = tile_mod
-				spr.modulate.a = alpha_val
+				if spr.texture and spr.texture.get_height() > 32:
+					spr.modulate.a = alpha_val
+				else:
+					spr.modulate.a = 1.0
 
 			if arch_spr:
 				arch_spr.self_modulate = tile_mod
@@ -327,7 +353,7 @@ func update_lighting_and_transparency():
 			var c_spr = corpse_sprites.get(pos_key, null)
 			if c_spr:
 				c_spr.self_modulate = tile_mod
-				c_spr.modulate.a = alpha_val
+				c_spr.modulate.a = 1.0
 
 func update_player(delta: float):
 	if not diablo_bridge or not diablo_bridge.has_method("get_player_continuous_pos"):
@@ -338,6 +364,7 @@ func update_player(delta: float):
 	var py = p_data.get("pos_y", 25.0)
 	var dir = p_data.get("dir", 0)
 	var anim_frame = p_data.get("anim_frame", -1)
+	var mode = p_data.get("mode", 0)
 
 	# Target position in isometric coordinates
 	player_target_pos = Vector2(float(px - py) * 32.0, float(px + py) * 16.0)
@@ -357,11 +384,12 @@ func update_player(delta: float):
 		var flicker = 0.45 + 0.05 * sin(time_accum * 5.4) * cos(time_accum * 2.8)
 		player_light.energy = flicker
 
-	# Update animated player sprite
+	# Update animated player sprite (updates on frame, dir, or mode changes like attack/cast)
 	if diablo_bridge.has_method("get_player_sprite_data"):
-		if anim_frame != last_player_frame or dir != last_player_dir or player_texture == null:
+		if anim_frame != last_player_frame or dir != last_player_dir or mode != last_player_mode or player_texture == null:
 			last_player_frame = anim_frame
 			last_player_dir = dir
+			last_player_mode = mode
 			var s_data: Dictionary = diablo_bridge.get_player_sprite_data()
 			var sw = s_data.get("width", 0)
 			var sh = s_data.get("height", 0)
@@ -397,8 +425,6 @@ func update_monsters(delta: float):
 		var my = m.get("pos_y", 0.0)
 		var dir = m.get("dir", 0)
 		var anim_frame = m.get("anim_frame", -1)
-		var hp = m.get("hp", 1)
-		var max_hp = max(1, m.get("max_hp", 1))
 
 		var target_pos = Vector2(float(mx - my) * 32.0, float(mx + my) * 16.0)
 		node.position = node.position.lerp(target_pos, delta * 12.0)
@@ -428,17 +454,6 @@ func update_monsters(delta: float):
 						cur_tex.update(m_img)
 					if m_sprite:
 						m_sprite.offset = Vector2(0, -float(mh) * 0.5 + 16.0)
-
-					# Adjust overhead HP bar height
-					var hp_bar = node.get_node_or_null("HPBar") as ProgressBar
-					if hp_bar:
-						hp_bar.position.y = -float(mh) - 8.0
-
-		# Update HP Bar value & gradient
-		var hp_bar = node.get_node_or_null("HPBar") as ProgressBar
-		if hp_bar:
-			hp_bar.max_value = max_hp
-			hp_bar.value = hp
 
 		# Milestone 2: Per-Tile Authentic Lighting on Monsters & Fog of War
 		var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
@@ -471,13 +486,6 @@ func get_or_create_monster_node(m_id: int) -> Node2D:
 	spr.name = "Sprite"
 	spr.centered = true
 	m_root.add_child(spr)
-
-	var hp_bar = ProgressBar.new()
-	hp_bar.name = "HPBar"
-	hp_bar.size = Vector2(36, 4)
-	hp_bar.position = Vector2(-18, -48)
-	hp_bar.show_percentage = false
-	m_root.add_child(hp_bar)
 
 	monster_nodes[m_id] = m_root
 	return m_root
@@ -741,6 +749,89 @@ func update_corpses():
 		if not seen_keys.has(k):
 			corpse_sprites[k].visible = false
 
+# Projectiles & Spells (Arrows, Firebolts, Fireballs, Lightning, Holy Bolts)
+func update_missiles():
+	if not diablo_bridge or not diablo_bridge.has_method("get_active_missiles"):
+		return
+
+	var missiles: Array = diablo_bridge.get_active_missiles()
+	var seen_ids: Dictionary = {}
+
+	for m in missiles:
+		var m_id = m.get("id", -1)
+		if m_id < 0:
+			continue
+		seen_ids[m_id] = true
+
+		var m_type = m.get("type", 0)
+		var px = m.get("pos_x", 0.0)
+		var py = m.get("pos_y", 0.0)
+		var anim_frame = m.get("anim_frame", 0)
+		var light_flag = m.get("light_flag", false)
+		var pre_flag = m.get("pre_flag", false)
+
+		var node: Node2D = missile_nodes.get(m_id, null)
+		if node == null:
+			node = Node2D.new()
+			node.name = "Missile_%d" % m_id
+			world_root.add_child(node)
+
+			var spr = Sprite2D.new()
+			spr.name = "Sprite"
+			spr.centered = true
+			node.add_child(spr)
+
+			var light = PointLight2D.new()
+			light.name = "Light"
+			light.texture = create_radial_light_texture(256)
+			light.texture_scale = 1.0
+			node.add_child(light)
+
+			missile_nodes[m_id] = node
+
+		node.visible = true
+		node.position = Vector2(px, py)
+		node.z_index = -1 if pre_flag else 0
+
+		# Texture caching by (type, anim_frame)
+		var cache_key = "%d_%d" % [m_type, anim_frame]
+		var tex: ImageTexture = missile_textures.get(cache_key, null)
+		if tex == null and diablo_bridge.has_method("get_missile_sprite_data"):
+			var s_data = diablo_bridge.get_missile_sprite_data(m_id)
+			var sw = s_data.get("width", 0)
+			var sh = s_data.get("height", 0)
+			var rgba = s_data.get("rgba", PackedByteArray())
+			if sw > 0 and sh > 0 and rgba.size() == sw * sh * 4:
+				var img = Image.create_from_data(sw, sh, false, Image.FORMAT_RGBA8, rgba)
+				tex = ImageTexture.create_from_image(img)
+				missile_textures[cache_key] = tex
+
+		var spr = node.get_node_or_null("Sprite") as Sprite2D
+		if spr and tex:
+			spr.texture = tex
+
+		# Dynamic spell lighting (Fire: warm fiery glow; Lightning: electric cyan; Holy Bolt: pure gold)
+		var light = node.get_node_or_null("Light") as PointLight2D
+		if light:
+			if light_flag:
+				light.enabled = true
+				if m_type == 9 or m_type == 14 or m_type == 31: # Lightning / Nova / Chain
+					light.color = Color(0.45, 0.85, 1.0)
+					light.energy = 0.95
+				elif m_type == 25: # Holy Bolt
+					light.color = Color(1.0, 1.0, 0.6)
+					light.energy = 0.85
+				else: # Firebolt, Fireball, Flame Wave, etc.
+					light.color = Color(1.0, 0.65, 0.25)
+					light.energy = 0.90
+			else:
+				light.enabled = false
+
+	# Hide inactive missiles
+	for m_id in missile_nodes:
+		if not seen_ids.has(m_id):
+			missile_nodes[m_id].visible = false
+
 func handle_input(event: InputEvent) -> bool:
 	if not is_active:
 		return false
@@ -762,9 +853,10 @@ func handle_input(event: InputEvent) -> bool:
 
 	# Mouse Click & Motion Conversion
 	if event is InputEventMouseButton:
-		var delta_world = get_global_mouse_position() - player_node.position
-		var d1_x = int(float(d1_width) * 0.5 + delta_world.x)
-		var d1_y = int(float(d1_height) * 0.5 + delta_world.y)
+		var mouse_world = get_global_mouse_position()
+		var d1_coords = diablo_bridge.map_world_to_screen(mouse_world) if diablo_bridge and diablo_bridge.has_method("map_world_to_screen") else Vector2i(int(float(d1_width) * 0.5 + (mouse_world.x - player_node.position.x)), int(float(d1_height) * 0.5 + (mouse_world.y - player_node.position.y)))
+		var d1_x = d1_coords.x
+		var d1_y = d1_coords.y
 		var btn = 1
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			btn = 3
@@ -776,9 +868,10 @@ func handle_input(event: InputEvent) -> bool:
 		return true
 
 	elif event is InputEventMouseMotion:
-		var delta_world = get_global_mouse_position() - player_node.position
-		var d1_x = int(float(d1_width) * 0.5 + delta_world.x)
-		var d1_y = int(float(d1_height) * 0.5 + delta_world.y)
+		var mouse_world = get_global_mouse_position()
+		var d1_coords = diablo_bridge.map_world_to_screen(mouse_world) if diablo_bridge and diablo_bridge.has_method("map_world_to_screen") else Vector2i(int(float(d1_width) * 0.5 + (mouse_world.x - player_node.position.x)), int(float(d1_height) * 0.5 + (mouse_world.y - player_node.position.y)))
+		var d1_x = d1_coords.x
+		var d1_y = d1_coords.y
 		if diablo_bridge and diablo_bridge.has_method("send_input"):
 			diablo_bridge.send_input(1, 0, 0, d1_x, d1_y)
 		return true

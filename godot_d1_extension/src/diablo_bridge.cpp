@@ -98,6 +98,13 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_active_corpses"), &DiabloBridge::get_active_corpses);
 	ClassDB::bind_method(D_METHOD("get_corpse_sprite_data", "corpse_idx", "dir"), &DiabloBridge::get_corpse_sprite_data);
 
+	// Coordinate Mapping
+	ClassDB::bind_method(D_METHOD("map_world_to_screen", "world_pos"), &DiabloBridge::map_world_to_screen);
+
+	// Native Godot 2.5D Missiles & Spell Projectiles
+	ClassDB::bind_method(D_METHOD("get_active_missiles"), &DiabloBridge::get_active_missiles);
+	ClassDB::bind_method(D_METHOD("get_missile_sprite_data", "missile_id"), &DiabloBridge::get_missile_sprite_data);
+
 	// Native 3D World & Entity Tracking
 	ClassDB::bind_method(D_METHOD("get_player_continuous_pos"), &DiabloBridge::get_player_continuous_pos);
 	ClassDB::bind_method(D_METHOD("get_active_monsters_data"), &DiabloBridge::get_active_monsters_data);
@@ -1017,6 +1024,46 @@ Array DiabloBridge::get_active_corpses() const {
 Dictionary DiabloBridge::get_corpse_sprite_data(int corpse_idx, int dir) const {
 	Dictionary d;
 	auto data = devilution::GetCorpseSpriteRgba(corpse_idx, dir);
+	d["width"] = data.width;
+	d["height"] = data.height;
+	PackedByteArray pba;
+	pba.resize(data.rgba.size());
+	if (!data.rgba.empty()) {
+		std::memcpy(pba.ptrw(), data.rgba.data(), data.rgba.size());
+	}
+	d["rgba"] = pba;
+	return d;
+}
+
+Vector2i DiabloBridge::map_world_to_screen(const Vector2 &world_pos) const {
+	devilution::Point p = devilution::MapIsometricToScreenCoords(world_pos.x, world_pos.y);
+	return Vector2i(p.x, p.y);
+}
+
+Array DiabloBridge::get_active_missiles() const {
+	Array arr;
+	auto list = devilution::GetActiveMissilesList();
+	for (const auto &m : list) {
+		Dictionary d;
+		d["id"] = m.id;
+		d["type"] = m.type;
+		d["pos_x"] = m.posX;
+		d["pos_y"] = m.posY;
+		d["tile_x"] = m.tileX;
+		d["tile_y"] = m.tileY;
+		d["anim_frame"] = m.animFrame;
+		d["width"] = m.width;
+		d["height"] = m.height;
+		d["light_flag"] = m.lightFlag;
+		d["pre_flag"] = m.preFlag;
+		arr.push_back(d);
+	}
+	return arr;
+}
+
+Dictionary DiabloBridge::get_missile_sprite_data(int missile_id) const {
+	Dictionary d;
+	auto data = devilution::GetMissileSpriteRgba(missile_id);
 	d["width"] = data.width;
 	d["height"] = data.height;
 	PackedByteArray pba;
