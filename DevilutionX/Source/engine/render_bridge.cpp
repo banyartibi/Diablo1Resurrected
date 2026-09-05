@@ -807,21 +807,9 @@ std::vector<D1EngineLight> GetActiveEngineLights()
 
 	// 1. Hero Torch (Type 0)
 	{
-		Displacement walkOffset = {};
-		if (MyPlayer->isWalking()) {
-			walkOffset = GetOffsetForWalking(MyPlayer->AnimInfo, MyPlayer->_pdir);
-		}
-		Point heroScreen = TileToScreenCoords(MyPlayer->position.tile, walkOffset);
-		int yOffset = 26;
-		if (CurrentZoomMode == ZoomMode::Balanced_1_5x) yOffset = 39;
-		else if (CurrentZoomMode == ZoomMode::Zoomed_2x) yOffset = 52;
-		else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) yOffset = 65;
-		else if (CurrentZoomMode == ZoomMode::MacroClose_3x) yOffset = 78;
-		heroScreen.y -= yOffset;
-
 		D1EngineLight heroLight;
-		heroLight.normX = static_cast<float>(heroScreen.x) / static_cast<float>(gnScreenWidth);
-		heroLight.normY = static_cast<float>(heroScreen.y) / static_cast<float>(gnScreenHeight);
+		heroLight.normX = g_D1EngineData.playerNormX;
+		heroLight.normY = g_D1EngineData.playerNormY;
 		heroLight.radius = static_cast<float>(MyPlayer->_pLightRad);
 		heroLight.type = 0; // Hero Torch
 		heroLight.tileX = MyPlayer->position.tile.x;

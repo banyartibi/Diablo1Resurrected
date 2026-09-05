@@ -703,7 +703,19 @@ func process_visual_events() -> void:
 
 		if p_instance:
 			p_instance.position = ev_pos
-			var s = clamp(ev_scale, 0.85, 1.25)
+			var s = clamp(ev_scale, 0.9, 2.2)
 			p_instance.scale = Vector3(s, s, s)
 			effects_container.add_child(p_instance)
+
+			# On heavy hit or fatal kill gore (intensity >= 1.8), spawn a secondary burst for visceral gore volume
+			if ev_type == 1 and ev_scale >= 1.8:
+				var extra_gore = blood_splatter_scene.instantiate()
+				extra_gore.position = ev_pos + Vector3(randf_range(-0.12, 0.12), randf_range(-0.08, 0.08), 0.05)
+				extra_gore.scale = Vector3(s * 1.15, s * 1.15, s * 1.15)
+				effects_container.add_child(extra_gore)
+			elif ev_type == 2 and ev_scale >= 1.8:
+				var extra_bones = bone_shards_scene.instantiate()
+				extra_bones.position = ev_pos + Vector3(randf_range(-0.10, 0.10), randf_range(-0.06, 0.06), 0.05)
+				extra_bones.scale = Vector3(s * 1.1, s * 1.1, s * 1.1)
+				effects_container.add_child(extra_bones)
 

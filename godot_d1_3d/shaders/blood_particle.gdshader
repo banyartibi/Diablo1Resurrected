@@ -11,14 +11,17 @@ void fragment() {
 
 	float alpha_edge = smoothstep(0.48, 0.30, r);
 
-	// Deep arterial gothic blood palette: thick, dark, coagulated crimson
-	vec3 dark_blood = vec3(0.18, 0.008, 0.012);
-	vec3 rich_blood = vec3(0.32, 0.02, 0.025);
-	vec3 col = mix(rich_blood, dark_blood, smoothstep(0.15, 0.45, r));
+	// Deep arterial gothic blood palette: glistening, rich, coagulated crimson
+	vec3 dark_blood = vec3(0.22, 0.010, 0.015);
+	vec3 rich_blood = vec3(0.48, 0.028, 0.038);
+	vec3 col = mix(rich_blood, dark_blood, smoothstep(0.12, 0.46, r));
 
-	ALBEDO = col;
+	// Subtle wet liquid fresnel glint to catch torchlight against dark dungeon cobblestones
+	float fresnel = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+
+	ALBEDO = col + vec3(0.10, 0.015, 0.02) * fresnel;
 	ALPHA = COLOR.a * alpha_edge;
-	ROUGHNESS = 0.22;
-	SPECULAR = 0.45;
+	ROUGHNESS = 0.14;
+	SPECULAR = 0.70;
 	METALLIC = 0.0;
 }

@@ -489,6 +489,30 @@ void DrawPlayer(const Surface &out, const Player &player, Point tilePosition, Po
 
 	Point spriteBufferPosition = targetBufferPosition - Displacement { CalculateWidth2(sprite.width()), 0 };
 
+	if (&player == MyPlayer && gnScreenWidth > 0 && gnScreenHeight > 0) {
+		float sx = static_cast<float>(targetBufferPosition.x);
+		float sy = static_cast<float>(targetBufferPosition.y - 28);
+		int viewportOffsetX = 0;
+		if (CanPanelsCoverView() && IsLeftPanelOpen() && CurrentZoomMode != ZoomMode::Normal) {
+			viewportOffsetX = SidePanelSize.width;
+		}
+		if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
+			sx = (sx * 3.0f) / 2.0f + static_cast<float>(viewportOffsetX);
+			sy = (sy * 3.0f) / 2.0f;
+		} else if (CurrentZoomMode == ZoomMode::Zoomed_2x) {
+			sx = sx * 2.0f + static_cast<float>(viewportOffsetX);
+			sy = sy * 2.0f;
+		} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+			sx = (sx * 5.0f) / 2.0f + static_cast<float>(viewportOffsetX);
+			sy = (sy * 5.0f) / 2.0f;
+		} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+			sx = sx * 3.0f + static_cast<float>(viewportOffsetX);
+			sy = sy * 3.0f;
+		}
+		g_D1EngineData.playerNormX = sx / static_cast<float>(gnScreenWidth);
+		g_D1EngineData.playerNormY = sy / static_cast<float>(gnScreenHeight);
+	}
+
 	if (static_cast<size_t>(pcursplr) < Players.size() && &player == &Players[pcursplr])
 		ClxDrawOutlineSkipColorZero(out, 165, spriteBufferPosition, sprite);
 

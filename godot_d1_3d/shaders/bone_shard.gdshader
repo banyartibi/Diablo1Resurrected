@@ -10,13 +10,13 @@ void fragment() {
 	float edge = smoothstep(0.48, 0.38, d);
 
 	// Aged ivory / ancient bone color with facet variation
-	vec3 bone_base = vec3(0.82, 0.78, 0.68);
-	vec3 bone_shade = vec3(0.60, 0.56, 0.48);
+	vec3 bone_base = vec3(0.88, 0.85, 0.74);
+	vec3 bone_shade = vec3(0.65, 0.60, 0.50);
 	vec3 col = mix(bone_base, bone_shade, (UV.x + UV.y) * 0.5);
 
 	ALBEDO = col;
 	ALPHA = COLOR.a * edge;
-	ROUGHNESS = 0.68;
-	SPECULAR = 0.15;
+	ROUGHNESS = 0.55;
+	SPECULAR = 0.25;
 	METALLIC = 0.0;
 }

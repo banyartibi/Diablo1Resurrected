@@ -12,25 +12,25 @@ particle_flag_align_y = true
 lifetime_randomness = 0.4
 direction = Vector3(0, 0.6, 0.2)
 spread = 75.0
-initial_velocity_min = 1.0
-initial_velocity_max = 2.8
+initial_velocity_min = 1.6
+initial_velocity_max = 4.2
 gravity = Vector3(0, -6.5, 0)
-damping_min = 2.0
-damping_max = 4.0
-scale_min = 0.4
-scale_max = 1.1
+damping_min = 1.8
+damping_max = 3.8
+scale_min = 0.5
+scale_max = 1.6
 color = Color(1, 1, 1, 1)
 
 [sub_resource type="QuadMesh" id="QuadMesh_chip"]
 material = SubResource("ShaderMaterial_bone")
-size = Vector2(0.024, 0.055)
+size = Vector2(0.038, 0.08)
 
 [node name="BoneShards" type="GPUParticles3D"]
 emitting = false
-amount = 18
-lifetime = 0.40
+amount = 45
+lifetime = 0.50
 one_shot = true
-explosiveness = 0.92
+explosiveness = 0.94
 randomness = 0.5
 process_material = SubResource("ParticleProcessMaterial_bone")
 draw_pass_1 = SubResource("QuadMesh_chip")
