@@ -1,23 +1,10 @@
-[gd_scene format=3 uid="uid://b8y9f4k3m1p2r"]
+[gd_scene load_steps=4 format=3 uid="uid://b8y9f4k3m1p2r"]
 
 [ext_resource type="Script" path="res://scenes/hud/diablo4_quest_log.gd" id="1_ql"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_quest_panel"]
-bg_color = Color(0.04, 0.035, 0.045, 0.98)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.78, 0.62, 0.28, 0.95)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
-shadow_color = Color(0, 0, 0, 0.95)
-shadow_size = 20
+[ext_resource type="Texture2D" path="res://assets/hud/gothic_char_panel.png" id="2_bg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close_btn"]
-bg_color = Color(0.16, 0.13, 0.16, 0.9)
+bg_color = Color(0.14, 0.11, 0.14, 0.9)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -28,74 +15,95 @@ corner_radius_top_right = 2
 corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
 
-[node name="QuestLog" type="PanelContainer"]
-offset_right = 420.0
-offset_bottom = 580.0
-theme_override_styles/panel = SubResource("StyleBoxFlat_quest_panel")
+[node name="QuestLog" type="Control"]
+custom_minimum_size = Vector2(320, 352)
+offset_right = 500.0
+offset_bottom = 550.0
 script = ExtResource("1_ql")
 
-[node name="Margin" type="MarginContainer" parent="."]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 14
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 0
 
-[node name="VBox" type="VBoxContainer" parent="Margin"]
-layout_mode = 2
-theme_override_constants/separation = 8
+[node name="Content" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_left = 0.20
+anchor_top = 0.23
+anchor_right = 0.80
+anchor_bottom = 0.86
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
 
-[node name="HeaderRow" type="HBoxContainer" parent="Margin/VBox"]
+[node name="VBox" type="VBoxContainer" parent="Content"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HeaderRow" type="HBoxContainer" parent="Content/VBox"]
 layout_mode = 2
 alignment = 1
 
-[node name="TitleVBox" type="VBoxContainer" parent="Margin/VBox/HeaderRow"]
+[node name="TitleVBox" type="VBoxContainer" parent="Content/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 1
 
-[node name="TitleLabel" type="Label" parent="Margin/VBox/HeaderRow/TitleVBox"]
+[node name="TitleLabel" type="Label" parent="Content/VBox/HeaderRow/TitleVBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.88, 0.4, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 3
-theme_override_font_sizes/font_size = 17
-text = "QUEST JOURNAL"
+theme_override_font_sizes/font_size = 15
+text = "QUEST LOG"
 
-[node name="SubTitleLabel" type="Label" parent="Margin/VBox/HeaderRow/TitleVBox"]
+[node name="SubTitleLabel" type="Label" parent="Content/VBox/HeaderRow/TitleVBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
-theme_override_font_sizes/font_size = 12
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
 text = "Chronicles of Tristram"
 
-[node name="CloseBtn" type="Button" parent="Margin/VBox/HeaderRow"]
-custom_minimum_size = Vector2(24, 24)
+[node name="CloseBtn" type="Button" parent="Content/VBox/HeaderRow"]
+custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
 focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBoxFlat_close_btn")
+theme_override_font_sizes/font_size = 11
 text = "✕"
 
-[node name="Divider" type="ColorRect" parent="Margin/VBox"]
-custom_minimum_size = Vector2(0, 2)
+[node name="Divider" type="ColorRect" parent="Content/VBox"]
+custom_minimum_size = Vector2(0, 1)
 layout_mode = 2
-color = Color(0.65, 0.52, 0.25, 0.9)
+color = Color(0.65, 0.52, 0.25, 0.6)
 
-[node name="EmptyLabel" type="Label" parent="Margin/VBox"]
+[node name="EmptyLabel" type="Label" parent="Content/VBox"]
 visible = false
 layout_mode = 2
 size_flags_vertical = 6
 theme_override_colors/font_color = Color(0.65, 0.6, 0.55, 1)
-theme_override_font_sizes/font_size = 13
-text = "No active quests recorded in your journal."
+theme_override_font_sizes/font_size = 12
+text = "No active quests recorded."
 horizontal_alignment = 1
 
-[node name="Scroll" type="ScrollContainer" parent="Margin/VBox"]
+[node name="Scroll" type="ScrollContainer" parent="Content/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="QuestList" type="VBoxContainer" parent="Margin/VBox/Scroll"]
+[node name="QuestList" type="VBoxContainer" parent="Content/VBox/Scroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4

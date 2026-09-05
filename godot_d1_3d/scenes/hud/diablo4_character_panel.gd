@@ -1,41 +1,41 @@
-extends PanelContainer
+extends Control
 
 var diablo_bridge = null
 
 # Node references
-@onready var name_label: Label = $Margin/VBox/HeaderRow/TitleVBox/NameLabel
-@onready var class_level_label: Label = $Margin/VBox/HeaderRow/TitleVBox/ClassLevelLabel
-@onready var gold_label: Label = $Margin/VBox/HeaderRow/GoldLabel
-@onready var close_btn: Button = $Margin/VBox/HeaderRow/CloseBtn
+@onready var name_label: Label = $Content/VBox/HeaderRow/TitleVBox/NameLabel
+@onready var class_level_label: Label = $Content/VBox/HeaderRow/TitleVBox/ClassLevelLabel
+@onready var gold_label: Label = $Content/VBox/HeaderRow/GoldLabel
+@onready var close_btn: Button = $Content/VBox/HeaderRow/CloseBtn
 
-@onready var level_up_banner: PanelContainer = $Margin/VBox/LevelUpBanner
-@onready var level_up_banner_label: Label = $Margin/VBox/LevelUpBanner/Margin/Label
+@onready var level_up_banner: PanelContainer = $Content/VBox/LevelUpBanner
+@onready var level_up_banner_label: Label = $Content/VBox/LevelUpBanner/Margin/Label
 
-@onready var exp_label: Label = $Margin/VBox/ExpPointsRow/ExpLabel
-@onready var stat_points_label: Label = $Margin/VBox/ExpPointsRow/StatPointsLabel
+@onready var exp_label: Label = $Content/VBox/FooterRow/ExpLabel
+@onready var stat_points_label: Label = $Content/VBox/FooterRow/StatPointsLabel
 
-@onready var str_val_label: Label = $Margin/VBox/AttributesCard/Margin/VBox/StrRow/ValueLabel
-@onready var add_str_btn: Button = $Margin/VBox/AttributesCard/Margin/VBox/StrRow/AddBtn
+@onready var str_val_label: Label = $Content/VBox/StatsColumns/LeftCol/StrRow/ValueLabel
+@onready var add_str_btn: Button = $Content/VBox/StatsColumns/LeftCol/StrRow/AddBtn
 
-@onready var mag_val_label: Label = $Margin/VBox/AttributesCard/Margin/VBox/MagRow/ValueLabel
-@onready var add_mag_btn: Button = $Margin/VBox/AttributesCard/Margin/VBox/MagRow/AddBtn
+@onready var mag_val_label: Label = $Content/VBox/StatsColumns/LeftCol/MagRow/ValueLabel
+@onready var add_mag_btn: Button = $Content/VBox/StatsColumns/LeftCol/MagRow/AddBtn
 
-@onready var dex_val_label: Label = $Margin/VBox/AttributesCard/Margin/VBox/DexRow/ValueLabel
-@onready var add_dex_btn: Button = $Margin/VBox/AttributesCard/Margin/VBox/DexRow/AddBtn
+@onready var dex_val_label: Label = $Content/VBox/StatsColumns/LeftCol/DexRow/ValueLabel
+@onready var add_dex_btn: Button = $Content/VBox/StatsColumns/LeftCol/DexRow/AddBtn
 
-@onready var vit_val_label: Label = $Margin/VBox/AttributesCard/Margin/VBox/VitRow/ValueLabel
-@onready var add_vit_btn: Button = $Margin/VBox/AttributesCard/Margin/VBox/VitRow/AddBtn
+@onready var vit_val_label: Label = $Content/VBox/StatsColumns/LeftCol/VitRow/ValueLabel
+@onready var add_vit_btn: Button = $Content/VBox/StatsColumns/LeftCol/VitRow/AddBtn
 
-@onready var dmg_val_label: Label = $Margin/VBox/CombatCard/Margin/VBox/DmgRow/ValueLabel
-@onready var to_hit_val_label: Label = $Margin/VBox/CombatCard/Margin/VBox/ToHitRow/ValueLabel
-@onready var armor_val_label: Label = $Margin/VBox/CombatCard/Margin/VBox/ArmorRow/ValueLabel
+@onready var dmg_val_label: Label = $Content/VBox/StatsColumns/RightCol/DmgRow/ValueLabel
+@onready var to_hit_val_label: Label = $Content/VBox/StatsColumns/RightCol/ToHitRow/ValueLabel
+@onready var armor_val_label: Label = $Content/VBox/StatsColumns/RightCol/ArmorRow/ValueLabel
 
-@onready var res_magic_val_label: Label = $Margin/VBox/ResistVitalsCard/Margin/VBox/ResRow1/ResMagicLabel
-@onready var res_fire_val_label: Label = $Margin/VBox/ResistVitalsCard/Margin/VBox/ResRow1/ResFireLabel
-@onready var res_lightning_val_label: Label = $Margin/VBox/ResistVitalsCard/Margin/VBox/ResRow2/ResLightningLabel
+@onready var res_magic_val_label: Label = $Content/VBox/StatsColumns/RightCol/ResMagicLabel
+@onready var res_fire_val_label: Label = $Content/VBox/StatsColumns/RightCol/ResFireLabel
+@onready var res_lightning_val_label: Label = $Content/VBox/StatsColumns/RightCol/ResLightningLabel
 
-@onready var life_val_label: Label = $Margin/VBox/ResistVitalsCard/Margin/VBox/VitalsRow/LifeLabel
-@onready var mana_val_label: Label = $Margin/VBox/ResistVitalsCard/Margin/VBox/VitalsRow/ManaLabel
+@onready var life_val_label: Label = $Content/VBox/StatsColumns/LeftCol/LifeLabel
+@onready var mana_val_label: Label = $Content/VBox/StatsColumns/LeftCol/ManaLabel
 
 const CLASS_NAMES = {
 	0: "Warrior",

@@ -281,7 +281,7 @@ func update_shader_params():
 		shader_material.set_shader_parameter("hdr_glow_mult", hdr_multipliers[current_hdr_level])
 		shader_material.set_shader_parameter("wet_floor", wet_floor)
 		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
-		shader_material.set_shader_parameter("left_panel_open", left_panel_open and !modern_hud_enabled)
+		shader_material.set_shader_parameter("left_panel_open", left_panel_open)
 		shader_material.set_shader_parameter("right_panel_open", right_panel_open)
 		if diablo_bridge and diablo_bridge.has_method("get_left_panel_rect"):
 			var lp = diablo_bridge.get_left_panel_rect()

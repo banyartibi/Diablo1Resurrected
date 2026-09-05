@@ -50,8 +50,8 @@ const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 # Character Panel & Quest Log
 const CHAR_PANEL_SCENE = preload("res://scenes/hud/diablo4_character_panel.tscn")
 const QUEST_LOG_SCENE = preload("res://scenes/hud/diablo4_quest_log.tscn")
-var char_panel: PanelContainer = null
-var quest_log: PanelContainer = null
+var char_panel: Control = null
+var quest_log: Control = null
 
 @onready var level_up_btn: Button = $Root/LevelUpBtn
 

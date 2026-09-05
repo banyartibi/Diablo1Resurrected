@@ -1,10 +1,10 @@
-extends PanelContainer
+extends Control
 
 var diablo_bridge = null
 
-@onready var close_btn: Button = $Margin/VBox/HeaderRow/CloseBtn
-@onready var quest_list: VBoxContainer = $Margin/VBox/Scroll/QuestList
-@onready var empty_label: Label = $Margin/VBox/EmptyLabel
+@onready var close_btn: Button = $Content/VBox/HeaderRow/CloseBtn
+@onready var quest_list: VBoxContainer = $Content/VBox/Scroll/QuestList
+@onready var empty_label: Label = $Content/VBox/EmptyLabel
 
 func _ready():
 	if close_btn:

@@ -1061,46 +1061,9 @@ void InitInv()
 	}
 }
 
-void DrawModernGothicInvBack(const Surface &out)
-{
-	Point pos = GetPanelPosition(UiPanels::Inventory, { 0, 0 });
-
-	// 1. Deep dark obsidian base slab
-	FillRect(out, pos.x, pos.y, SidePanelSize.width, SidePanelSize.height, 0);
-
-	// 2. Weathered dark slate background
-	DrawHalfTransparentRectTo(out, pos.x + 3, pos.y + 3, SidePanelSize.width - 6, SidePanelSize.height - 6, PAL16_GRAY + 1);
-
-	// 3. Forged demon iron and imperial gold filigree outer border
-	UnsafeDrawBorder2px(out, Rectangle { pos, SidePanelSize }, PAL16_YELLOW + 3);
-	UnsafeDrawBorder2px(out, Rectangle { pos + Displacement { 2, 2 }, Size { SidePanelSize.width - 4, SidePanelSize.height - 4 } }, PAL16_GRAY + 6);
-
-	// 4. Equipment slots (7 slots: Head, Rings, Amulet, Hands, Chest)
-	for (size_t s = 0; s < 7; ++s) {
-		Point sp = pos + Displacement { InvRect[s].position.x, InvRect[s].position.y };
-		Size sz = InvRect[s].size;
-		FillRect(out, sp.x, sp.y, sz.width, sz.height, 0);
-		DrawHalfTransparentRectTo(out, sp.x, sp.y, sz.width, sz.height, PAL16_GRAY);
-		UnsafeDrawBorder2px(out, Rectangle { sp, sz }, PAL16_GRAY + 7);
-	}
-
-	// 5. 40 Backpack Inventory Grid Cells
-	for (size_t i = 7; i < 47; ++i) {
-		Point cp = pos + Displacement { InvRect[i].position.x, InvRect[i].position.y };
-		Size sz = InvRect[i].size;
-		FillRect(out, cp.x, cp.y, sz.width, sz.height, 0);
-		DrawHalfTransparentRectTo(out, cp.x, cp.y, sz.width, sz.height, PAL16_GRAY);
-		UnsafeDrawBorder2px(out, Rectangle { cp, sz }, PAL16_GRAY + 4);
-	}
-}
-
 void DrawInv(const Surface &out)
 {
-	if (!gbHideVanillaHUD) {
-		ClxDraw(out, GetPanelPosition(UiPanels::Inventory, { 0, 351 }), (*pInvCels)[0]);
-	} else {
-		DrawModernGothicInvBack(out);
-	}
+	ClxDraw(out, GetPanelPosition(UiPanels::Inventory, { 0, 351 }), (*pInvCels)[0]);
 
 	Size slotSize[] = {
 		{ 2, 2 }, // head

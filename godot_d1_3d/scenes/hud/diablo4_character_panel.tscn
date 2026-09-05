@@ -1,23 +1,10 @@
-[gd_scene format=3 uid="uid://c7w8f3j4m2p1q"]
+[gd_scene load_steps=6 format=3 uid="uid://c7w8f3j4m2p1q"]
 
 [ext_resource type="Script" path="res://scenes/hud/diablo4_character_panel.gd" id="1_cp"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_char_panel"]
-bg_color = Color(0.04, 0.035, 0.045, 0.98)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.78, 0.62, 0.28, 0.95)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
-shadow_color = Color(0, 0, 0, 0.95)
-shadow_size = 20
+[ext_resource type="Texture2D" path="res://assets/hud/gothic_char_panel.png" id="2_bg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_levelup_banner"]
-bg_color = Color(0.2, 0.14, 0.02, 0.95)
+bg_color = Color(0.22, 0.15, 0.03, 0.95)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -27,33 +14,23 @@ corner_radius_top_left = 2
 corner_radius_top_right = 2
 corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
-bg_color = Color(0.065, 0.055, 0.075, 0.88)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.32, 0.26, 0.18, 0.75)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
+shadow_color = Color(0, 0, 0, 0.8)
+shadow_size = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_add_btn"]
-bg_color = Color(0.85, 0.68, 0.15, 0.98)
+bg_color = Color(0.2, 0.15, 0.04, 0.96)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(1, 0.9, 0.45, 1)
+border_color = Color(0.95, 0.82, 0.3, 1)
 corner_radius_top_left = 2
 corner_radius_top_right = 2
 corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close_btn"]
-bg_color = Color(0.16, 0.13, 0.16, 0.9)
+bg_color = Color(0.14, 0.11, 0.14, 0.9)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -64,358 +41,366 @@ corner_radius_top_right = 2
 corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
 
-[node name="CharacterPanel" type="PanelContainer"]
-offset_right = 420.0
-offset_bottom = 580.0
-theme_override_styles/panel = SubResource("StyleBoxFlat_char_panel")
+[node name="CharacterPanel" type="Control"]
+custom_minimum_size = Vector2(320, 352)
+offset_right = 500.0
+offset_bottom = 550.0
 script = ExtResource("1_cp")
 
-[node name="Margin" type="MarginContainer" parent="."]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 14
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 0
 
-[node name="VBox" type="VBoxContainer" parent="Margin"]
-layout_mode = 2
-theme_override_constants/separation = 8
+[node name="Content" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_left = 0.20
+anchor_top = 0.23
+anchor_right = 0.80
+anchor_bottom = 0.86
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
 
-[node name="HeaderRow" type="HBoxContainer" parent="Margin/VBox"]
+[node name="VBox" type="VBoxContainer" parent="Content"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="HeaderRow" type="HBoxContainer" parent="Content/VBox"]
 layout_mode = 2
 alignment = 1
 
-[node name="TitleVBox" type="VBoxContainer" parent="Margin/VBox/HeaderRow"]
+[node name="TitleVBox" type="VBoxContainer" parent="Content/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 1
 
-[node name="NameLabel" type="Label" parent="Margin/VBox/HeaderRow/TitleVBox"]
+[node name="NameLabel" type="Label" parent="Content/VBox/HeaderRow/TitleVBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.88, 0.4, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "Hero"
 
-[node name="ClassLevelLabel" type="Label" parent="Margin/VBox/HeaderRow/TitleVBox"]
+[node name="ClassLevelLabel" type="Label" parent="Content/VBox/HeaderRow/TitleVBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
-theme_override_font_sizes/font_size = 12
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
 text = "Level 1 Sorcerer"
 
-[node name="GoldLabel" type="Label" parent="Margin/VBox/HeaderRow"]
+[node name="GoldLabel" type="Label" parent="Content/VBox/HeaderRow"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
 text = "Gold: 0"
 
-[node name="CloseBtn" type="Button" parent="Margin/VBox/HeaderRow"]
-custom_minimum_size = Vector2(24, 24)
+[node name="CloseBtn" type="Button" parent="Content/VBox/HeaderRow"]
+custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
 focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBoxFlat_close_btn")
+theme_override_font_sizes/font_size = 11
 text = "✕"
 
-[node name="Divider" type="ColorRect" parent="Margin/VBox"]
-custom_minimum_size = Vector2(0, 2)
-layout_mode = 2
-color = Color(0.65, 0.52, 0.25, 0.9)
-
-[node name="LevelUpBanner" type="PanelContainer" parent="Margin/VBox"]
+[node name="LevelUpBanner" type="PanelContainer" parent="Content/VBox"]
 visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_levelup_banner")
 
-[node name="Margin" type="MarginContainer" parent="Margin/VBox/LevelUpBanner"]
+[node name="Margin" type="MarginContainer" parent="Content/VBox/LevelUpBanner"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 2
 
-[node name="Label" type="Label" parent="Margin/VBox/LevelUpBanner/Margin"]
+[node name="Label" type="Label" parent="Content/VBox/LevelUpBanner/Margin"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.9, 0.3, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
-theme_override_font_sizes/font_size = 12
-text = "★ LEVEL UP! 5 STAT POINTS TO ALLOCATE ★"
+theme_override_font_sizes/font_size = 10
+text = "★ LEVEL UP! (5 Points Available) ★"
 horizontal_alignment = 1
 
-[node name="ExpPointsRow" type="HBoxContainer" parent="Margin/VBox"]
+[node name="StatsColumns" type="HBoxContainer" parent="Content/VBox"]
 layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
 
-[node name="ExpLabel" type="Label" parent="Margin/VBox/ExpPointsRow"]
+[node name="LeftCol" type="VBoxContainer" parent="Content/VBox/StatsColumns"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.8, 0.75, 0.7, 1)
+theme_override_constants/separation = 3
+
+[node name="AttrTitle" type="Label" parent="Content/VBox/StatsColumns/LeftCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.68, 0.42, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 10
+text = "ATTRIBUTES"
+
+[node name="StrRow" type="HBoxContainer" parent="Content/VBox/StatsColumns/LeftCol"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Content/VBox/StatsColumns/LeftCol/StrRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
 theme_override_font_sizes/font_size = 11
+text = "Strength"
+
+[node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol/StrRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "15 (15)"
+
+[node name="AddBtn" type="Button" parent="Content/VBox/StatsColumns/LeftCol/StrRow"]
+visible = false
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
+text = "+"
+
+[node name="MagRow" type="HBoxContainer" parent="Content/VBox/StatsColumns/LeftCol"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Content/VBox/StatsColumns/LeftCol/MagRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
+theme_override_font_sizes/font_size = 11
+text = "Magic"
+
+[node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol/MagRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "40 (40)"
+
+[node name="AddBtn" type="Button" parent="Content/VBox/StatsColumns/LeftCol/MagRow"]
+visible = false
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
+text = "+"
+
+[node name="DexRow" type="HBoxContainer" parent="Content/VBox/StatsColumns/LeftCol"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Content/VBox/StatsColumns/LeftCol/DexRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
+theme_override_font_sizes/font_size = 11
+text = "Dexterity"
+
+[node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol/DexRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "15 (15)"
+
+[node name="AddBtn" type="Button" parent="Content/VBox/StatsColumns/LeftCol/DexRow"]
+visible = false
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
+text = "+"
+
+[node name="VitRow" type="HBoxContainer" parent="Content/VBox/StatsColumns/LeftCol"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Content/VBox/StatsColumns/LeftCol/VitRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
+theme_override_font_sizes/font_size = 11
+text = "Vitality"
+
+[node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol/VitRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "25 (25)"
+
+[node name="AddBtn" type="Button" parent="Content/VBox/StatsColumns/LeftCol/VitRow"]
+visible = false
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
+text = "+"
+
+[node name="VitalsSep" type="HSeparator" parent="Content/VBox/StatsColumns/LeftCol"]
+layout_mode = 2
+
+[node name="VitalsTitle" type="Label" parent="Content/VBox/StatsColumns/LeftCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.68, 0.42, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 10
+text = "VITALS"
+
+[node name="LifeLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.28, 0.28, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
+text = "Life: 27 / 37"
+
+[node name="ManaLabel" type="Label" parent="Content/VBox/StatsColumns/LeftCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.7, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
+text = "Mana: 66 / 84"
+
+[node name="RightCol" type="VBoxContainer" parent="Content/VBox/StatsColumns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="CombatTitle" type="Label" parent="Content/VBox/StatsColumns/RightCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.68, 0.42, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 10
+text = "COMBAT"
+
+[node name="DmgRow" type="HBoxContainer" parent="Content/VBox/StatsColumns/RightCol"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Content/VBox/StatsColumns/RightCol/DmgRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
+theme_override_font_sizes/font_size = 11
+text = "Damage"
+
+[node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol/DmgRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "2 - 4"
+
+[node name="ToHitRow" type="HBoxContainer" parent="Content/VBox/StatsColumns/RightCol"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Content/VBox/StatsColumns/RightCol/ToHitRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
+theme_override_font_sizes/font_size = 11
+text = "To Hit"
+
+[node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol/ToHitRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "60%"
+
+[node name="ArmorRow" type="HBoxContainer" parent="Content/VBox/StatsColumns/RightCol"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Content/VBox/StatsColumns/RightCol/ArmorRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
+theme_override_font_sizes/font_size = 11
+text = "Armor"
+
+[node name="ValueLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol/ArmorRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "9"
+
+[node name="ResSep" type="HSeparator" parent="Content/VBox/StatsColumns/RightCol"]
+layout_mode = 2
+
+[node name="ResTitle" type="Label" parent="Content/VBox/StatsColumns/RightCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.68, 0.42, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 10
+text = "RESISTANCES"
+
+[node name="ResMagicLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.7, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
+text = "Magic: 0%"
+
+[node name="ResFireLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.35, 0.25, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
+text = "Fire: 0%"
+
+[node name="ResLightningLabel" type="Label" parent="Content/VBox/StatsColumns/RightCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.25, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
+text = "Lightning: 0%"
+
+[node name="FooterRow" type="HBoxContainer" parent="Content/VBox"]
+layout_mode = 2
+
+[node name="ExpLabel" type="Label" parent="Content/VBox/FooterRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 10
 text = "XP: 0 / 0"
 
-[node name="StatPointsLabel" type="Label" parent="Margin/VBox/ExpPointsRow"]
+[node name="StatPointsLabel" type="Label" parent="Content/VBox/FooterRow"]
 visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.88, 0.2, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
 text = "Points: 5"
-
-[node name="AttributesCard" type="PanelContainer" parent="Margin/VBox"]
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_card")
-
-[node name="Margin" type="MarginContainer" parent="Margin/VBox/AttributesCard"]
-layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 8
-
-[node name="VBox" type="VBoxContainer" parent="Margin/VBox/AttributesCard/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 5
-
-[node name="SectionTitle" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.68, 0.42, 1)
-theme_override_font_sizes/font_size = 11
-text = "CORE ATTRIBUTES"
-
-[node name="StrRow" type="HBoxContainer" parent="Margin/VBox/AttributesCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/StrRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 12
-text = "Strength"
-
-[node name="ValueLabel" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/StrRow"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 12
-text = "15 (15)"
-
-[node name="AddBtn" type="Button" parent="Margin/VBox/AttributesCard/Margin/VBox/StrRow"]
-visible = false
-custom_minimum_size = Vector2(22, 22)
-layout_mode = 2
-focus_mode = 0
-theme_override_colors/font_color = Color(0.1, 0.08, 0.02, 1)
-theme_override_font_sizes/font_size = 12
-theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
-text = "+"
-
-[node name="MagRow" type="HBoxContainer" parent="Margin/VBox/AttributesCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/MagRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 12
-text = "Magic"
-
-[node name="ValueLabel" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/MagRow"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 12
-text = "40 (40)"
-
-[node name="AddBtn" type="Button" parent="Margin/VBox/AttributesCard/Margin/VBox/MagRow"]
-visible = false
-custom_minimum_size = Vector2(22, 22)
-layout_mode = 2
-focus_mode = 0
-theme_override_colors/font_color = Color(0.1, 0.08, 0.02, 1)
-theme_override_font_sizes/font_size = 12
-theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
-text = "+"
-
-[node name="DexRow" type="HBoxContainer" parent="Margin/VBox/AttributesCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/DexRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 12
-text = "Dexterity"
-
-[node name="ValueLabel" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/DexRow"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 12
-text = "15 (15)"
-
-[node name="AddBtn" type="Button" parent="Margin/VBox/AttributesCard/Margin/VBox/DexRow"]
-visible = false
-custom_minimum_size = Vector2(22, 22)
-layout_mode = 2
-focus_mode = 0
-theme_override_colors/font_color = Color(0.1, 0.08, 0.02, 1)
-theme_override_font_sizes/font_size = 12
-theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
-text = "+"
-
-[node name="VitRow" type="HBoxContainer" parent="Margin/VBox/AttributesCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/VitRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 12
-text = "Vitality"
-
-[node name="ValueLabel" type="Label" parent="Margin/VBox/AttributesCard/Margin/VBox/VitRow"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 12
-text = "25 (25)"
-
-[node name="AddBtn" type="Button" parent="Margin/VBox/AttributesCard/Margin/VBox/VitRow"]
-visible = false
-custom_minimum_size = Vector2(22, 22)
-layout_mode = 2
-focus_mode = 0
-theme_override_colors/font_color = Color(0.1, 0.08, 0.02, 1)
-theme_override_font_sizes/font_size = 12
-theme_override_styles/normal = SubResource("StyleBoxFlat_add_btn")
-text = "+"
-
-[node name="CombatCard" type="PanelContainer" parent="Margin/VBox"]
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_card")
-
-[node name="Margin" type="MarginContainer" parent="Margin/VBox/CombatCard"]
-layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 8
-
-[node name="VBox" type="VBoxContainer" parent="Margin/VBox/CombatCard/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 5
-
-[node name="SectionTitle" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.68, 0.42, 1)
-theme_override_font_sizes/font_size = 11
-text = "OFFENSE & DEFENSE"
-
-[node name="DmgRow" type="HBoxContainer" parent="Margin/VBox/CombatCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/DmgRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 12
-text = "Damage"
-
-[node name="ValueLabel" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/DmgRow"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 12
-text = "2 - 4"
-
-[node name="ToHitRow" type="HBoxContainer" parent="Margin/VBox/CombatCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/ToHitRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 12
-text = "To Hit"
-
-[node name="ValueLabel" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/ToHitRow"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 12
-text = "60%"
-
-[node name="ArmorRow" type="HBoxContainer" parent="Margin/VBox/CombatCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/ArmorRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.88, 0.84, 0.76, 1)
-theme_override_font_sizes/font_size = 12
-text = "Armor Class"
-
-[node name="ValueLabel" type="Label" parent="Margin/VBox/CombatCard/Margin/VBox/ArmorRow"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
-theme_override_font_sizes/font_size = 12
-text = "9"
-
-[node name="ResistVitalsCard" type="PanelContainer" parent="Margin/VBox"]
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_card")
-
-[node name="Margin" type="MarginContainer" parent="Margin/VBox/ResistVitalsCard"]
-layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 8
-
-[node name="VBox" type="VBoxContainer" parent="Margin/VBox/ResistVitalsCard/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 5
-
-[node name="SectionTitle" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.68, 0.42, 1)
-theme_override_font_sizes/font_size = 11
-text = "RESISTANCES & VITALS"
-
-[node name="ResRow1" type="HBoxContainer" parent="Margin/VBox/ResistVitalsCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="ResMagicLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/ResRow1"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.4, 0.75, 1, 1)
-theme_override_font_sizes/font_size = 12
-text = "Magic: 0%"
-
-[node name="ResFireLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/ResRow1"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(1, 0.5, 0.3, 1)
-theme_override_font_sizes/font_size = 12
-text = "Fire: 0%"
-
-[node name="ResRow2" type="HBoxContainer" parent="Margin/VBox/ResistVitalsCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="ResLightningLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/ResRow2"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
-theme_override_font_sizes/font_size = 12
-text = "Lightning: 0%"
-
-[node name="VitalsRow" type="HBoxContainer" parent="Margin/VBox/ResistVitalsCard/Margin/VBox"]
-layout_mode = 2
-
-[node name="LifeLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/VitalsRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(1, 0.35, 0.35, 1)
-theme_override_font_sizes/font_size = 12
-text = "Life: 37 / 37"
-
-[node name="ManaLabel" type="Label" parent="Margin/VBox/ResistVitalsCard/Margin/VBox/VitalsRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.35, 0.7, 1, 1)
-theme_override_font_sizes/font_size = 12
-text = "Mana: 84 / 84"
