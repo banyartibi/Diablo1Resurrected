@@ -21,6 +21,7 @@
 #include "engine/random.hpp"
 #include "init.h"
 #include "inv.h"
+#include "items.h"
 #include "levels/trigs.h"
 #include "lighting.h"
 #include "monster.h"
@@ -2540,6 +2541,39 @@ void AddStaffRecharge(Missile &missile, AddMissileParameter & /*parameter*/)
 
 	missile._miDelFlag = true;
 	if (&player == MyPlayer) {
+		// Auto-recharge equipped staff if it has missing charges
+		int targetSlot = -1;
+		if (player.InvBody[INVLOC_HAND_LEFT]._itype == ItemType::Staff
+		    && IsValidSpell(player.InvBody[INVLOC_HAND_LEFT]._iSpell)
+		    && player.InvBody[INVLOC_HAND_LEFT]._iCharges < player.InvBody[INVLOC_HAND_LEFT]._iMaxCharges) {
+			targetSlot = INVLOC_HAND_LEFT;
+		} else if (player.InvBody[INVLOC_HAND_RIGHT]._itype == ItemType::Staff
+		    && IsValidSpell(player.InvBody[INVLOC_HAND_RIGHT]._iSpell)
+		    && player.InvBody[INVLOC_HAND_RIGHT]._iCharges < player.InvBody[INVLOC_HAND_RIGHT]._iMaxCharges) {
+			targetSlot = INVLOC_HAND_RIGHT;
+		}
+
+		if (targetSlot != -1) {
+			RechargeItem(player.InvBody[targetSlot], player);
+			CalcPlrInv(player, true);
+			PlaySFX(IS_MAGIC);
+			return;
+		}
+
+		// Also check inventory staves with missing charges
+		for (int i = 0; i < player._pNumInv; i++) {
+			Item &invItem = player.InvList[i];
+			if (invItem._itype == ItemType::Staff
+			    && IsValidSpell(invItem._iSpell)
+			    && invItem._iCharges < invItem._iMaxCharges) {
+				RechargeItem(invItem, player);
+				CalcPlrInv(player, true);
+				PlaySFX(IS_MAGIC);
+				return;
+			}
+		}
+
+		// Fallback: manual recharge cursor
 		if (sbookflag)
 			sbookflag = false;
 		if (!invflag) {

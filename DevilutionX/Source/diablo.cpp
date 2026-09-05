@@ -442,8 +442,28 @@ void RightMouseDown(bool isShiftHeld)
 		return;
 	if (TryIconCurs())
 		return;
-	if (pcursinvitem != -1 && UseInvItem(pcursinvitem))
-		return;
+	if (pcursinvitem != -1) {
+		Player &player = *MyPlayer;
+		Item *item = nullptr;
+		if (pcursinvitem >= INVITEM_INV_FIRST && pcursinvitem <= INVITEM_INV_LAST) {
+			item = &player.InvList[pcursinvitem - INVITEM_INV_FIRST];
+		} else if (pcursinvitem < NUM_INVLOC) {
+			item = &player.InvBody[pcursinvitem];
+		}
+		if (item != nullptr && item->_itype == ItemType::Staff && IsValidSpell(item->_iSpell)) {
+			if (player._pClass == HeroClass::Sorcerer || player._pRSpell == SpellID::StaffRecharge || pcurs == CURSOR_RECHARGE) {
+				if (item->_iCharges < item->_iMaxCharges) {
+					DoRecharge(player, pcursinvitem);
+					PlaySFX(IS_MAGIC);
+					if (pcurs == CURSOR_RECHARGE)
+						NewCursor(CURSOR_HAND);
+					return;
+				}
+			}
+		}
+		if (UseInvItem(pcursinvitem))
+			return;
+	}
 	if (pcursstashitem != StashStruct::EmptyCell && UseStashItem(pcursstashitem))
 		return;
 	if (pcurs == CURSOR_HAND) {

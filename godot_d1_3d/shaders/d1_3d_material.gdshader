@@ -148,6 +148,73 @@ vec3 apply_color_grading(vec3 c, int profile) {
     return c;
 }
 
+// Transform classic beige/limestone panels into Dark Gothic Resurrected Slate with Demon Iron trim
+vec3 apply_gothic_panel_style(vec3 c) {
+    float max_c = max(c.r, max(c.g, c.b));
+    float min_c = min(c.r, min(c.g, c.b));
+    float sat = max_c - min_c;
+    float luma = dot(c, vec3(0.299, 0.587, 0.114));
+
+    // 1. Text and vibrant UI elements:
+    // Pure white / silver text (stats, values, item labels):
+    if (luma > 0.78 && sat < 0.15) {
+        return vec3(0.96, 0.95, 0.93); // Crisp antique bone silver
+    }
+    // Radiant gold text (character name, titles, "GOLD", quest names, gold coins):
+    if (c.r > 0.65 && c.g > 0.45 && c.b < 0.40 && sat > 0.22) {
+        return vec3(1.0, 0.84, 0.32); // Vibrant glowing gold
+    }
+    // Red text / icons (points to distribute, reduced stats, health potions):
+    if (c.r > 0.42 && c.g < 0.28 && c.b < 0.28) {
+        return c; // Keep vibrant red
+    }
+    // Blue text / icons (buffed stats, mana potions):
+    if (c.b > 0.42 && c.r < 0.35) {
+        return c; // Keep vibrant blue
+    }
+    // High saturation item sprites in inventory (gems, scrolls, weapons, rings, potions):
+    if (sat > 0.18 && luma > 0.18) {
+        return c;
+    }
+
+    // 2. Paperdoll hero silhouette:
+    // Silhouette is dark (luma around 0.06 to 0.18, low saturation)
+    if (luma < 0.18 && sat < 0.08) {
+        return vec3(0.045, 0.042, 0.050); // Deep obsidian carved silhouette
+    }
+
+    // 3. Classic 1996 beige/tan limestone stone and borders:
+    // In classic D1, the panel stone has warm tint: c.r > c.b * 1.05
+    if (c.r > c.b * 1.05 && luma > 0.06) {
+        // Deep obsidian / charcoal slate base matching the bottom HUD
+        vec3 dark_slate = vec3(0.065, 0.062, 0.075);
+        vec3 mid_slate = vec3(0.125, 0.120, 0.138);
+        vec3 highlight_slate = vec3(0.22, 0.21, 0.24);
+        vec3 bronze_trim = vec3(0.55, 0.44, 0.22);
+        vec3 gold_filigree = vec3(0.78, 0.65, 0.34);
+
+        if (luma < 0.32) {
+            // Carved grooves and inner box recesses
+            return mix(vec3(0.025, 0.024, 0.030), dark_slate, luma / 0.32);
+        } else if (luma < 0.65) {
+            // Main stone slab body
+            float t = (luma - 0.32) / 0.33;
+            return mix(dark_slate, mid_slate, t);
+        } else if (luma < 0.82) {
+            // Bevel edges and panel borders: forged demon iron & antique bronze trim
+            float t = (luma - 0.65) / 0.17;
+            return mix(mid_slate, mix(highlight_slate, bronze_trim, 0.50), t);
+        } else {
+            // Bright bevel highlights & filigree corners
+            float t = clamp((luma - 0.82) / 0.18, 0.0, 1.0);
+            return mix(bronze_trim, gold_filigree, t);
+        }
+    }
+
+    // Dark grooves / background borders fallback
+    return mix(vec3(0.04, 0.038, 0.045), vec3(0.10, 0.095, 0.11), luma);
+}
+
 void fragment() {
     vec2 tex_size = vec2(textureSize(d1_texture, 0));
     vec2 texel_size = vec2(1.0) / tex_size;
@@ -242,8 +309,13 @@ void fragment() {
     }
 
     if (in_ui) {
-        // UI Areas (HUD, Inventory, Character Sheet): 100% UNTOUCHED original colors & text
-        ALBEDO = base_color;
+        if ((in_left_panel || in_right_panel) && hide_vanilla_hud) {
+            // Modern Diablo IV / Resurrected Dark Gothic Panel Styling
+            ALBEDO = apply_gothic_panel_style(base_color);
+        } else {
+            // Vanilla UI untouched
+            ALBEDO = base_color;
+        }
     } else {
         // Playfield: Atmospheric color grading
         ALBEDO = apply_color_grading(base_color, color_profile);

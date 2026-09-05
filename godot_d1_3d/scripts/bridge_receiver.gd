@@ -16,13 +16,13 @@ var d1_height: int = 1440
 
 # User Requested Defaults:
 var vsync_enabled: bool = true          # Default: ON (Smooth 144Hz Monitor Sync)
-var show_fps: bool = true               # Default: ON (Immediate performance readout)
-var current_fog_mode: int = 1           # Default: 1 = Crypt Mist (Subtle Dungeon Atmosphere)
-var current_color_profile: int = 1      # Default: 1 = Dark Gothic (Deep OLED Slate Contrast - Default)
-var current_upscaler_mode: int = 3      # Default: 3 = 8K Catmull-Rom Bicubic Spline!
-var current_relief_mode: int = 1        # Default: 1 = Subtle Natural Stone Relief (gentle, no harsh dark crags)
-var current_hdr_level: int = 1          # Default: 1 = Balanced Gothic Glow (1.0x)
-var hero_light_enabled: bool = false    # Default: OFF (No spotlight on player body; preserves authentic sprite)
+var show_fps: bool = false              # Default: OFF [F8]
+var current_fog_mode: int = 0           # Default: 0 = OFF [F9]
+var current_color_profile: int = 3      # Default: 3 = Crypt Cyan [F10]
+var current_upscaler_mode: int = 0      # Default: 0 = AMD FidelityFX CAS Super-Resolution (FSR) [F7]
+var current_relief_mode: int = 4        # Default: 4 = Mode 4 (Extreme Sculpted 3D Relief) [F11]
+var current_hdr_level: int = 1          # Default: 1 = Balanced Gothic Glow (1.0x) [F5]
+var hero_light_enabled: bool = true     # Default: ENABLED [F6]
 
 # Dynamic 3D Lights, Shadows & Particles
 @onready var torch_container: Node3D = get_node_or_null("TorchLightsContainer")
@@ -39,7 +39,7 @@ var pooled_shadow_boxes: Array = []
 var hero_sparks: GPUParticles3D = null
 var occluder_box_mesh: BoxMesh = null
 
-var wet_floor: bool = false             # Default: OFF (Authentic dry dungeon stone, no artificial darkening)
+var wet_floor: bool = true              # Default: ON [F12] (Wet & Reflective Cobblestone)
 var playfield_zoom: float = 1.0
 var left_panel_open: bool = false
 var right_panel_open: bool = false
@@ -683,10 +683,20 @@ func update_dynamic_lighting(delta: float) -> void:
 func update_shadow_casters() -> void:
 	pass
 
+func get_zoom_vfx_scale() -> float:
+	match current_zoom_step:
+		0: return 0.35   # 1.0x Normal / Wide
+		1: return 0.52   # 1.5x Balanced
+		2: return 0.68   # 2.0x Zoomed
+		3: return 0.84   # 2.5x Ultra-Close
+		4: return 1.00   # 3.0x Macro-Close (User reference size)
+		_: return 0.52
+
 func process_visual_events() -> void:
 	if not diablo_bridge or not diablo_bridge.has_method("poll_visual_events"):
 		return
 
+	var z_scale = get_zoom_vfx_scale()
 	var events: Array = diablo_bridge.poll_visual_events()
 	for ev in events:
 		var ev_type = ev.get("type", 0)
@@ -703,7 +713,7 @@ func process_visual_events() -> void:
 
 		if p_instance:
 			p_instance.position = ev_pos
-			var s = clamp(ev_scale, 0.9, 2.2)
+			var s = clamp(ev_scale, 0.9, 2.2) * z_scale
 			p_instance.scale = Vector3(s, s, s)
 			effects_container.add_child(p_instance)
 
