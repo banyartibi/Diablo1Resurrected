@@ -148,71 +148,64 @@ vec3 apply_color_grading(vec3 c, int profile) {
     return c;
 }
 
-// Transform classic beige/limestone panels into Dark Gothic Resurrected Slate with Demon Iron trim
+// Transform classic beige/limestone panels into solid Dark Gothic Resurrected Slate
 vec3 apply_gothic_panel_style(vec3 c) {
     float max_c = max(c.r, max(c.g, c.b));
     float min_c = min(c.r, min(c.g, c.b));
     float sat = max_c - min_c;
     float luma = dot(c, vec3(0.299, 0.587, 0.114));
 
-    // 1. Text and vibrant UI elements:
-    // Pure white / silver text (stats, values, item labels):
-    if (luma > 0.78 && sat < 0.15) {
-        return vec3(0.96, 0.95, 0.93); // Crisp antique bone silver
+    // 1. Radiant Gold Text (Character Name, Sorcerer/Warrior title, Level, Experience, Next Level, GOLD header, Coins):
+    if (c.r > 0.48 && c.g > 0.32 && c.b < 0.28 && (c.r - c.b) > 0.20 && luma > 0.30) {
+        return vec3(1.0, 0.84, 0.30) * clamp(luma / 0.55, 0.75, 1.0);
     }
-    // Radiant gold text (character name, titles, "GOLD", quest names, gold coins):
-    if (c.r > 0.65 && c.g > 0.45 && c.b < 0.40 && sat > 0.22) {
-        return vec3(1.0, 0.84, 0.32); // Vibrant glowing gold
+
+    // 2. Crisp Antique Bone Silver Text & Stat Numbers (Strength, Magic, Dexterity, Vitality numbers & labels):
+    // Silver/white text has nearly equal RGB (low saturation: sat < 0.15 or abs(r-b) < 0.08), unlike warm beige stone (sat > 0.20)
+    if ((sat < 0.15 || abs(c.r - c.b) < 0.08) && luma > 0.28) {
+        return vec3(0.96, 0.95, 0.93) * clamp(luma / 0.60, 0.70, 1.0);
     }
-    // Red text / icons (points to distribute, reduced stats, health potions):
-    if (c.r > 0.42 && c.g < 0.28 && c.b < 0.28) {
-        return c; // Keep vibrant red
+
+    // 3. Vibrant Crimson Red (Points to distribute '+', warning numbers, health potions):
+    if (c.r > 0.38 && c.r > c.g * 1.4 && c.r > c.b * 1.4) {
+        return vec3(1.0, 0.28, 0.28) * clamp(c.r / 0.60, 0.70, 1.0);
     }
-    // Blue text / icons (buffed stats, mana potions):
-    if (c.b > 0.42 && c.r < 0.35) {
-        return c; // Keep vibrant blue
+
+    // 4. Vibrant Arcane Blue (Buffed stats, mana potions, magic item outlines):
+    if (c.b > 0.38 && c.b > c.r * 1.3 && c.b > c.g * 1.1) {
+        return vec3(0.35, 0.68, 1.0) * clamp(c.b / 0.60, 0.70, 1.0);
     }
-    // High saturation item sprites in inventory (gems, scrolls, weapons, rings, potions):
-    if (sat > 0.18 && luma > 0.18) {
+
+    // 5. Colored item sprites in inventory (gems, scrolls, potions, weapons, rings, armor):
+    if (sat > 0.18 || (c.g > c.r * 1.08 && c.g > 0.25)) {
         return c;
     }
 
-    // 2. Paperdoll hero silhouette:
-    // Silhouette is dark (luma around 0.06 to 0.18, low saturation)
-    if (luma < 0.18 && sat < 0.08) {
-        return vec3(0.045, 0.042, 0.050); // Deep obsidian carved silhouette
+    // 6. Paperdoll Hero Silhouette (Carved deep obsidian body):
+    if (luma < 0.16 && sat < 0.12) {
+        return vec3(0.065, 0.065, 0.075);
     }
 
-    // 3. Classic 1996 beige/tan limestone stone and borders:
-    // In classic D1, the panel stone has warm tint: c.r > c.b * 1.05
-    if (c.r > c.b * 1.05 && luma > 0.06) {
-        // Deep obsidian / charcoal slate base matching the bottom HUD
-        vec3 dark_slate = vec3(0.065, 0.062, 0.075);
-        vec3 mid_slate = vec3(0.125, 0.120, 0.138);
-        vec3 highlight_slate = vec3(0.22, 0.21, 0.24);
-        vec3 bronze_trim = vec3(0.55, 0.44, 0.22);
-        vec3 gold_filigree = vec3(0.78, 0.65, 0.34);
+    // 7. Solid Dark Gothic Slate Stone & Demon Iron Framing:
+    // In classic D1, the beige limestone luma is between 0.10 and 0.75.
+    // We map it to a solid, rich dark charcoal slate palette matching the bottom HUD:
+    vec3 deep_groove = vec3(0.11, 0.11, 0.13);     // Carved slot grooves & inner recesses
+    vec3 slate_body  = vec3(0.19, 0.19, 0.22);     // Solid dark slate tablet slab
+    vec3 demon_iron  = vec3(0.32, 0.31, 0.34);     // Raised bevels, box borders, and iron trim
+    vec3 bronze_trim = vec3(0.50, 0.42, 0.24);     // Subtle antique bronze edge filigree
 
-        if (luma < 0.32) {
-            // Carved grooves and inner box recesses
-            return mix(vec3(0.025, 0.024, 0.030), dark_slate, luma / 0.32);
-        } else if (luma < 0.65) {
-            // Main stone slab body
-            float t = (luma - 0.32) / 0.33;
-            return mix(dark_slate, mid_slate, t);
-        } else if (luma < 0.82) {
-            // Bevel edges and panel borders: forged demon iron & antique bronze trim
-            float t = (luma - 0.65) / 0.17;
-            return mix(mid_slate, mix(highlight_slate, bronze_trim, 0.50), t);
-        } else {
-            // Bright bevel highlights & filigree corners
-            float t = clamp((luma - 0.82) / 0.18, 0.0, 1.0);
-            return mix(bronze_trim, gold_filigree, t);
-        }
+    vec3 stone_col;
+    if (luma < 0.22) {
+        stone_col = mix(deep_groove, slate_body, clamp(luma / 0.22, 0.0, 1.0));
+    } else if (luma < 0.55) {
+        float t = (luma - 0.22) / 0.33;
+        stone_col = mix(slate_body, demon_iron, t);
+    } else {
+        float t = clamp((luma - 0.55) / 0.20, 0.0, 1.0);
+        stone_col = mix(demon_iron, bronze_trim, t * 0.75);
     }
 
-    // Dark grooves / background borders fallback
-    return mix(vec3(0.04, 0.038, 0.045), vec3(0.10, 0.095, 0.11), luma);
+    return stone_col;
 }
 
 void fragment() {
@@ -243,13 +236,13 @@ void fragment() {
 
     // 2. Left UI Panel (Character Sheet / Quest Log / Stash)
     bool in_left_panel = left_panel_open &&
-        (pixel_pos.x >= (left_panel_rect.x - 6.0) && pixel_pos.x <= (left_panel_rect.x + left_panel_rect.z + 6.0) &&
-         pixel_pos.y >= (left_panel_rect.y - 6.0) && pixel_pos.y <= (left_panel_rect.y + left_panel_rect.w + 6.0));
+        (pixel_pos.x >= left_panel_rect.x && pixel_pos.x <= (left_panel_rect.x + left_panel_rect.z) &&
+         pixel_pos.y >= left_panel_rect.y && pixel_pos.y <= (left_panel_rect.y + left_panel_rect.w));
 
     // 3. Right UI Panel (Inventory / Spellbook)
     bool in_right_panel = right_panel_open &&
-        (pixel_pos.x >= (right_panel_rect.x - 6.0) && pixel_pos.x <= (right_panel_rect.x + right_panel_rect.z + 6.0) &&
-         pixel_pos.y >= (right_panel_rect.y - 6.0) && pixel_pos.y <= (right_panel_rect.y + right_panel_rect.w + 6.0));
+        (pixel_pos.x >= right_panel_rect.x && pixel_pos.x <= (right_panel_rect.x + right_panel_rect.z) &&
+         pixel_pos.y >= right_panel_rect.y && pixel_pos.y <= (right_panel_rect.y + right_panel_rect.w));
 
     // Combined UI mask: ONLY true UI panels are masked; playfield ground behind/beside HUD gets full shaders!
     bool in_ui = in_main_panel || in_left_panel || in_right_panel;
@@ -311,16 +304,22 @@ void fragment() {
     if (in_ui) {
         if ((in_left_panel || in_right_panel) && hide_vanilla_hud) {
             // Modern Diablo IV / Resurrected Dark Gothic Panel Styling
-            ALBEDO = apply_gothic_panel_style(base_color);
+            vec3 styled_ui = apply_gothic_panel_style(base_color);
+            ALBEDO = vec3(0.0);
+            EMISSION = styled_ui;
         } else {
             // Vanilla UI untouched
-            ALBEDO = base_color;
+            ALBEDO = vec3(0.0);
+            EMISSION = base_color;
         }
+        SPECULAR = 0.0;
+        ROUGHNESS = 1.0;
+        NORMAL = vec3(0.0, 0.0, 1.0);
     } else {
         // Playfield: Atmospheric color grading
         ALBEDO = apply_color_grading(base_color, color_profile);
+        EMISSION = vec3(0.0);
     }
-    EMISSION = vec3(0.0);
 
     // Void & Darkness Protection:
     // Pure black void outside dungeon bounds or unrevealed areas must never receive specular glints

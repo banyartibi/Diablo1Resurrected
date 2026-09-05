@@ -451,12 +451,45 @@ void RightMouseDown(bool isShiftHeld)
 			item = &player.InvBody[pcursinvitem];
 		}
 		if (item != nullptr && item->_itype == ItemType::Staff && IsValidSpell(item->_iSpell)) {
-			if (player._pClass == HeroClass::Sorcerer || player._pRSpell == SpellID::StaffRecharge || pcurs == CURSOR_RECHARGE) {
+			if (player._pRSpell == SpellID::StaffRecharge || pcurs == CURSOR_RECHARGE) {
 				if (item->_iCharges < item->_iMaxCharges) {
 					DoRecharge(player, pcursinvitem);
 					PlaySFX(IS_MAGIC);
+					InitDiabloMsg(_("Staff recharged"), 2000);
 					if (pcurs == CURSOR_RECHARGE)
 						NewCursor(CURSOR_HAND);
+					return;
+				} else {
+					PlaySFX(IS_MAGIC);
+					InitDiabloMsg(_("Staff is already fully charged"), 2000);
+					if (pcurs == CURSOR_RECHARGE)
+						NewCursor(CURSOR_HAND);
+					return;
+				}
+			}
+			if (item->_iSpell == SpellID::Mana) {
+				if (item->_iCharges > 0) {
+					if (player._pMana < player._pMaxMana) {
+						item->_iCharges--;
+						int manaAmount = (GenerateRnd(10) + 1) << 6;
+						for (int i = 0; i < player._pLevel; i++) {
+							manaAmount += (GenerateRnd(4) + 1) << 6;
+						}
+						if (player._pClass == HeroClass::Sorcerer)
+							manaAmount *= 2;
+						player._pMana = std::min(player._pMana + manaAmount, player._pMaxMana);
+						player._pManaBase = std::min(player._pManaBase + manaAmount, player._pMaxManaBase);
+						CalcPlrInv(player, true);
+						RedrawComponent(PanelDrawComponent::Mana);
+						PlaySFX(IS_CAST8);
+						InitDiabloMsg(_("Mana restored"), 1500);
+						return;
+					} else {
+						InitDiabloMsg(_("Mana is full"), 1500);
+						return;
+					}
+				} else {
+					InitDiabloMsg(_("Staff out of charges"), 2000);
 					return;
 				}
 			}

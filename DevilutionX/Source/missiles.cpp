@@ -22,6 +22,7 @@
 #include "init.h"
 #include "inv.h"
 #include "items.h"
+#include "error.h"
 #include "levels/trigs.h"
 #include "lighting.h"
 #include "monster.h"
@@ -2541,39 +2542,49 @@ void AddStaffRecharge(Missile &missile, AddMissileParameter & /*parameter*/)
 
 	missile._miDelFlag = true;
 	if (&player == MyPlayer) {
-		// Auto-recharge equipped staff if it has missing charges
-		int targetSlot = -1;
-		if (player.InvBody[INVLOC_HAND_LEFT]._itype == ItemType::Staff
-		    && IsValidSpell(player.InvBody[INVLOC_HAND_LEFT]._iSpell)
-		    && player.InvBody[INVLOC_HAND_LEFT]._iCharges < player.InvBody[INVLOC_HAND_LEFT]._iMaxCharges) {
-			targetSlot = INVLOC_HAND_LEFT;
-		} else if (player.InvBody[INVLOC_HAND_RIGHT]._itype == ItemType::Staff
-		    && IsValidSpell(player.InvBody[INVLOC_HAND_RIGHT]._iSpell)
-		    && player.InvBody[INVLOC_HAND_RIGHT]._iCharges < player.InvBody[INVLOC_HAND_RIGHT]._iMaxCharges) {
-			targetSlot = INVLOC_HAND_RIGHT;
+		Item *staffToRecharge = nullptr;
+		bool hasAnyStaff = false;
+		bool hasFullyChargedStaff = false;
+
+		auto checkStaff = [&](Item &item) {
+			if (!item.isEmpty() && item._itype == ItemType::Staff && IsValidSpell(item._iSpell)) {
+				hasAnyStaff = true;
+				if (item._iCharges < item._iMaxCharges) {
+					if (staffToRecharge == nullptr)
+						staffToRecharge = &item;
+				} else {
+					hasFullyChargedStaff = true;
+				}
+			}
+		};
+
+		checkStaff(player.InvBody[INVLOC_HAND_LEFT]);
+		checkStaff(player.InvBody[INVLOC_HAND_RIGHT]);
+		for (int i = 0; i < player._pNumInv; i++) {
+			checkStaff(player.InvList[i]);
 		}
 
-		if (targetSlot != -1) {
-			RechargeItem(player.InvBody[targetSlot], player);
+		if (staffToRecharge != nullptr) {
+			RechargeItem(*staffToRecharge, player);
 			CalcPlrInv(player, true);
 			PlaySFX(IS_MAGIC);
+			InitDiabloMsg(_("Staff recharged"), 2000);
 			return;
 		}
 
-		// Also check inventory staves with missing charges
-		for (int i = 0; i < player._pNumInv; i++) {
-			Item &invItem = player.InvList[i];
-			if (invItem._itype == ItemType::Staff
-			    && IsValidSpell(invItem._iSpell)
-			    && invItem._iCharges < invItem._iMaxCharges) {
-				RechargeItem(invItem, player);
-				CalcPlrInv(player, true);
-				PlaySFX(IS_MAGIC);
-				return;
-			}
+		if (hasFullyChargedStaff) {
+			PlaySFX(IS_MAGIC);
+			InitDiabloMsg(_("Staff is already fully charged"), 2500);
+			return;
 		}
 
-		// Fallback: manual recharge cursor
+		if (!hasAnyStaff) {
+			PlaySFX(IS_MAGIC);
+			InitDiabloMsg(_("No staff to recharge"), 2500);
+			return;
+		}
+
+		// Fallback only if needed
 		if (sbookflag)
 			sbookflag = false;
 		if (!invflag) {
