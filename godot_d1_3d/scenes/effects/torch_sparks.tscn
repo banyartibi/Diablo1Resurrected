@@ -8,24 +8,24 @@ shader = ExtResource("1_spk")
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_sparks"]
 emission_shape = 1
-emission_sphere_radius = 0.10
-direction = Vector3(0, 1, 0.2)
-spread = 30.0
-initial_velocity_min = 0.4
-initial_velocity_max = 1.2
-gravity = Vector3(0, 0.6, 0.1)
+emission_sphere_radius = 0.04
+direction = Vector3(0, 1, 0.1)
+spread = 25.0
+initial_velocity_min = 0.2
+initial_velocity_max = 0.55
+gravity = Vector3(0, 0.35, 0)
 scale_min = 0.5
-scale_max = 1.2
-color = Color(1, 1, 1, 0.9)
+scale_max = 1.0
+color = Color(1, 1, 1, 0.8)
 
 [sub_resource type="QuadMesh" id="QuadMesh_spark"]
 material = SubResource("ShaderMaterial_spark")
-size = Vector2(0.08, 0.08)
+size = Vector2(0.016, 0.016)
 
 [node name="TorchSparks" type="GPUParticles3D"]
-amount = 14
-lifetime = 1.1
-preprocess = 0.5
-randomness = 0.3
+amount = 4
+lifetime = 0.45
+preprocess = 0.2
+randomness = 0.4
 process_material = SubResource("ParticleProcessMaterial_sparks")
 draw_pass_1 = SubResource("QuadMesh_spark")

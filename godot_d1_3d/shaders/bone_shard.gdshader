@@ -1,26 +1,22 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
-
-void vertex() {
-	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
-		INV_VIEW_MATRIX[0],
-		INV_VIEW_MATRIX[1],
-		INV_VIEW_MATRIX[2],
-		MODEL_MATRIX[3]
-	);
-}
+render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specular_schlick_ggx;
 
 void fragment() {
 	vec2 uv = abs(UV - vec2(0.5));
-	float d = uv.x * 2.2 + uv.y * 1.1;
-	if (d > 0.5) {
+	float d = uv.x * 2.5 + uv.y * 1.2;
+	if (d > 0.48) {
 		discard;
 	}
-	float edge = smoothstep(0.5, 0.44, d);
+	float edge = smoothstep(0.48, 0.38, d);
 
-	vec3 bone_base = vec3(0.92, 0.88, 0.76);
-	vec3 bone_facet = mix(bone_base, bone_base * 0.72, (UV.x + UV.y) * 0.5);
+	// Aged ivory / ancient bone color with facet variation
+	vec3 bone_base = vec3(0.82, 0.78, 0.68);
+	vec3 bone_shade = vec3(0.60, 0.56, 0.48);
+	vec3 col = mix(bone_base, bone_shade, (UV.x + UV.y) * 0.5);
 
-	ALBEDO = bone_facet;
+	ALBEDO = col;
 	ALPHA = COLOR.a * edge;
+	ROUGHNESS = 0.68;
+	SPECULAR = 0.15;
+	METALLIC = 0.0;
 }

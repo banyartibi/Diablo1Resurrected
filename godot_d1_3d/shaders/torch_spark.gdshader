@@ -15,7 +15,8 @@ void fragment() {
 	if (dist > 0.5) {
 		discard;
 	}
-	float glow = exp(-dist * 8.0);
-	ALBEDO = vec3(2.5, 1.6, 0.4);
-	ALPHA = COLOR.a * glow;
+	float glow = exp(-dist * 14.0);
+	float life = clamp(COLOR.a, 0.0, 1.0);
+	ALBEDO = vec3(1.8, 1.1, 0.25) * life;
+	ALPHA = life * glow;
 }

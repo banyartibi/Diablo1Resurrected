@@ -154,9 +154,9 @@ func _ready():
 
 	if hero_light:
 		hero_light.visible = hero_light_enabled
-		hero_sparks = torch_sparks_scene.instantiate()
-		hero_light.add_child(hero_sparks)
-		hero_sparks.position = Vector3(0, 0, 0.05)
+		hero_light.omni_range = 2.8
+		hero_light.omni_attenuation = 2.0
+		hero_light.position.z = 0.35
 
 	# Solid Flat 2D Viewport setup (pure clean fullscreen)
 	if mesh_instance:
@@ -222,14 +222,11 @@ func update_torch_light():
 	if hero_light:
 		hero_light.visible = hero_light_enabled
 		hero_light.light_color = Color(1.0, 0.72, 0.38, 1.0) # Warm gothic amber
-		hero_light.light_energy = 1.30
-		hero_light.light_specular = 0.50
-		hero_light.omni_range = 6.0
-		hero_light.omni_attenuation = 1.2
-		hero_light.shadow_enabled = true
-		hero_light.shadow_bias = 0.05
-		hero_light.shadow_normal_bias = 1.0
-		hero_light.shadow_blur = 1.5
+		hero_light.light_energy = 1.20
+		hero_light.light_specular = 0.40
+		hero_light.omni_range = 2.8
+		hero_light.omni_attenuation = 2.0
+		hero_light.shadow_enabled = false
 
 func show_osd(text: String, duration: float = 2.5):
 	if osd_label:
@@ -621,20 +618,19 @@ func update_dynamic_lighting(delta: float) -> void:
 	if hero_light:
 		var hero_info = active_lights[0]
 		hero_light.visible = true
-		hero_light.position = hero_info["world_pos"]
-		var h_flicker = 1.0 + 0.14 * sin(time_accum * 11.7) * cos(time_accum * 6.3) + 0.05 * sin(time_accum * 25.1)
-		hero_light.light_energy = 1.35 * h_flicker
-		hero_light.omni_range = clamp(hero_info["radius"] * 0.65, 4.5, 9.0)
+		var hp = hero_info["world_pos"]
+		hero_light.position = Vector3(hp.x, hp.y, 0.35)
+		var h_flicker = 1.0 + 0.12 * sin(time_accum * 11.7) * cos(time_accum * 6.3)
+		hero_light.light_energy = 1.25 * h_flicker
+		hero_light.omni_range = clamp(hero_info["radius"] * 0.30, 2.2, 3.4)
+		hero_light.omni_attenuation = 2.0
 
 	# 2. Environmental & Spell Lights (Wall torches, braziers, fireballs)
 	var env_count = active_lights.size() - 1
 	while pooled_torch_lights.size() < env_count:
 		var o_light = OmniLight3D.new()
-		o_light.shadow_enabled = true
-		o_light.shadow_bias = 0.05
-		o_light.shadow_normal_bias = 1.0
-		o_light.shadow_blur = 1.5
-		o_light.omni_attenuation = 1.3
+		o_light.shadow_enabled = false
+		o_light.omni_attenuation = 2.0
 		var sparks = torch_sparks_scene.instantiate()
 		sparks.name = "TorchSparks"
 		o_light.add_child(sparks)
@@ -647,32 +643,33 @@ func update_dynamic_lighting(delta: float) -> void:
 		if i < env_count:
 			var info = active_lights[i + 1]
 			o_light.visible = true
-			o_light.position = info["world_pos"]
+			var lp = info["world_pos"]
+			o_light.position = Vector3(lp.x, lp.y, 0.30)
 			var l_type = info["type"]
 			var sparks = o_light.get_node_or_null("TorchSparks")
 			if l_type == 1: # Wall Torch / Brazier
 				o_light.light_color = Color(1.0, 0.68, 0.28, 1.0)
-				o_light.omni_range = clamp(info["radius"] * 0.55, 3.5, 7.5)
+				o_light.omni_range = clamp(info["radius"] * 0.26, 1.8, 2.8)
+				o_light.omni_attenuation = 2.0
 				var phase = float(i + 1) * 1.83
-				var t_flicker = 1.0 + 0.12 * sin(time_accum * 13.1 + phase) * cos(time_accum * 7.9 + phase * 2.0)
-				o_light.light_energy = 1.15 * t_flicker
-				o_light.shadow_enabled = (i < 6)
+				var t_flicker = 1.0 + 0.10 * sin(time_accum * 13.1 + phase) * cos(time_accum * 7.9 + phase * 2.0)
+				o_light.light_energy = 1.10 * t_flicker
 				if sparks:
 					sparks.visible = true
 					sparks.emitting = true
 			elif l_type == 2: # Spell / Missile (Fireball, Flame)
 				o_light.light_color = Color(1.0, 0.88, 0.45, 1.0)
-				o_light.omni_range = clamp(info["radius"] * 0.65, 4.0, 8.0)
-				o_light.light_energy = 1.80
-				o_light.shadow_enabled = false
+				o_light.omni_range = clamp(info["radius"] * 0.32, 2.0, 3.5)
+				o_light.omni_attenuation = 2.0
+				o_light.light_energy = 1.50
 				if sparks:
 					sparks.visible = false
 					sparks.emitting = false
 			else:
 				o_light.light_color = Color(0.9, 0.65, 0.35, 1.0)
-				o_light.omni_range = 4.0
-				o_light.light_energy = 0.9
-				o_light.shadow_enabled = false
+				o_light.omni_range = 2.2
+				o_light.omni_attenuation = 2.0
+				o_light.light_energy = 0.8
 				if sparks:
 					sparks.visible = false
 					sparks.emitting = false
@@ -684,24 +681,7 @@ func update_dynamic_lighting(delta: float) -> void:
 				sparks.emitting = false
 
 func update_shadow_casters() -> void:
-	if not diablo_bridge or not diablo_bridge.has_method("get_wall_occluders"):
-		return
-
-	var occluders: Array = diablo_bridge.get_wall_occluders()
-	while pooled_shadow_boxes.size() < occluders.size():
-		var box = MeshInstance3D.new()
-		box.mesh = occluder_box_mesh
-		box.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-		shadow_container.add_child(box)
-		pooled_shadow_boxes.append(box)
-
-	for i in range(pooled_shadow_boxes.size()):
-		var box = pooled_shadow_boxes[i]
-		if i < occluders.size():
-			box.visible = true
-			box.position = occluders[i]
-		else:
-			box.visible = false
+	pass
 
 func process_visual_events() -> void:
 	if not diablo_bridge or not diablo_bridge.has_method("poll_visual_events"):
@@ -723,8 +703,7 @@ func process_visual_events() -> void:
 
 		if p_instance:
 			p_instance.position = ev_pos
-			if ev_scale != 1.0:
-				var s = clamp(ev_scale, 0.75, 2.8)
-				p_instance.scale = Vector3(s, s, s)
+			var s = clamp(ev_scale, 0.85, 1.25)
+			p_instance.scale = Vector3(s, s, s)
 			effects_container.add_child(p_instance)
 

@@ -321,6 +321,12 @@ void fragment() {
         }
     }
 
+    // Engine Light & Wall Occlusion Mask:
+    // DevilutionX already calculates true raytraced line-of-sight and wall occlusion.
+    // Pixels that are blocked by walls or unrevealed are pitch-black in the backbuffer.
+    float pixel_luma = dot(raw_pixel, vec3(0.299, 0.587, 0.114));
+    float engine_lit = in_ui ? 1.0 : smoothstep(0.012, 0.065, pixel_luma);
+
     // Wet Cobblestone Floor: Deep water-absorbed stone color + glossy puddle reflections
     if (wet_floor && !in_ui) {
         float edge_val = clamp(length(vec2(gx, gy)) * 1.6, 0.0, 1.0);
@@ -330,14 +336,39 @@ void fragment() {
         // Wet stone is naturally darker and richer in saturation
         ALBEDO = mix(ALBEDO, ALBEDO * 0.80, 0.65);
         
-        // Puddles reflect light with smooth PBR specular gloss
-        ROUGHNESS = mix(0.70, 0.18, puddle_mask);
-        SPECULAR = mix(0.08, 0.65, puddle_mask);
+        // Puddles reflect light with smooth PBR specular gloss (only on lit areas!)
+        ROUGHNESS = mix(1.0, mix(0.70, 0.18, puddle_mask), engine_lit);
+        SPECULAR = mix(0.0, mix(0.08, 0.65, puddle_mask), engine_lit);
     } else {
         // Dry, dusty stone floor: completely matte
         ROUGHNESS = 0.95;
-        SPECULAR = 0.01;
+        SPECULAR = 0.0;
+    }
+
+    // Zero out albedo in completely unlit areas to prevent any ambient light bleed
+    if (!in_ui && engine_lit < 0.001) {
+        ALBEDO = vec3(0.0);
+        NORMAL = vec3(0.0, 0.0, 1.0);
     }
 
     METALLIC = 0.0;
+}
+
+void light() {
+    // True Wall Light Occlusion:
+    // If the pixel is unlit by the engine (behind walls or in darkness),
+    // strictly reject all dynamic 3D light and specular contributions!
+    vec3 px = texture(d1_texture, UV).bgr;
+    float luma = dot(px, vec3(0.299, 0.587, 0.114));
+    float wall_mask = smoothstep(0.012, 0.065, luma);
+
+    if (wall_mask > 0.001) {
+        float NdotL = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
+        DIFFUSE_LIGHT += LIGHT_COLOR * (ALBEDO * NdotL * ATTENUATION * wall_mask);
+
+        vec3 half_v = normalize(VIEW + LIGHT);
+        float NdotH = clamp(dot(NORMAL, half_v), 0.0, 1.0);
+        float spec_power = mix(16.0, 64.0, 1.0 - ROUGHNESS);
+        SPECULAR_LIGHT += LIGHT_COLOR * (SPECULAR_AMOUNT * pow(NdotH, spec_power) * ATTENUATION * wall_mask);
+    }
 }

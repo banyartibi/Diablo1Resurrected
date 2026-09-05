@@ -8,28 +8,29 @@ render_priority = 0
 shader = ExtResource("2_bld")
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_blood"]
-lifetime_randomness = 0.35
-direction = Vector3(0, 0.6, 0.8)
-spread = 70.0
-initial_velocity_min = 1.8
-initial_velocity_max = 4.2
-gravity = Vector3(0, -5.5, -0.5)
-damping_min = 1.2
-damping_max = 2.5
-scale_min = 0.6
-scale_max = 1.4
+particle_flag_align_y = true
+lifetime_randomness = 0.4
+direction = Vector3(0, 0.5, 0.2)
+spread = 65.0
+initial_velocity_min = 1.2
+initial_velocity_max = 3.2
+gravity = Vector3(0, -7.0, 0)
+damping_min = 2.0
+damping_max = 4.5
+scale_min = 0.4
+scale_max = 1.2
 color = Color(1, 1, 1, 1)
 
 [sub_resource type="QuadMesh" id="QuadMesh_drop"]
 material = SubResource("ShaderMaterial_blood")
-size = Vector2(0.18, 0.18)
+size = Vector2(0.028, 0.085)
 
 [node name="BloodSplatter" type="GPUParticles3D"]
 emitting = false
-amount = 32
-lifetime = 0.6
+amount = 22
+lifetime = 0.45
 one_shot = true
-explosiveness = 0.92
+explosiveness = 0.94
 randomness = 0.4
 process_material = SubResource("ParticleProcessMaterial_blood")
 draw_pass_1 = SubResource("QuadMesh_drop")
