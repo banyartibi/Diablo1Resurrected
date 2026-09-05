@@ -636,6 +636,7 @@ func update_dynamic_lighting(delta: float) -> void:
 		o_light.shadow_blur = 1.5
 		o_light.omni_attenuation = 1.3
 		var sparks = torch_sparks_scene.instantiate()
+		sparks.name = "TorchSparks"
 		o_light.add_child(sparks)
 		sparks.position = Vector3(0, 0, 0.05)
 		torch_container.add_child(o_light)
@@ -648,6 +649,7 @@ func update_dynamic_lighting(delta: float) -> void:
 			o_light.visible = true
 			o_light.position = info["world_pos"]
 			var l_type = info["type"]
+			var sparks = o_light.get_node_or_null("TorchSparks")
 			if l_type == 1: # Wall Torch / Brazier
 				o_light.light_color = Color(1.0, 0.68, 0.28, 1.0)
 				o_light.omni_range = clamp(info["radius"] * 0.55, 3.5, 7.5)
@@ -655,18 +657,31 @@ func update_dynamic_lighting(delta: float) -> void:
 				var t_flicker = 1.0 + 0.12 * sin(time_accum * 13.1 + phase) * cos(time_accum * 7.9 + phase * 2.0)
 				o_light.light_energy = 1.15 * t_flicker
 				o_light.shadow_enabled = (i < 6)
+				if sparks:
+					sparks.visible = true
+					sparks.emitting = true
 			elif l_type == 2: # Spell / Missile (Fireball, Flame)
 				o_light.light_color = Color(1.0, 0.88, 0.45, 1.0)
 				o_light.omni_range = clamp(info["radius"] * 0.65, 4.0, 8.0)
 				o_light.light_energy = 1.80
 				o_light.shadow_enabled = false
+				if sparks:
+					sparks.visible = false
+					sparks.emitting = false
 			else:
 				o_light.light_color = Color(0.9, 0.65, 0.35, 1.0)
 				o_light.omni_range = 4.0
 				o_light.light_energy = 0.9
 				o_light.shadow_enabled = false
+				if sparks:
+					sparks.visible = false
+					sparks.emitting = false
 		else:
 			o_light.visible = false
+			var sparks = o_light.get_node_or_null("TorchSparks")
+			if sparks:
+				sparks.visible = false
+				sparks.emitting = false
 
 func update_shadow_casters() -> void:
 	if not diablo_bridge or not diablo_bridge.has_method("get_wall_occluders"):

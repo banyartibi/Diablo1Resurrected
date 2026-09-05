@@ -4,31 +4,32 @@
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bone"]
 shading_mode = 0
-albedo_color = Color(0.92, 0.88, 0.78, 1)
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.96, 0.92, 0.80, 1)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_bone"]
 lifetime_randomness = 0.4
-direction = Vector3(0, 1, 0.5)
-spread = 60.0
+direction = Vector3(0, 0.7, 0.7)
+spread = 80.0
 initial_velocity_min = 2.0
 initial_velocity_max = 4.8
-gravity = Vector3(0, -7.0, -1.5)
-damping_min = 1.2
-damping_max = 2.5
-scale_min = 0.03
-scale_max = 0.07
-color = Color(0.94, 0.90, 0.82, 1)
+gravity = Vector3(0, -6.0, -0.5)
+damping_min = 1.0
+damping_max = 2.2
+scale_min = 0.7
+scale_max = 1.6
+color = Color(0.96, 0.93, 0.82, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_chip"]
 material = SubResource("StandardMaterial3D_bone")
-size = Vector3(0.05, 0.05, 0.05)
+size = Vector3(0.08, 0.08, 0.08)
 
 [node name="BoneShards" type="GPUParticles3D"]
 emitting = false
-amount = 22
-lifetime = 0.50
+amount = 26
+lifetime = 0.55
 one_shot = true
-explosiveness = 0.92
+explosiveness = 0.90
 randomness = 0.5
 process_material = SubResource("ParticleProcessMaterial_bone")
 draw_pass_1 = SubResource("BoxMesh_chip")

@@ -38,6 +38,7 @@
 #include "player.h"
 #include "playerdat.hpp"
 #include "qol/autopickup.h"
+#include "engine/render_bridge.hpp"
 #include "qol/floatingnumbers.h"
 #include "qol/stash.h"
 #include "spells.h"
@@ -2664,6 +2665,9 @@ void StartPlrHit(Player &player, int dam, bool forcehit)
 	}
 
 	player.Say(HeroSpeech::ArghClang);
+
+	// Native Godot 3D Player Blood Splatter on Hit
+	PushVisualEvent(1, player.position.tile, {}, player._pdir, 1.2f);
 
 	RedrawComponent(PanelDrawComponent::Health);
 	if (player._pClass == HeroClass::Barbarian) {

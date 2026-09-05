@@ -2026,11 +2026,14 @@ void DrawAndBlit()
 
 Point TileToScreenCoords(Point tilePosition, Displacement subTileOffset)
 {
-	Displacement offset = tileOffset;
-	if (MyPlayer != nullptr && MyPlayer->isWalking())
-		offset += GetOffsetForWalking(MyPlayer->AnimInfo, MyPlayer->_pdir, true);
+	if (MyPlayer == nullptr || gnScreenWidth <= 0 || gnScreenHeight <= 0)
+		return Point { 0, 0 };
 
-	Displacement worldOffset = ViewPosition - tilePosition;
+	Point startPosition = ViewPosition;
+	Displacement offset = {};
+	CalcFirstTilePosition(startPosition, offset);
+
+	Displacement worldOffset = startPosition - tilePosition;
 	worldOffset = worldOffset.worldToScreen() + offset + Displacement { TILE_WIDTH / 2, -TILE_HEIGHT / 2 } + subTileOffset;
 
 	if (CurrentZoomMode == ZoomMode::Zoomed_2x) {

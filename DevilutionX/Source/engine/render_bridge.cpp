@@ -30,6 +30,8 @@
 #include "sound.h"
 #include "effects.h"
 #include "lighting.h"
+#include "objects.h"
+#include "objdat.h"
 #include <cmath>
 
 namespace devilution {
@@ -677,9 +679,40 @@ void SelectSpell(int spellId, int spellType)
 static std::mutex g_VisualEventMutex;
 static std::vector<D1VisualEvent> g_VisualEventQueue;
 
+static bool IsTorchOrFireObject(int objType)
+{
+	switch (objType) {
+	case OBJ_TORCHL:
+	case OBJ_TORCHR:
+	case OBJ_TORCHL2:
+	case OBJ_TORCHR2:
+	case OBJ_L1LIGHT:
+	case OBJ_SKFIRE:
+	case OBJ_CANDLE1:
+	case OBJ_CANDLE2:
+	case OBJ_CANDLEO:
+	case OBJ_BOOKCANDLE:
+	case OBJ_STORYCANDLE:
+	case OBJ_L5CANDLE:
+	case OBJ_BCROSS:
+	case OBJ_TBCROSS:
+	case OBJ_FLAMEHOLE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 void PushVisualEvent(uint32_t type, Point tile, Displacement offset, Direction dir, float intensity)
 {
 	Point screenPos = TileToScreenCoords(tile, offset);
+	int yOffset = 22;
+	if (CurrentZoomMode == ZoomMode::Balanced_1_5x) yOffset = 33;
+	else if (CurrentZoomMode == ZoomMode::Zoomed_2x) yOffset = 44;
+	else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) yOffset = 55;
+	else if (CurrentZoomMode == ZoomMode::MacroClose_3x) yOffset = 66;
+	screenPos.y -= yOffset;
+
 	float normX = (gnScreenWidth > 0) ? (static_cast<float>(screenPos.x) / static_cast<float>(gnScreenWidth)) : 0.5f;
 	float normY = (gnScreenHeight > 0) ? (static_cast<float>(screenPos.y) / static_cast<float>(gnScreenHeight)) : 0.5f;
 
@@ -723,6 +756,13 @@ std::vector<D1EngineLight> GetActiveEngineLights()
 	// 1. Hero Torch (Type 0)
 	{
 		Point heroScreen = TileToScreenCoords(MyPlayer->position.tile);
+		int yOffset = 26;
+		if (CurrentZoomMode == ZoomMode::Balanced_1_5x) yOffset = 39;
+		else if (CurrentZoomMode == ZoomMode::Zoomed_2x) yOffset = 52;
+		else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) yOffset = 65;
+		else if (CurrentZoomMode == ZoomMode::MacroClose_3x) yOffset = 78;
+		heroScreen.y -= yOffset;
+
 		D1EngineLight heroLight;
 		heroLight.normX = static_cast<float>(heroScreen.x) / static_cast<float>(gnScreenWidth);
 		heroLight.normY = static_cast<float>(heroScreen.y) / static_cast<float>(gnScreenHeight);
@@ -733,7 +773,50 @@ std::vector<D1EngineLight> GetActiveEngineLights()
 		lights.push_back(heroLight);
 	}
 
-	// 2. Active Lights in DevilutionX (Wall torches, braziers, missiles)
+	// 2. Static Dungeon Torches, Braziers & Candles (Type 1)
+	for (int i = 0; i < ActiveObjectCount; ++i) {
+		const Object &obj = Objects[ActiveObjects[i]];
+		if (!IsTorchOrFireObject(obj._otype))
+			continue;
+
+		Point screenPos = TileToScreenCoords(obj.position);
+		int yOffset = 22;
+		if (obj._otype == OBJ_TORCHL || obj._otype == OBJ_TORCHR || obj._otype == OBJ_TORCHL2 || obj._otype == OBJ_TORCHR2) {
+			yOffset = 28;
+		} else if (obj._otype == OBJ_SKFIRE || obj._otype == OBJ_L1LIGHT) {
+			yOffset = 24;
+		}
+
+		if (CurrentZoomMode == ZoomMode::Balanced_1_5x) yOffset = (yOffset * 3) / 2;
+		else if (CurrentZoomMode == ZoomMode::Zoomed_2x) yOffset *= 2;
+		else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) yOffset = (yOffset * 5) / 2;
+		else if (CurrentZoomMode == ZoomMode::MacroClose_3x) yOffset *= 3;
+		screenPos.y -= yOffset;
+
+		float normX = static_cast<float>(screenPos.x) / static_cast<float>(gnScreenWidth);
+		float normY = static_cast<float>(screenPos.y) / static_cast<float>(gnScreenHeight);
+
+		if (normX < -0.2f || normX > 1.2f || normY < -0.2f || normY > 1.2f)
+			continue;
+
+		float rad = 8.0f;
+		if (obj._otype == OBJ_L1LIGHT || obj._otype == OBJ_SKFIRE) rad = 7.0f;
+		else if (obj._otype == OBJ_CANDLE1 || obj._otype == OBJ_CANDLE2 || obj._otype == OBJ_CANDLEO || obj._otype == OBJ_BOOKCANDLE || obj._otype == OBJ_STORYCANDLE || obj._otype == OBJ_L5CANDLE) rad = 4.0f;
+
+		D1EngineLight el;
+		el.normX = normX;
+		el.normY = normY;
+		el.radius = rad;
+		el.tileX = obj.position.x;
+		el.tileY = obj.position.y;
+		el.type = 1;
+		lights.push_back(el);
+
+		if (lights.size() >= 16)
+			break;
+	}
+
+	// 3. Dynamic Engine Lights (Missiles, Spells, Special Lights) (Type 2)
 	for (int i = 0; i < ActiveLightCount; ++i) {
 		int lid = ActiveLights[i];
 		if (lid < 0 || lid >= MAXLIGHTS) continue;
@@ -742,12 +825,12 @@ std::vector<D1EngineLight> GetActiveEngineLights()
 
 		// Skip hero torch
 		if (lid == MyPlayer->lightId) continue;
+		if (light.position.tile == MyPlayer->position.tile) continue;
 
 		Point screenPos = TileToScreenCoords(light.position.tile, light.position.offset);
 		float normX = static_cast<float>(screenPos.x) / static_cast<float>(gnScreenWidth);
 		float normY = static_cast<float>(screenPos.y) / static_cast<float>(gnScreenHeight);
 
-		// Include only lights near visible screen bounds
 		if (normX < -0.25f || normX > 1.25f || normY < -0.25f || normY > 1.25f)
 			continue;
 
@@ -757,10 +840,10 @@ std::vector<D1EngineLight> GetActiveEngineLights()
 		el.radius = static_cast<float>(light.radius);
 		el.tileX = light.position.tile.x;
 		el.tileY = light.position.tile.y;
-		el.type = (light.radius <= 4) ? 2 : 1; // 2: Missile/spell, 1: Wall torch/brazier
+		el.type = 2; // Missile/Spell
 		lights.push_back(el);
 
-		if (lights.size() >= 12)
+		if (lights.size() >= 24)
 			break;
 	}
 
@@ -777,10 +860,10 @@ std::vector<D1WallOccluder> GetActiveWallOccluders()
 	bool visited[112][112] = { false };
 
 	for (const auto &light : lights) {
-		int startX = std::max(0, light.tileX - 5);
-		int endX = std::min(111, light.tileX + 5);
-		int startY = std::max(0, light.tileY - 5);
-		int endY = std::min(111, light.tileY + 5);
+		int startX = std::max(0, light.tileX - 6);
+		int endX = std::min(111, light.tileX + 6);
+		int startY = std::max(0, light.tileY - 6);
+		int endY = std::min(111, light.tileY + 6);
 
 		for (int y = startY; y <= endY; ++y) {
 			for (int x = startX; x <= endX; ++x) {
@@ -789,11 +872,18 @@ std::vector<D1WallOccluder> GetActiveWallOccluders()
 
 				if (TileHasAny(dPiece[x][y], TileProperties::BlockLight)) {
 					Point screenPos = TileToScreenCoords(Point{ x, y });
+					int yOffset = 16;
+					if (CurrentZoomMode == ZoomMode::Balanced_1_5x) yOffset = 24;
+					else if (CurrentZoomMode == ZoomMode::Zoomed_2x) yOffset = 32;
+					else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) yOffset = 40;
+					else if (CurrentZoomMode == ZoomMode::MacroClose_3x) yOffset = 48;
+					screenPos.y -= yOffset;
+
 					float normX = static_cast<float>(screenPos.x) / static_cast<float>(gnScreenWidth);
 					float normY = static_cast<float>(screenPos.y) / static_cast<float>(gnScreenHeight);
 					if (normX >= -0.1f && normX <= 1.1f && normY >= -0.1f && normY <= 1.1f) {
 						occluders.push_back(D1WallOccluder{ normX, normY });
-						if (occluders.size() >= 48)
+						if (occluders.size() >= 64)
 							return occluders;
 					}
 				}

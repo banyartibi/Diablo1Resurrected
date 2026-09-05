@@ -4,31 +4,32 @@
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blood"]
 shading_mode = 0
-albedo_color = Color(0.68, 0.03, 0.05, 0.95)
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.85, 0.02, 0.04, 1)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_blood"]
 lifetime_randomness = 0.35
-direction = Vector3(0, 1, 0.4)
-spread = 45.0
-initial_velocity_min = 2.2
-initial_velocity_max = 4.5
-gravity = Vector3(0, -6.5, -2.0)
-damping_min = 1.5
-damping_max = 3.0
-scale_min = 0.04
-scale_max = 0.09
-color = Color(0.72, 0.02, 0.05, 1)
+direction = Vector3(0, 0.6, 0.8)
+spread = 70.0
+initial_velocity_min = 1.8
+initial_velocity_max = 4.2
+gravity = Vector3(0, -5.5, -0.5)
+damping_min = 1.2
+damping_max = 2.5
+scale_min = 0.8
+scale_max = 1.8
+color = Color(0.88, 0.03, 0.05, 0.98)
 
 [sub_resource type="BoxMesh" id="BoxMesh_drop"]
 material = SubResource("StandardMaterial3D_blood")
-size = Vector3(0.06, 0.06, 0.06)
+size = Vector3(0.09, 0.09, 0.09)
 
 [node name="BloodSplatter" type="GPUParticles3D"]
 emitting = false
-amount = 28
-lifetime = 0.55
+amount = 32
+lifetime = 0.6
 one_shot = true
-explosiveness = 0.94
+explosiveness = 0.92
 randomness = 0.4
 process_material = SubResource("ParticleProcessMaterial_blood")
 draw_pass_1 = SubResource("BoxMesh_drop")

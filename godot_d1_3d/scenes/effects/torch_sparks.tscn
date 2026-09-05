@@ -2,27 +2,28 @@
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spark"]
 shading_mode = 0
-albedo_color = Color(1, 0.72, 0.2, 0.9)
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 0.78, 0.25, 1)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_sparks"]
 emission_shape = 1
-emission_sphere_radius = 0.08
-direction = Vector3(0, 1, 0.15)
-spread = 25.0
-initial_velocity_min = 0.4
-initial_velocity_max = 1.2
-gravity = Vector3(0, 0.6, 0.1)
-scale_min = 0.02
-scale_max = 0.045
-color = Color(1, 0.75, 0.25, 0.85)
+emission_sphere_radius = 0.12
+direction = Vector3(0, 1, 0.2)
+spread = 30.0
+initial_velocity_min = 0.5
+initial_velocity_max = 1.5
+gravity = Vector3(0, 0.8, 0.1)
+scale_min = 0.6
+scale_max = 1.4
+color = Color(1, 0.80, 0.30, 0.9)
 
 [sub_resource type="BoxMesh" id="BoxMesh_spark"]
 material = SubResource("StandardMaterial3D_spark")
-size = Vector3(0.04, 0.04, 0.04)
+size = Vector3(0.045, 0.045, 0.045)
 
 [node name="TorchSparks" type="GPUParticles3D"]
-amount = 14
-lifetime = 1.1
+amount = 16
+lifetime = 1.2
 preprocess = 0.5
 randomness = 0.3
 process_material = SubResource("ParticleProcessMaterial_sparks")
