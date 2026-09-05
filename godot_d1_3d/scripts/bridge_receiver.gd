@@ -22,7 +22,23 @@ var current_color_profile: int = 1      # Default: 1 = Dark Gothic (Deep OLED Sl
 var current_upscaler_mode: int = 3      # Default: 3 = 8K Catmull-Rom Bicubic Spline!
 var current_relief_mode: int = 3        # Default: 3 = Deep 3D Embossed Contour & Normal Relief
 var current_hdr_level: int = 3          # Default: 3 = 3.0x Blazing HDR Glow (0: OFF, 1: 1.0x, 2: 2.0x, 3: 3.0x)
-var hero_light_enabled: bool = false    # Default: OFF (Respects authentic Diablo shadows, no bleeding through walls!)
+var hero_light_enabled: bool = true         # Default: ON (Dynamic 3D Lighting & Shadows)
+
+# Dynamic 3D Lights, Shadows & Particles
+@onready var torch_container: Node3D = get_node_or_null("TorchLightsContainer")
+@onready var shadow_container: Node3D = get_node_or_null("ShadowCastersContainer")
+@onready var effects_container: Node3D = get_node_or_null("EffectsContainer")
+
+var blood_splatter_scene = preload("res://scenes/effects/blood_splatter.tscn")
+var bone_shards_scene = preload("res://scenes/effects/bone_shards.tscn")
+var fireball_explosion_scene = preload("res://scenes/effects/fireball_explosion.tscn")
+var torch_sparks_scene = preload("res://scenes/effects/torch_sparks.tscn")
+
+var pooled_torch_lights: Array = []
+var pooled_shadow_boxes: Array = []
+var hero_sparks: GPUParticles3D = null
+var occluder_box_mesh: BoxMesh = null
+
 var wet_floor: bool = true              # Default: ON (Wet Cobblestone PBR Reflections, Darker Damp Stone + Glossy Puddles)
 var playfield_zoom: float = 1.0
 var left_panel_open: bool = false
@@ -112,6 +128,36 @@ func _ready():
 	if not hero_light:
 		hero_light = get_node_or_null("HeroTorchLight")
 	
+	if not torch_container:
+		torch_container = get_node_or_null("TorchLightsContainer")
+		if not torch_container:
+			torch_container = Node3D.new()
+			torch_container.name = "TorchLightsContainer"
+			add_child(torch_container)
+
+	if not shadow_container:
+		shadow_container = get_node_or_null("ShadowCastersContainer")
+		if not shadow_container:
+			shadow_container = Node3D.new()
+			shadow_container.name = "ShadowCastersContainer"
+			add_child(shadow_container)
+
+	if not effects_container:
+		effects_container = get_node_or_null("EffectsContainer")
+		if not effects_container:
+			effects_container = Node3D.new()
+			effects_container.name = "EffectsContainer"
+			add_child(effects_container)
+
+	occluder_box_mesh = BoxMesh.new()
+	occluder_box_mesh.size = Vector3(0.68, 0.68, 0.60)
+
+	if hero_light:
+		hero_light.visible = hero_light_enabled
+		hero_sparks = torch_sparks_scene.instantiate()
+		hero_light.add_child(hero_sparks)
+		hero_sparks.position = Vector3(0, 0, 0.05)
+
 	# Solid Flat 2D Viewport setup (pure clean fullscreen)
 	if mesh_instance:
 		mesh_instance.rotation_degrees = Vector3.ZERO
@@ -175,11 +221,15 @@ func setup_osd():
 func update_torch_light():
 	if hero_light:
 		hero_light.visible = hero_light_enabled
-		hero_light.light_color = Color(1.0, 0.74, 0.40, 1.0) # Warm gothic amber
-		hero_light.light_energy = 0.50
-		hero_light.light_specular = 0.08 # Soft natural glint, no blinding white hotspot
-		hero_light.omni_range = 9.5
-		hero_light.omni_attenuation = 1.8
+		hero_light.light_color = Color(1.0, 0.72, 0.38, 1.0) # Warm gothic amber
+		hero_light.light_energy = 1.30
+		hero_light.light_specular = 0.50
+		hero_light.omni_range = 6.0
+		hero_light.omni_attenuation = 1.2
+		hero_light.shadow_enabled = true
+		hero_light.shadow_bias = 0.05
+		hero_light.shadow_normal_bias = 1.0
+		hero_light.shadow_blur = 1.5
 
 func show_osd(text: String, duration: float = 2.5):
 	if osd_label:
@@ -327,6 +377,19 @@ func _process(delta: float):
 				var cur_zoom = diablo_bridge.get_zoom_mode()
 				if cur_zoom >= 0 and cur_zoom < zoom_step_names.size() and cur_zoom != current_zoom_step:
 					current_zoom_step = cur_zoom
+
+			# Dynamic 3D Lights, Shadows & Native Particles
+			if hero_light_enabled and is_ingame:
+				update_dynamic_lighting(delta)
+				update_shadow_casters()
+				process_visual_events()
+			else:
+				if hero_light:
+					hero_light.visible = false
+				for tl in pooled_torch_lights:
+					tl.visible = false
+				for sb in pooled_shadow_boxes:
+					sb.visible = false
 		return
 			
 	if not FileAccess.file_exists("/dev/shm/d1_godot_frame"):
@@ -541,3 +604,112 @@ func get_sdl_key(keycode: int) -> int:
 	if keycode == KEY_HOME: return 1073741898
 	if keycode == KEY_END: return 1073741901
 	return keycode
+
+func update_dynamic_lighting(delta: float) -> void:
+	if not diablo_bridge or not diablo_bridge.has_method("get_active_lights"):
+		return
+
+	var active_lights: Array = diablo_bridge.get_active_lights()
+	if active_lights.is_empty():
+		if hero_light:
+			hero_light.visible = false
+		for light in pooled_torch_lights:
+			light.visible = false
+		return
+
+	# 1. Hero Torch (Type 0, index 0)
+	if hero_light:
+		var hero_info = active_lights[0]
+		hero_light.visible = true
+		hero_light.position = hero_info["world_pos"]
+		var h_flicker = 1.0 + 0.14 * sin(time_accum * 11.7) * cos(time_accum * 6.3) + 0.05 * sin(time_accum * 25.1)
+		hero_light.light_energy = 1.35 * h_flicker
+		hero_light.omni_range = clamp(hero_info["radius"] * 0.65, 4.5, 9.0)
+
+	# 2. Environmental & Spell Lights (Wall torches, braziers, fireballs)
+	var env_count = active_lights.size() - 1
+	while pooled_torch_lights.size() < env_count:
+		var o_light = OmniLight3D.new()
+		o_light.shadow_enabled = true
+		o_light.shadow_bias = 0.05
+		o_light.shadow_normal_bias = 1.0
+		o_light.shadow_blur = 1.5
+		o_light.omni_attenuation = 1.3
+		var sparks = torch_sparks_scene.instantiate()
+		o_light.add_child(sparks)
+		sparks.position = Vector3(0, 0, 0.05)
+		torch_container.add_child(o_light)
+		pooled_torch_lights.append(o_light)
+
+	for i in range(pooled_torch_lights.size()):
+		var o_light = pooled_torch_lights[i]
+		if i < env_count:
+			var info = active_lights[i + 1]
+			o_light.visible = true
+			o_light.position = info["world_pos"]
+			var l_type = info["type"]
+			if l_type == 1: # Wall Torch / Brazier
+				o_light.light_color = Color(1.0, 0.68, 0.28, 1.0)
+				o_light.omni_range = clamp(info["radius"] * 0.55, 3.5, 7.5)
+				var phase = float(i + 1) * 1.83
+				var t_flicker = 1.0 + 0.12 * sin(time_accum * 13.1 + phase) * cos(time_accum * 7.9 + phase * 2.0)
+				o_light.light_energy = 1.15 * t_flicker
+				o_light.shadow_enabled = (i < 6)
+			elif l_type == 2: # Spell / Missile (Fireball, Flame)
+				o_light.light_color = Color(1.0, 0.88, 0.45, 1.0)
+				o_light.omni_range = clamp(info["radius"] * 0.65, 4.0, 8.0)
+				o_light.light_energy = 1.80
+				o_light.shadow_enabled = false
+			else:
+				o_light.light_color = Color(0.9, 0.65, 0.35, 1.0)
+				o_light.omni_range = 4.0
+				o_light.light_energy = 0.9
+				o_light.shadow_enabled = false
+		else:
+			o_light.visible = false
+
+func update_shadow_casters() -> void:
+	if not diablo_bridge or not diablo_bridge.has_method("get_wall_occluders"):
+		return
+
+	var occluders: Array = diablo_bridge.get_wall_occluders()
+	while pooled_shadow_boxes.size() < occluders.size():
+		var box = MeshInstance3D.new()
+		box.mesh = occluder_box_mesh
+		box.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		shadow_container.add_child(box)
+		pooled_shadow_boxes.append(box)
+
+	for i in range(pooled_shadow_boxes.size()):
+		var box = pooled_shadow_boxes[i]
+		if i < occluders.size():
+			box.visible = true
+			box.position = occluders[i]
+		else:
+			box.visible = false
+
+func process_visual_events() -> void:
+	if not diablo_bridge or not diablo_bridge.has_method("poll_visual_events"):
+		return
+
+	var events: Array = diablo_bridge.poll_visual_events()
+	for ev in events:
+		var ev_type = ev.get("type", 0)
+		var ev_pos = ev.get("world_pos", Vector3.ZERO)
+		var ev_scale = ev.get("intensity", 1.0)
+		var p_instance: GPUParticles3D = null
+
+		if ev_type == 1: # Blood Splatter (Fleshy / Demon)
+			p_instance = blood_splatter_scene.instantiate()
+		elif ev_type == 2: # Bone Shards (Undead / Skeleton / Stone)
+			p_instance = bone_shards_scene.instantiate()
+		elif ev_type == 3: # Fireball / Spell Explosion
+			p_instance = fireball_explosion_scene.instantiate()
+
+		if p_instance:
+			p_instance.position = ev_pos
+			if ev_scale != 1.0:
+				var s = clamp(ev_scale, 0.75, 2.8)
+				p_instance.scale = Vector3(s, s, s)
+			effects_container.add_child(p_instance)
+

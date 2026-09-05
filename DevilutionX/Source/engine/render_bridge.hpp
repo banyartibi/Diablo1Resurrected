@@ -4,6 +4,8 @@
 #include <atomic>
 #include <vector>
 #include <SDL.h>
+#include "engine/point.hpp"
+#include "engine/direction.hpp"
 
 namespace devilution {
 
@@ -156,6 +158,36 @@ struct D1AudioEvent {
 void PushDevilutionXAudioEvent(D1AudioEvent::Type type, const char *path, int32_t volume = 0, int32_t pan = 0, int32_t tileX = 0, int32_t tileY = 0, bool hasPos = false);
 size_t PopDevilutionXAudioEvents(D1AudioEvent *outEvents, size_t maxEvents);
 std::vector<uint8_t> LoadDevilutionXAsset(const char *path);
+
+// Native Godot 3D Lighting & Shadows
+struct D1EngineLight {
+	float normX = 0.5f;
+	float normY = 0.5f;
+	float radius = 5.0f;
+	int type = 0; // 0: Player Torch, 1: Wall Torch / Brazier, 2: Missile / Spell, 3: Monster / Ambient
+	int tileX = 0;
+	int tileY = 0;
+};
+
+struct D1WallOccluder {
+	float normX = 0.0f;
+	float normY = 0.0f;
+};
+
+// Native Godot 3D GPUParticles Visual Events
+struct D1VisualEvent {
+	uint32_t type = 0; // 1: Blood Splatter, 2: Bone Shards, 3: Fireball Explosion, 4: Hit Sparks
+	float normX = 0.5f;
+	float normY = 0.5f;
+	float dirX = 0.0f;
+	float dirY = -1.0f;
+	float intensity = 1.0f;
+};
+
+void PushVisualEvent(uint32_t type, Point tile, Displacement offset, Direction dir, float intensity = 1.0f);
+std::vector<D1EngineLight> GetActiveEngineLights();
+std::vector<D1WallOccluder> GetActiveWallOccluders();
+std::vector<D1VisualEvent> DrainVisualEvents();
 
 } // namespace devilution
 

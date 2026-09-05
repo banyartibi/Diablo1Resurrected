@@ -59,6 +59,11 @@ void ShiftGrid(int *x, int *y, int horizontal, int vertical);
 int RowsCoveredByPanel();
 
 /**
+ * @brief Translates any world tile coordinate and sub-tile offset into exact current screen pixels
+ */
+Point TileToScreenCoords(Point tilePosition, Displacement subTileOffset = {});
+
+/**
  * @brief Calculate the offset needed for centering tiles in view area
  * @param offsetX Offset in pixels
  * @param offsetY Offset in pixels

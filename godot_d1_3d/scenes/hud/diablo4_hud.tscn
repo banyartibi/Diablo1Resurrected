@@ -7,6 +7,13 @@
 [ext_resource type="Texture2D" path="res://assets/hud/frame_angel.png" id="5_angel"]
 [ext_resource type="Texture2D" path="res://assets/hud/slot_frame.png" id="6_slot_frame"]
 [ext_resource type="Texture2D" path="res://assets/hud/skill_frame.png" id="7_skill_frame"]
+[ext_resource type="Shader" path="res://shaders/hud_center_bar.gdshader" id="8_bar_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_center_bar"]
+shader = ExtResource("8_bar_shader")
+shader_parameter/top_fade_start = 0.04
+shader_parameter/top_fade_end = 0.12
+shader_parameter/dark_threshold = 0.25
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_life"]
 shader = ExtResource("2_liquid")
@@ -226,6 +233,7 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="CenterStoneBar" type="TextureRect" parent="Root/HBox/CenterPanel"]
+material = SubResource("ShaderMaterial_center_bar")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

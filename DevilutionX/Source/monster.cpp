@@ -3647,6 +3647,11 @@ void M_StartHit(Monster &monster, int dam)
 {
 	PlayEffect(monster, MonsterSound::Hit);
 
+	// Native Godot 3D Combat Visual Events (Blood & Bone Spatters)
+	uint32_t hitType = (monster.data().monsterClass == MonsterClass::Undead) ? 2 : 1;
+	float intensity = std::min(3.0f, 1.0f + static_cast<float>(dam) / 24.0f);
+	PushVisualEvent(hitType, monster.position.tile, {}, monster.direction, intensity);
+
 	if (IsHardHit(monster, dam)) {
 		if (monster.type().type == MT_BLINK) {
 			Teleport(monster);
@@ -3692,6 +3697,10 @@ void MonsterDeath(Monster &monster, Direction md, bool sendmsg)
 		DiabloDeath(monster, true);
 	else
 		PlayEffect(monster, MonsterSound::Death);
+
+	// Native Godot 3D Combat Death Gore Burst
+	uint32_t deathType = (monster.data().monsterClass == MonsterClass::Undead) ? 2 : 1;
+	PushVisualEvent(deathType, monster.position.tile, {}, md, 2.5f);
 
 	if (monster.mode != MonsterMode::Petrified) {
 		if (monster.type().type == MT_GOLEM)

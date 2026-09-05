@@ -51,9 +51,10 @@ color = Color(1, 0.65, 0.25, 0.85)
 [sub_resource type="BoxMesh" id="BoxMesh_ember"]
 size = Vector3(0.05, 0.05, 0.05)
 
-[node name="Main3D" type="Node3D" node_paths=PackedStringArray("mesh_instance", "camera", "world_env")]
+[node name="Main3D" type="Node3D" node_paths=PackedStringArray("mesh_instance", "hero_light", "camera", "world_env")]
 script = ExtResource("1_recv")
 mesh_instance = NodePath("D1DisplayMesh")
+hero_light = NodePath("HeroTorchLight")
 camera = NodePath("Camera3D")
 world_env = NodePath("WorldEnvironment")
 
@@ -76,15 +77,23 @@ light_specular = 0.0
 shadow_enabled = false
 
 [node name="HeroTorchLight" type="OmniLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 2.8)
-visible = false
-light_color = Color(1.0, 0.74, 0.40, 1)
-light_energy = 0.50
-light_specular = 0.08
-omni_range = 9.5
-omni_attenuation = 1.8
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.65)
+visible = true
+light_color = Color(1, 0.72, 0.38, 1)
+light_energy = 1.25
+light_specular = 0.5
+shadow_enabled = true
+shadow_bias = 0.05
+shadow_normal_bias = 1.0
+shadow_blur = 1.5
+omni_range = 6.0
+omni_attenuation = 1.2
 
+[node name="TorchLightsContainer" type="Node3D" parent="."]
 
+[node name="ShadowCastersContainer" type="Node3D" parent="."]
+
+[node name="EffectsContainer" type="Node3D" parent="."]
 
 [node name="DungeonEmbers3D" type="GPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.5)
@@ -93,3 +102,4 @@ lifetime = 3.5
 preprocess = 1.0
 process_material = SubResource("ParticleProcessMaterial_embers")
 draw_pass_1 = SubResource("BoxMesh_ember")
+

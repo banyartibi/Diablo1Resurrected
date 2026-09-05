@@ -26,6 +26,7 @@
 #include "monster.h"
 #include "spells.h"
 #include "utils/str_cat.hpp"
+#include "engine/render_bridge.hpp"
 
 namespace devilution {
 
@@ -2897,6 +2898,7 @@ void ProcessGenericProjectile(Missile &missile)
 		switch (missile._mitype) {
 		case MissileID::Firebolt:
 		case MissileID::MagmaBall:
+			PushVisualEvent(3, missile.position.tile, missile.position.offset, dir, 1.4f);
 			AddMissile(missile.position.tile, dst, dir, MissileID::MagmaBallExplosion, missile._micaster, missile._misource, 0, 0, &missile);
 			break;
 		case MissileID::BloodStar:
@@ -3061,6 +3063,9 @@ void ProcessFireball(Missile &missile)
 			SetMissAnim(missile, MissileGraphicID::BigExplosion);
 			missile._mirange = missile._miAnimLen - 1;
 			missile.position.velocity = {};
+
+			// Native Godot 3D Fireball Explosion Burst
+			PushVisualEvent(3, missile.position.tile, missile.position.offset, Direction::North, 2.5f);
 		} else if (missile.position.tile != Point { missile.var1, missile.var2 }) {
 			missile.var1 = missile.position.tile.x;
 			missile.var2 = missile.position.tile.y;

@@ -69,6 +69,11 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("poll_audio_events"), &DiabloBridge::poll_audio_events);
 	ClassDB::bind_method(D_METHOD("get_asset_bytes", "path"), &DiabloBridge::get_asset_bytes);
 	ClassDB::bind_method(D_METHOD("load_wav_stream", "path", "loop"), &DiabloBridge::load_wav_stream, DEFVAL(false));
+
+	// Native Godot 3D Lighting, Shadows & GPUParticles
+	ClassDB::bind_method(D_METHOD("get_active_lights"), &DiabloBridge::get_active_lights);
+	ClassDB::bind_method(D_METHOD("get_wall_occluders"), &DiabloBridge::get_wall_occluders);
+	ClassDB::bind_method(D_METHOD("poll_visual_events"), &DiabloBridge::poll_visual_events);
 }
 
 DiabloBridge::DiabloBridge() {
@@ -441,3 +446,50 @@ Ref<AudioStreamWAV> DiabloBridge::load_wav_stream(const String &path, bool loop)
 	}
 	return stream;
 }
+
+Array DiabloBridge::get_active_lights() const {
+	Array arr;
+	auto lights = devilution::GetActiveEngineLights();
+	for (const auto &l : lights) {
+		Dictionary d;
+		d["norm_pos"] = Vector2(l.normX, l.normY);
+		float wx = (l.normX - 0.5f) * 16.0f;
+		float wy = (0.5f - l.normY) * 9.0f;
+		d["world_pos"] = Vector3(wx, wy, 0.55f);
+		d["radius"] = l.radius;
+		d["type"] = l.type;
+		d["tile_x"] = l.tileX;
+		d["tile_y"] = l.tileY;
+		arr.append(d);
+	}
+	return arr;
+}
+
+Array DiabloBridge::get_wall_occluders() const {
+	Array arr;
+	auto occluders = devilution::GetActiveWallOccluders();
+	for (const auto &o : occluders) {
+		float wx = (o.normX - 0.5f) * 16.0f;
+		float wy = (0.5f - o.normY) * 9.0f;
+		arr.append(Vector3(wx, wy, 0.35f));
+	}
+	return arr;
+}
+
+Array DiabloBridge::poll_visual_events() {
+	Array arr;
+	auto events = devilution::DrainVisualEvents();
+	for (const auto &ev : events) {
+		Dictionary d;
+		d["type"] = static_cast<int>(ev.type);
+		d["norm_pos"] = Vector2(ev.normX, ev.normY);
+		float wx = (ev.normX - 0.5f) * 16.0f;
+		float wy = (0.5f - ev.normY) * 9.0f;
+		d["world_pos"] = Vector3(wx, wy, 0.50f);
+		d["dir"] = Vector2(ev.dirX, ev.dirY);
+		d["intensity"] = ev.intensity;
+		arr.append(d);
+	}
+	return arr;
+}
+

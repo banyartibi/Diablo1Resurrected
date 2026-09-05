@@ -29,6 +29,8 @@
 #include "cursor.h"
 #include "sound.h"
 #include "effects.h"
+#include "lighting.h"
+#include <cmath>
 
 namespace devilution {
 
@@ -670,6 +672,135 @@ void SelectSpell(int spellId, int spellType)
 	MyPlayer->_pRSplType = static_cast<SpellType>(spellType);
 	spselflag = false;
 	RedrawEverything();
+}
+
+static std::mutex g_VisualEventMutex;
+static std::vector<D1VisualEvent> g_VisualEventQueue;
+
+void PushVisualEvent(uint32_t type, Point tile, Displacement offset, Direction dir, float intensity)
+{
+	Point screenPos = TileToScreenCoords(tile, offset);
+	float normX = (gnScreenWidth > 0) ? (static_cast<float>(screenPos.x) / static_cast<float>(gnScreenWidth)) : 0.5f;
+	float normY = (gnScreenHeight > 0) ? (static_cast<float>(screenPos.y) / static_cast<float>(gnScreenHeight)) : 0.5f;
+
+	Displacement dirDisp = Displacement(dir);
+	float len = std::sqrt(static_cast<float>(dirDisp.deltaX * dirDisp.deltaX + dirDisp.deltaY * dirDisp.deltaY));
+	float dx = 0.0f;
+	float dy = -1.0f;
+	if (len > 0.001f) {
+		dx = static_cast<float>(dirDisp.deltaX) / len;
+		dy = static_cast<float>(dirDisp.deltaY) / len;
+	}
+
+	D1VisualEvent ev;
+	ev.type = type;
+	ev.normX = normX;
+	ev.normY = normY;
+	ev.dirX = dx;
+	ev.dirY = dy;
+	ev.intensity = intensity;
+
+	std::lock_guard<std::mutex> lock(g_VisualEventMutex);
+	if (g_VisualEventQueue.size() < 64) {
+		g_VisualEventQueue.push_back(ev);
+	}
+}
+
+std::vector<D1VisualEvent> DrainVisualEvents()
+{
+	std::vector<D1VisualEvent> result;
+	std::lock_guard<std::mutex> lock(g_VisualEventMutex);
+	result.swap(g_VisualEventQueue);
+	return result;
+}
+
+std::vector<D1EngineLight> GetActiveEngineLights()
+{
+	std::vector<D1EngineLight> lights;
+	if (MyPlayer == nullptr || gnScreenWidth <= 0 || gnScreenHeight <= 0)
+		return lights;
+
+	// 1. Hero Torch (Type 0)
+	{
+		Point heroScreen = TileToScreenCoords(MyPlayer->position.tile);
+		D1EngineLight heroLight;
+		heroLight.normX = static_cast<float>(heroScreen.x) / static_cast<float>(gnScreenWidth);
+		heroLight.normY = static_cast<float>(heroScreen.y) / static_cast<float>(gnScreenHeight);
+		heroLight.radius = static_cast<float>(MyPlayer->_pLightRad);
+		heroLight.type = 0; // Hero Torch
+		heroLight.tileX = MyPlayer->position.tile.x;
+		heroLight.tileY = MyPlayer->position.tile.y;
+		lights.push_back(heroLight);
+	}
+
+	// 2. Active Lights in DevilutionX (Wall torches, braziers, missiles)
+	for (int i = 0; i < ActiveLightCount; ++i) {
+		int lid = ActiveLights[i];
+		if (lid < 0 || lid >= MAXLIGHTS) continue;
+		const Light &light = Lights[lid];
+		if (light.isInvalid) continue;
+
+		// Skip hero torch
+		if (lid == MyPlayer->lightId) continue;
+
+		Point screenPos = TileToScreenCoords(light.position.tile, light.position.offset);
+		float normX = static_cast<float>(screenPos.x) / static_cast<float>(gnScreenWidth);
+		float normY = static_cast<float>(screenPos.y) / static_cast<float>(gnScreenHeight);
+
+		// Include only lights near visible screen bounds
+		if (normX < -0.25f || normX > 1.25f || normY < -0.25f || normY > 1.25f)
+			continue;
+
+		D1EngineLight el;
+		el.normX = normX;
+		el.normY = normY;
+		el.radius = static_cast<float>(light.radius);
+		el.tileX = light.position.tile.x;
+		el.tileY = light.position.tile.y;
+		el.type = (light.radius <= 4) ? 2 : 1; // 2: Missile/spell, 1: Wall torch/brazier
+		lights.push_back(el);
+
+		if (lights.size() >= 12)
+			break;
+	}
+
+	return lights;
+}
+
+std::vector<D1WallOccluder> GetActiveWallOccluders()
+{
+	std::vector<D1WallOccluder> occluders;
+	if (MyPlayer == nullptr || gnScreenWidth <= 0 || gnScreenHeight <= 0)
+		return occluders;
+
+	auto lights = GetActiveEngineLights();
+	bool visited[112][112] = { false };
+
+	for (const auto &light : lights) {
+		int startX = std::max(0, light.tileX - 5);
+		int endX = std::min(111, light.tileX + 5);
+		int startY = std::max(0, light.tileY - 5);
+		int endY = std::min(111, light.tileY + 5);
+
+		for (int y = startY; y <= endY; ++y) {
+			for (int x = startX; x <= endX; ++x) {
+				if (visited[x][y]) continue;
+				visited[x][y] = true;
+
+				if (TileHasAny(dPiece[x][y], TileProperties::BlockLight)) {
+					Point screenPos = TileToScreenCoords(Point{ x, y });
+					float normX = static_cast<float>(screenPos.x) / static_cast<float>(gnScreenWidth);
+					float normY = static_cast<float>(screenPos.y) / static_cast<float>(gnScreenHeight);
+					if (normX >= -0.1f && normX <= 1.1f && normY >= -0.1f && normY <= 1.1f) {
+						occluders.push_back(D1WallOccluder{ normX, normY });
+						if (occluders.size() >= 48)
+							return occluders;
+					}
+				}
+			}
+		}
+	}
+	return occluders;
 }
 
 } // namespace devilution

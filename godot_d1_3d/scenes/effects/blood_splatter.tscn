@@ -1,0 +1,35 @@
+[gd_scene load_steps=5 format=3 uid="uid://bldspl001"]
+
+[ext_resource type="Script" path="res://scripts/one_shot_particles.gd" id="1_osp"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blood"]
+shading_mode = 0
+albedo_color = Color(0.68, 0.03, 0.05, 0.95)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_blood"]
+lifetime_randomness = 0.35
+direction = Vector3(0, 1, 0.4)
+spread = 45.0
+initial_velocity_min = 2.2
+initial_velocity_max = 4.5
+gravity = Vector3(0, -6.5, -2.0)
+damping_min = 1.5
+damping_max = 3.0
+scale_min = 0.04
+scale_max = 0.09
+color = Color(0.72, 0.02, 0.05, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_drop"]
+material = SubResource("StandardMaterial3D_blood")
+size = Vector3(0.06, 0.06, 0.06)
+
+[node name="BloodSplatter" type="GPUParticles3D"]
+emitting = false
+amount = 28
+lifetime = 0.55
+one_shot = true
+explosiveness = 0.94
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_blood")
+draw_pass_1 = SubResource("BoxMesh_drop")
+script = ExtResource("1_osp")

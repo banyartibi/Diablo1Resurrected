@@ -2024,4 +2024,28 @@ void DrawAndBlit()
 	RenderPresent();
 }
 
+Point TileToScreenCoords(Point tilePosition, Displacement subTileOffset)
+{
+	Displacement offset = tileOffset;
+	if (MyPlayer != nullptr && MyPlayer->isWalking())
+		offset += GetOffsetForWalking(MyPlayer->AnimInfo, MyPlayer->_pdir, true);
+
+	Displacement worldOffset = ViewPosition - tilePosition;
+	worldOffset = worldOffset.worldToScreen() + offset + Displacement { TILE_WIDTH / 2, -TILE_HEIGHT / 2 } + subTileOffset;
+
+	if (CurrentZoomMode == ZoomMode::Zoomed_2x) {
+		worldOffset *= 2;
+	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
+		worldOffset.deltaX = (worldOffset.deltaX * 3) / 2;
+		worldOffset.deltaY = (worldOffset.deltaY * 3) / 2;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		worldOffset.deltaX = (worldOffset.deltaX * 5) / 2;
+		worldOffset.deltaY = (worldOffset.deltaY * 5) / 2;
+	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		worldOffset *= 3;
+	}
+
+	return Point { worldOffset.deltaX, worldOffset.deltaY };
+}
+
 } // namespace devilution
