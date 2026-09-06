@@ -67,7 +67,13 @@ var sandbox_instance = null
 
 # Modal Dialog & Menu Overlay (for Mode 1 / Mode 2 when talking to Towners, visiting shops, or in Esc menu)
 var modal_layer: CanvasLayer = null
+var modal_container: Control = null
 var modal_rect: TextureRect = null
+var modal_shader_mat: ShaderMaterial = null
+
+# Automap Overlay (for Tab map in Native 2.5D / 3D)
+var automap_layer: CanvasLayer = null
+var automap_rect: TextureRect = null
 
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
@@ -256,12 +262,32 @@ func setup_modal_overlay():
 	modal_layer.visible = false
 	add_child(modal_layer)
 
+	modal_container = Control.new()
+	modal_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	modal_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	modal_layer.add_child(modal_container)
+
 	modal_rect = TextureRect.new()
 	modal_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	modal_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	modal_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	modal_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	modal_layer.add_child(modal_rect)
+	modal_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	modal_container.add_child(modal_rect)
+
+	# Transparent Automap Layer (Layer 115: Above 2.5D/3D world, below modals)
+	automap_layer = CanvasLayer.new()
+	automap_layer.layer = 115
+	automap_layer.visible = false
+	add_child(automap_layer)
+
+	automap_rect = TextureRect.new()
+	automap_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	automap_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	automap_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	automap_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	automap_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	automap_layer.add_child(automap_rect)
 
 func update_torch_light():
 	if hero_light:
@@ -417,8 +443,11 @@ func _process(delta: float):
 				left_panel_open = new_left
 				right_panel_open = new_right
 				speedbook_open = new_speedbook
+				var ingame_changed = (is_ingame != last_is_ingame)
 				last_is_ingame = is_ingame
 				update_shader_params()
+				if ingame_changed:
+					apply_display_mode()
 			if diablo_bridge.has_method("get_zoom_mode"):
 				var cur_zoom = diablo_bridge.get_zoom_mode()
 				if cur_zoom >= 0 and cur_zoom < zoom_step_names.size() and cur_zoom != current_zoom_step:
@@ -431,6 +460,18 @@ func _process(delta: float):
 					modal_layer.visible = modal_active
 				else:
 					modal_layer.visible = false
+
+			# Transparent Automap Overlay for Native 2.5D / 3D views
+			if automap_layer and diablo_bridge.has_method("is_automap_active"):
+				var map_active = diablo_bridge.is_automap_active()
+				if current_display_mode != DisplayMode.ORIGINAL_25D and map_active:
+					automap_layer.visible = true
+					if diablo_bridge.has_method("get_automap_texture"):
+						var map_tex = diablo_bridge.get_automap_texture()
+						if map_tex:
+							automap_rect.texture = map_tex
+				else:
+					automap_layer.visible = false
 
 			# Dynamic 3D Lights & Native Particles
 			if is_ingame:
@@ -517,10 +558,33 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var game_y = int(clamp(norm_y * float(d1_height), 0.0, float(d1_height - 1)))
 	return Vector2i(game_x, game_y)
 
-func switch_display_mode(new_mode: int):
-	current_display_mode = new_mode
+func apply_display_mode():
+	var is_ingame = diablo_bridge.is_game_running() if (diablo_bridge and diablo_bridge.has_method("is_game_running")) else false
 
-	# Deactivate all views first
+	# If the engine is in menus, hero creation, cutscenes or title screen:
+	# Always ensure classic blit mesh is visible and interactive!
+	if not is_ingame:
+		if native_25d_instance:
+			native_25d_instance.deactivate()
+		if sandbox_instance:
+			sandbox_instance.deactivate()
+		if modal_layer:
+			modal_layer.visible = false
+		if automap_layer:
+			automap_layer.visible = false
+		if mesh_instance:
+			mesh_instance.visible = true
+		if hero_light:
+			hero_light.visible = false
+		if torch_container:
+			torch_container.visible = false
+		if effects_container:
+			effects_container.visible = false
+		if camera:
+			camera.make_current()
+		return
+
+	# In-game mode activation:
 	if native_25d_instance:
 		native_25d_instance.deactivate()
 	if sandbox_instance:
@@ -530,6 +594,8 @@ func switch_display_mode(new_mode: int):
 		# Mode 0: Classic 2.5D Blit (Vanilla + PBR Relief Shader)
 		if modal_layer:
 			modal_layer.visible = false
+		if automap_layer:
+			automap_layer.visible = false
 		if mesh_instance:
 			mesh_instance.visible = true
 		if hero_light:
@@ -574,6 +640,10 @@ func switch_display_mode(new_mode: int):
 			sandbox_instance.activate()
 		show_osd("[F3] Display Mode 3/3: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)", 3.5)
 
+func switch_display_mode(new_mode: int):
+	current_display_mode = new_mode
+	apply_display_mode()
+
 func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_H:
@@ -588,6 +658,14 @@ func _unhandled_input(event: InputEvent):
 		elif event.keycode == KEY_F3:
 			var next_mode = (current_display_mode + 1) % 3
 			switch_display_mode(next_mode)
+			var is_ingame = diablo_bridge.is_game_running() if (diablo_bridge and diablo_bridge.has_method("is_game_running")) else false
+			if not is_ingame:
+				var mode_names = [
+					"Classic 2.5D Blit (Vanilla + 3D Relief Shader)",
+					"Native Godot 2.5D Engine (144Hz Smooth Camera)",
+					"Native 3D Sandbox (Real 3D Geometry)"
+				]
+				show_osd("[F3] Mode selected: " + mode_names[next_mode] + " (Active when game begins)", 3.0)
 			return
 		elif event.keycode == KEY_F4:
 			vsync_enabled = !vsync_enabled
@@ -636,13 +714,15 @@ func _unhandled_input(event: InputEvent):
 			show_osd("[F12] Dungeon Floor: " + ("Wet & Reflective Cobblestone (Glossy Puddles ON)" if wet_floor else "Dry Dusty Stone Surface (OFF)"))
 			return
 
-	if current_display_mode == DisplayMode.NATIVE_3D and sandbox_instance != null:
-		if sandbox_instance.handle_input(event):
-			return
+	var is_ingame = diablo_bridge.is_game_running() if (diablo_bridge and diablo_bridge.has_method("is_game_running")) else false
+	if is_ingame:
+		if current_display_mode == DisplayMode.NATIVE_3D and sandbox_instance != null:
+			if sandbox_instance.handle_input(event):
+				return
 
-	if current_display_mode == DisplayMode.NATIVE_25D and native_25d_instance != null:
-		if native_25d_instance.handle_input(event):
-			return
+		if current_display_mode == DisplayMode.NATIVE_25D and native_25d_instance != null:
+			if native_25d_instance.handle_input(event):
+				return
 
 	if not use_gdextension and not FileAccess.file_exists("/dev/shm/d1_godot_frame"):
 		return
@@ -709,10 +789,11 @@ func send_input_to_d1(msg_type: int, code: int, state: int, x: int, y: int):
 
 func get_sdl_key(keycode: int) -> int:
 	if keycode == KEY_ESCAPE: return 27
-	if keycode == KEY_ENTER: return 13
+	if keycode == KEY_ENTER or keycode == KEY_KP_ENTER: return 13
 	if keycode == KEY_SPACE: return 32
 	if keycode == KEY_TAB: return 9
 	if keycode == KEY_BACKSPACE: return 8
+	if keycode == KEY_DELETE: return 127
 	if keycode >= KEY_0 and keycode <= KEY_9: return keycode
 	if keycode >= KEY_A and keycode <= KEY_Z: return keycode + 32
 	if keycode >= KEY_F1 and keycode <= KEY_F12: return 1073741882 + (keycode - KEY_F1)

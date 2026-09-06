@@ -383,6 +383,16 @@ struct D1ObjectSpriteRgba {
 
 std::vector<D1ObjectInfo> GetActiveObjectsList();
 D1ObjectSpriteRgba GetObjectSpriteRgba(int objectId);
+int GetModalType();
+bool IsModalActiveLive();
+bool IsAutomapActive();
+
+struct D1AutomapRgba {
+	int width = 0;
+	int height = 0;
+	std::vector<uint8_t> rgba;
+};
+D1AutomapRgba GetAutomapRgba();
 
 // Native Godot 2.5D Ground Items & Loot
 struct D1ItemInfo {

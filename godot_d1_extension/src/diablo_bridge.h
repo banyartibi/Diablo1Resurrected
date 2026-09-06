@@ -72,6 +72,9 @@ public:
 	bool is_game_running() const;
 	bool is_level_loading() const;
 	bool is_modal_active() const;
+	int get_modal_type() const;
+	bool is_automap_active() const;
+	Ref<ImageTexture> get_automap_texture() const;
 	Ref<ImageTexture> get_spell_icon_texture(int spell_id, int spell_type);
 	Ref<ImageTexture> get_belt_item_texture(int slot_index);
 	bool has_hover_item() const;

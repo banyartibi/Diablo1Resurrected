@@ -45,6 +45,9 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_game_running"), &DiabloBridge::is_game_running);
 	ClassDB::bind_method(D_METHOD("is_level_loading"), &DiabloBridge::is_level_loading);
 	ClassDB::bind_method(D_METHOD("is_modal_active"), &DiabloBridge::is_modal_active);
+	ClassDB::bind_method(D_METHOD("get_modal_type"), &DiabloBridge::get_modal_type);
+	ClassDB::bind_method(D_METHOD("is_automap_active"), &DiabloBridge::is_automap_active);
+	ClassDB::bind_method(D_METHOD("get_automap_texture"), &DiabloBridge::get_automap_texture);
 	ClassDB::bind_method(D_METHOD("get_spell_icon_texture", "spell_id", "spell_type"), &DiabloBridge::get_spell_icon_texture);
 	ClassDB::bind_method(D_METHOD("get_belt_item_texture", "slot_index"), &DiabloBridge::get_belt_item_texture);
 	ClassDB::bind_method(D_METHOD("has_hover_item"), &DiabloBridge::has_hover_item);
@@ -311,7 +314,31 @@ bool DiabloBridge::is_level_loading() const {
 }
 
 bool DiabloBridge::is_modal_active() const {
-	return devilution::g_D1EngineData.isModalActive;
+	return devilution::IsModalActiveLive();
+}
+
+int DiabloBridge::get_modal_type() const {
+	return devilution::GetModalType();
+}
+
+bool DiabloBridge::is_automap_active() const {
+	return devilution::IsAutomapActive();
+}
+
+Ref<ImageTexture> DiabloBridge::get_automap_texture() const {
+	auto data = devilution::GetAutomapRgba();
+	if (data.rgba.empty() || data.width <= 0 || data.height <= 0)
+		return Ref<ImageTexture>();
+
+	PackedByteArray pba;
+	pba.resize(data.rgba.size());
+	std::memcpy(pba.ptrw(), data.rgba.data(), data.rgba.size());
+
+	Ref<Image> img = Image::create_from_data(data.width, data.height, false, Image::FORMAT_RGBA8, pba);
+	if (img.is_null() || img->is_empty())
+		return Ref<ImageTexture>();
+
+	return ImageTexture::create_from_image(img);
 }
 
 Ref<ImageTexture> DiabloBridge::get_spell_icon_texture(int spell_id, int spell_type) {
@@ -429,7 +456,7 @@ Dictionary DiabloBridge::get_dungeon_piece_data(int piece_id) const {
 }
 
 Ref<ImageTexture> DiabloBridge::get_dungeon_piece_texture(int piece_id) {
-	if (piece_id <= 0)
+	if (piece_id < 0)
 		return Ref<ImageTexture>();
 
 	auto it = piece_texture_cache.find(piece_id);

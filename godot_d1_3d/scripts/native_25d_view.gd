@@ -124,13 +124,14 @@ func setup_player_node():
 	player_node.z_index = 0
 	world_root.add_child(player_node)
 
-	# Ground Blob Shadow (beneath hero sprite, above floor)
+	# Ground Blob Shadow (Disabled: CLX sprite contains authentic baked shadow)
 	player_shadow = Sprite2D.new()
 	player_shadow.name = "PlayerShadow"
 	player_shadow.texture = get_or_create_shadow_texture()
 	player_shadow.centered = true
-	player_shadow.position = Vector2(0, 12)
-	player_shadow.z_index = 0
+	player_shadow.position = Vector2(0, 16)
+	player_shadow.z_index = -1
+	player_shadow.visible = false
 	player_node.add_child(player_shadow)
 
 	# Hero Sprite2D (authentic animated Diablo 1 pixel art)
@@ -199,7 +200,7 @@ func _process(delta: float):
 		if grid.size() >= 112 * 112:
 			var can_fetch = false
 			for piece_id in grid:
-				if piece_id > 0:
+				if piece_id >= 0:
 					var test_tex = diablo_bridge.get_dungeon_piece_texture(piece_id)
 					if test_tex != null:
 						can_fetch = true
@@ -290,10 +291,12 @@ func rebuild_dungeon_tiles():
 			var tile_pos = Vector2(float(x - y) * 32.0, float(x + y) * 16.0)
 
 			# 1. Base Dungeon Piece (Floor & Walls)
-			if piece_id > 0:
+			if piece_id >= 0:
 				var tex: Texture2D = null
 				if diablo_bridge.has_method("get_dungeon_piece_texture"):
 					tex = diablo_bridge.get_dungeon_piece_texture(piece_id)
+				if tex == null and last_level_idx == 0 and piece_id == 0:
+					tex = diablo_bridge.get_dungeon_piece_texture(426)
 				if tex != null:
 					var spr = Sprite2D.new()
 					spr.texture = tex
@@ -361,8 +364,8 @@ func update_lighting_and_transparency():
 	var p_ty = int(p_pos.get("pos_y", 25.0))
 
 	var z = camera.zoom.x if camera else 1.0
-	var rad_x = int(clamp(36.0 / z, 24.0, 64.0))
-	var rad_y = int(clamp(28.0 / z, 18.0, 56.0))
+	var rad_x = int(clamp(60.0 / z, 44.0, 80.0))
+	var rad_y = int(clamp(50.0 / z, 36.0, 70.0))
 	var min_x = max(0, p_tx - rad_x)
 	var max_x = min(111, p_tx + rad_x)
 	var min_y = max(0, p_ty - rad_y)
@@ -382,23 +385,47 @@ func update_lighting_and_transparency():
 
 			new_active_keys[pos_key] = true
 
-			# Milestone 2: Per-Tile Authentic Lighting & Atmosphere
-			var light_val = light_grid[idx] if has_light else 0
+			# Milestone 2: Per-Tile Authentic Lighting & Atmosphere with 5-Tap Spatial Smoothing
+			var raw_l = float(light_grid[idx]) if has_light else 0.0
 			var is_town = (last_level_idx == 0)
 			var tile_mod: Color
 
 			if is_town:
 				# Tristram peaceful moonlight with subtle warm glows near braziers/torches
-				var bright = clamp(1.0 - float(light_val) / 15.0, 0.0, 1.0)
+				var bright = clamp(1.0 - raw_l / 15.0, 0.0, 1.0)
 				tile_mod = Color(0.70, 0.72, 0.78).lerp(Color(1.0, 0.96, 0.90), bright * 0.55)
 			else:
-				# Crypt / Dungeon atmospheric depth - never completely vanish into missing black voids
-				if light_val < 15:
-					var norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
-					var factor = max(0.08, pow(norm, 1.8))
-					tile_mod = Color(1.0, 0.94, 0.88) * factor
+				# Dungeon / Catacombs / Caves / Hell: 5-tap spatial filter to eliminate blocky tiles
+				if raw_l >= 15.0:
+					tile_mod = Color(0.02, 0.02, 0.04)
 				else:
-					tile_mod = Color(0.04, 0.04, 0.06)
+					var sum_l = raw_l * 2.0
+					var count_l = 2.0
+					if tx > 0:
+						var ln = float(light_grid[idx - 1])
+						if ln < 15.0:
+							sum_l += ln
+							count_l += 1.0
+					if tx < 111:
+						var ln = float(light_grid[idx + 1])
+						if ln < 15.0:
+							sum_l += ln
+							count_l += 1.0
+					if ty > 0:
+						var ln = float(light_grid[idx - 112])
+						if ln < 15.0:
+							sum_l += ln
+							count_l += 1.0
+					if ty < 111:
+						var ln = float(light_grid[idx + 112])
+						if ln < 15.0:
+							sum_l += ln
+							count_l += 1.0
+					var smooth_l = sum_l / count_l
+					var norm = clamp(1.0 - smooth_l / 14.0, 0.0, 1.0)
+					# Smoothstep Hermite interpolation for continuous, organic transition across tiles
+					var factor = norm * norm * (3.0 - 2.0 * norm)
+					tile_mod = Color(0.04, 0.04, 0.06).lerp(Color(1.0, 0.95, 0.88), factor)
 
 			# Milestone 3: Authentic Front-Wall Transparency (TransList + TileProperties::Transparent)
 			# Only tiles that have the Diablo 1 Transparent flag (front walls/doors) become transparent!
@@ -449,11 +476,11 @@ func update_player(delta: float):
 	if player_node.position == Vector2.ZERO or player_node.position.distance_to(player_target_pos) > 200.0:
 		player_node.position = player_target_pos
 	else:
-		player_node.position = player_node.position.lerp(player_target_pos, delta * 18.0)
+		player_node.position = player_node.position.lerp(player_target_pos, delta * 24.0)
 
 	# Smooth camera follow with integer rounding to eliminate sub-pixel tile seams
 	if camera:
-		camera.position = camera.position.lerp(player_node.position, delta * 14.0).round()
+		camera.position = camera.position.lerp(player_node.position, delta * 20.0).round()
 
 	# Update animated player sprite (updates on frame, dir, or mode changes like attack/cast)
 	if diablo_bridge.has_method("get_player_sprite_data"):
@@ -472,8 +499,8 @@ func update_player(delta: float):
 					player_sprite.texture = player_texture
 				else:
 					player_texture.update(img)
-				# Offset so player feet rest precisely in the center of the diamond
-				player_sprite.offset = Vector2(0, -float(sh) * 0.5 + 16.0)
+				# Offset so player feet rest precisely on the ground diamond without floating
+				player_sprite.offset = Vector2(0, -float(sh) * 0.5 + 20.0)
 
 	# Authentic per-tile lighting on player & blob ground shadow
 	var p_light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
@@ -641,6 +668,19 @@ func update_objects():
 	var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
 	var has_light = (light_grid.size() >= 112 * 112)
 
+	// Camera-visible tile window around the hero, using the same math as update_lighting_and_transparency().
+	// Without this cull every door/chest/barrel/arches anywhere in the level renders on screen.
+	var p_pos = diablo_bridge.get_player_continuous_pos() if diablo_bridge.has_method("get_player_continuous_pos") else {}
+	var ppx = float(p_pos.get("pos_x", 25.0))
+	var ppy = float(p_pos.get("pos_y", 25.0))
+	var cam_z = camera.zoom.x if camera else 1.0
+	var rad_x = int(clamp(60.0 / cam_z, 44.0, 80.0))
+	var rad_y = int(clamp(50.0 / cam_z, 36.0, 70.0))
+	var min_x = int(clamp(int(ppx) - rad_x, 0, 111))
+	var max_x = int(clamp(int(ppx) + rad_x, 0, 111))
+	var min_y = int(clamp(int(ppy) - rad_y, 0, 111))
+	var max_y = int(clamp(int(ppy) + rad_y, 0, 111))
+
 	for obj in objects:
 		var o_id = obj.get("id", -1)
 		if o_id < 0:
@@ -649,6 +689,10 @@ func update_objects():
 
 		var tx = obj.get("tile_x", 0)
 		var ty = obj.get("tile_y", 0)
+
+		// Cull anything outside the visible tile window (doors, chests, barrels, arches...).
+		if tx < min_x or tx > max_x or ty < min_y or ty > max_y:
+			continue
 		var o_type = obj.get("type", 0)
 		var anim_frame = obj.get("anim_frame", 1)
 		var pre_flag = obj.get("pre_flag", false)
@@ -697,8 +741,8 @@ func update_objects():
 		elif has_light:
 			var light_val = light_grid[tile_idx]
 			if light_val >= 15 and not is_torch:
-				spr.self_modulate = Color(0.04, 0.04, 0.06)
-				spr.visible = true
+				spr.visible = false
+				continue
 			else:
 				var o_norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
 				var o_factor = pow(o_norm, 1.8)
@@ -819,9 +863,15 @@ func update_ground_items():
 				lbl.modulate = Color(1.0, 0.88, 0.35) # Unique Gold
 			else:
 				lbl.modulate = Color(0.95, 0.95, 0.95) # Normal White
-			var lbl_w = lbl.get_combined_minimum_size().x
-			var h_off = float(tex.get_height()) if tex else 24.0
-			lbl.position = Vector2(-lbl_w * 0.5, 16.0 - h_off - 14.0)
+			lbl.reset_size()
+			var sz = lbl.get_combined_minimum_size()
+
+			// Anchor the label to the sprite's REAL drawn rect (get_rect already accounts for
+			// the sprite offset + centered pivot) so the name sits a few px directly above the
+			// drop position instead of floating far away on a fixed tile-grid formula.
+			var icon_rect: Rect2 = spr.get_rect() if (spr and tex) else Rect2(Vector2(0.0, 16.0), Vector2.ZERO)
+
+			lbl.position = Vector2(icon_rect.center.x - sz.x * 0.5, icon_rect.top - sz.y - 4.0)
 
 	for i_id in item_nodes:
 		if not seen_ids.has(i_id):
@@ -989,6 +1039,11 @@ func handle_input(event: InputEvent) -> bool:
 	if not is_active:
 		return false
 
+	# If the game is not actively in a dungeon/game session (e.g. main menu, hero select, character create),
+	# do NOT intercept input with world-space raycasting! Pass through to classic UI!
+	if diablo_bridge and diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
+		return false
+
 	# When a modal menu, store, or dialog is active, pass input through to screen-space UI
 	if diablo_bridge and diablo_bridge.has_method("is_modal_active") and diablo_bridge.is_modal_active():
 		return false
@@ -1020,6 +1075,20 @@ func handle_input(event: InputEvent) -> bool:
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			btn = 2
 		var state = 1 if event.pressed else 0
+
+		// Click-to-NPC-talk: standing next to a Townsman? A left-click opens their dialogue.
+		// Towners are reported by the bridge with type >= 1000 and only exist in town (currlevel == 0).
+		if event.button_index == MOUSE_BUTTON_LEFT and diablo_bridge.has_method("get_active_monsters_data"):
+			var p_tile = diablo_bridge.get_player_tile_pos() if diablo_bridge.has_method("get_player_tile_pos") else Vector2i.ZERO
+			for m in diablo_bridge.get_active_monsters_data():
+				if int(m.get("type", 0)) >= 1000:
+					var mtx = int(m.get("pos_x", -999))
+					var mty = int(m.get("pos_y", -999))
+					if abs(mtx - p_tile.x) <= 1 and abs(mty - p_tile.y) <= 1:
+						diablo_bridge.send_key_event(32, true)   // SDLK_SPACE pressed
+						diablo_bridge.send_key_event(32, false)  // released
+						return true
+
 		if diablo_bridge and diablo_bridge.has_method("send_input"):
 			diablo_bridge.send_input(2, btn, state, d1_x, d1_y)
 		return true

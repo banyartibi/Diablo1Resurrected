@@ -1,6 +1,7 @@
 #include "engine/render_bridge.hpp"
 #include "engine/render/scrollrt.h"
 #include "engine/render/clx_render.hpp"
+#include "utils/clx_decode.hpp"
 #include "engine/render/dun_render.hpp"
 #include "engine/dx.h"
 #include "engine/backbuffer_state.hpp"
@@ -47,6 +48,7 @@
 #include "help.h"
 #include "gmenu.h"
 #include "qol/chatlog.h"
+#include "automap.h"
 #include <cmath>
 
 namespace devilution {
@@ -249,7 +251,7 @@ void ExportGodotFrame(const SDL_Surface *surface)
 
 		g_D1EngineData.isGameRunning = gbRunGame;
 		g_D1EngineData.zoomMode = static_cast<int>(CurrentZoomMode);
-		g_D1EngineData.isModalActive = (stextflag != TalkID::None || HelpFlag || ChatLogFlag || talkflag || qtextflag || gmenu_is_active() || PauseMode != 0);
+		g_D1EngineData.isModalActive = (stextflag != TalkID::None || HelpFlag || ChatLogFlag || talkflag || qtextflag || gmenu_is_active() || PauseMode != 0 || MyPlayerIsDead);
 
 		size_t reqBytes = static_cast<size_t>(srcSurface->w) * srcSurface->h * 4;
 		if (g_D1InternalFrame.size() != reqBytes) {
@@ -312,8 +314,12 @@ void PollGodotBridgeInput()
 			} else if (msg.type == 3) { // Key
 				ev.type = (msg.state != 0) ? SDL_KEYDOWN : SDL_KEYUP;
 				ev.key.state = (msg.state != 0) ? SDL_PRESSED : SDL_RELEASED;
-				SDL_Keycode sym = static_cast<SDL_Keycode>(msg.code != 0 ? msg.code : msg.x);
-				ev.key.keysym.sym = sym;
+				// Prefer printable Unicode character (msg.x) to preserve casing and symbols for text entry
+				if (msg.state != 0 && msg.x >= 32 && msg.x < 127) {
+					ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.x);
+				} else {
+					ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.code);
+				}
 				SDL_PushEvent(&ev);
 			} else if (msg.type == 4) { // Zoom In
 				ZoomInMode();
@@ -1471,14 +1477,14 @@ D1PlayerEntityData GetPlayerEntityData()
 	data.isWalking = player.isWalking();
 	data.animFrame = player.AnimInfo.getFrameToUseForRendering();
 
-	if (player.isWalking() && player.AnimInfo.numberOfFrames > 0) {
+	if (player.isWalking()) {
 		Point origin = player.position.tile;
 		Point target = player.position.future;
 		if (player._pmode == PM_WALK_SOUTHWARDS) {
 			origin = player.position.temp;
 			target = player.position.tile;
 		}
-		float progress = static_cast<float>(player.AnimInfo.currentFrame) / static_cast<float>(player.AnimInfo.numberOfFrames);
+		float progress = static_cast<float>(player.AnimInfo.getAnimationProgress()) / static_cast<float>(AnimationInfo::baseValueFraction);
 		progress = std::clamp(progress, 0.0f, 1.0f);
 		data.posX = static_cast<float>(origin.x) + static_cast<float>(target.x - origin.x) * progress;
 		data.posY = static_cast<float>(origin.y) + static_cast<float>(target.y - origin.y) * progress;
@@ -1594,8 +1600,14 @@ std::vector<uint8_t> GetDungeonSolidityGrid()
 	for (int y = 0; y < MAXDUNY; ++y) {
 		for (int x = 0; x < MAXDUNX; ++x) {
 			uint16_t piece = dPiece[x][y];
-			if (piece == 0) {
-				grid[y * MAXDUNX + x] = 0; // Void / out-of-bounds
+			if (piece >= MAXTILES) {
+				grid[y * MAXDUNX + x] = 0;
+				continue;
+			}
+
+			// In town and dungeons, piece 0 can be a valid piece if it has microtiles!
+			if (piece == 0 && currlevel != 0 && !LevelCelBlock(DPieceMicros[0].mt[0]).hasValue()) {
+				grid[y * MAXDUNX + x] = 0; // Truly empty void
 				continue;
 			}
 
@@ -1611,6 +1623,92 @@ std::vector<uint8_t> GetDungeonSolidityGrid()
 	return grid;
 }
 
+static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH, std::vector<uint8_t> &outRgba, const uint8_t *trn = nullptr)
+{
+	int w = sprite.width();
+	int h = sprite.height();
+	if (w <= 0 || h <= 0 || w > 1024 || h > 1024) {
+		outW = 0;
+		outH = 0;
+		outRgba.clear();
+		return;
+	}
+
+	outW = w;
+	outH = h;
+	outRgba.assign(w * h * 4, 0);
+
+	const uint8_t *src = sprite.pixelData();
+	const uint8_t *srcEnd = src + sprite.pixelDataSize();
+
+	int curY = h - 1;
+	int curX = 0;
+
+	while (src < srcEnd && curY >= 0) {
+		int remainingWidth = w - curX;
+		curX = 0;
+		while (remainingWidth > 0 && src < srcEnd) {
+			uint8_t v = *src++;
+			if (IsClxOpaque(v)) {
+				if (IsClxOpaqueFill(v)) {
+					uint8_t count = GetClxOpaqueFillWidth(v);
+					uint8_t color = *src++;
+					if (trn != nullptr) color = trn[color];
+					for (uint8_t i = 0; i < count; ++i) {
+						int px = (w - remainingWidth + i);
+						if (px >= 0 && px < w && curY >= 0 && curY < h) {
+							int idx = (curY * w + px) * 4;
+							if (color == 0) {
+								// Authentic Diablo 1 shadow pixel!
+								outRgba[idx + 0] = 0;
+								outRgba[idx + 1] = 0;
+								outRgba[idx + 2] = 0;
+								outRgba[idx + 3] = 160;
+							} else {
+								SDL_Color c = orig_palette[color];
+								outRgba[idx + 0] = c.r;
+								outRgba[idx + 1] = c.g;
+								outRgba[idx + 2] = c.b;
+								outRgba[idx + 3] = 255;
+							}
+						}
+					}
+					remainingWidth -= count;
+				} else {
+					uint8_t count = GetClxOpaquePixelsWidth(v);
+					for (uint8_t i = 0; i < count; ++i) {
+						uint8_t color = *src++;
+						if (trn != nullptr) color = trn[color];
+						int px = (w - remainingWidth + i);
+						if (px >= 0 && px < w && curY >= 0 && curY < h) {
+							int idx = (curY * w + px) * 4;
+							if (color == 0) {
+								// Authentic Diablo 1 shadow pixel!
+								outRgba[idx + 0] = 0;
+								outRgba[idx + 1] = 0;
+								outRgba[idx + 2] = 0;
+								outRgba[idx + 3] = 160;
+							} else {
+								SDL_Color c = orig_palette[color];
+								outRgba[idx + 0] = c.r;
+								outRgba[idx + 1] = c.g;
+								outRgba[idx + 2] = c.b;
+								outRgba[idx + 3] = 255;
+							}
+						}
+					}
+					remainingWidth -= count;
+				}
+			} else {
+				remainingWidth -= v;
+			}
+		}
+		const SkipSize skipSize = GetSkipSize(remainingWidth, static_cast<int_fast16_t>(w));
+		curX = skipSize.xOffset;
+		curY -= static_cast<int>(skipSize.wholeLines);
+	}
+}
+
 D1SpriteFrameRgba GetPlayerSpriteRgba()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
@@ -1623,36 +1721,9 @@ D1SpriteFrameRgba GetPlayerSpriteRgba()
 		return result;
 
 	const ClxSprite sprite = (player._pmode == PM_STAND && player.previewCelSprite) ? *player.previewCelSprite : player.AnimInfo.currentSprite();
-	int w = sprite.width();
-	int h = sprite.height();
-	if (w <= 0 || h <= 0 || w > 512 || h > 512)
-		return result;
-
-	result.width = w;
-	result.height = h;
 	result.frame = player.AnimInfo.getFrameToUseForRendering();
 	result.dir = static_cast<int>(player._pdir);
-
-	OwnedSurface surface(w, h);
-	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
-	RenderClxSprite(surface, sprite, { 0, 0 });
-
-	result.rgba.resize(w * h * 4, 0);
-	uint8_t *dst = result.rgba.data();
-	for (int y = 0; y < h; ++y) {
-		const uint8_t *src = surface.at(0, y);
-		for (int x = 0; x < w; ++x) {
-			uint8_t idx = src[x];
-			if (idx != 0) {
-				SDL_Color c = orig_palette[idx];
-				int px = (y * w + x) * 4;
-				dst[px + 0] = c.r;
-				dst[px + 1] = c.g;
-				dst[px + 2] = c.b;
-				dst[px + 3] = 255;
-			}
-		}
-	}
+	RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba);
 	return result;
 }
 
@@ -1670,36 +1741,9 @@ D1SpriteFrameRgba GetMonsterSpriteRgba(int monsterId)
 		if (!towner.anim.has_value())
 			return result;
 		const ClxSprite sprite = towner.currentSprite();
-		int w = sprite.width();
-		int h = sprite.height();
-		if (w <= 0 || h <= 0 || w > 512 || h > 512)
-			return result;
-
-		result.width = w;
-		result.height = h;
 		result.frame = towner._tAnimFrame;
 		result.dir = 0;
-
-		OwnedSurface surface(w, h);
-		std::memset(surface.begin(), 0, surface.pitch() * surface.h());
-		RenderClxSprite(surface, sprite, { 0, 0 });
-
-		result.rgba.resize(w * h * 4, 0);
-		uint8_t *dst = result.rgba.data();
-		for (int y = 0; y < h; ++y) {
-			const uint8_t *src = surface.at(0, y);
-			for (int x = 0; x < w; ++x) {
-				uint8_t idx = src[x];
-				if (idx != 0) {
-					SDL_Color c = orig_palette[idx];
-					int px = (y * w + x) * 4;
-					dst[px + 0] = c.r;
-					dst[px + 1] = c.g;
-					dst[px + 2] = c.b;
-					dst[px + 3] = 255;
-				}
-			}
-		}
+		RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba);
 		return result;
 	}
 
@@ -1711,45 +1755,14 @@ D1SpriteFrameRgba GetMonsterSpriteRgba(int monsterId)
 		return result;
 
 	const ClxSprite sprite = m.animInfo.currentSprite();
-	int w = sprite.width();
-	int h = sprite.height();
-	if (w <= 0 || h <= 0 || w > 512 || h > 512)
-		return result;
-
-	result.width = w;
-	result.height = h;
 	result.frame = m.animInfo.getFrameToUseForRendering();
 	result.dir = static_cast<int>(m.direction);
 
-	OwnedSurface surface(w, h);
-	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
-
-	uint8_t *trn = nullptr;
+	const uint8_t *trn = nullptr;
 	if (m.isUnique())
 		trn = m.uniqueMonsterTRN.get();
 
-	if (trn != nullptr) {
-		ClxDrawTRN(surface, { 0, h - 1 }, sprite, trn);
-	} else {
-		RenderClxSprite(surface, sprite, { 0, 0 });
-	}
-
-	result.rgba.resize(w * h * 4, 0);
-	uint8_t *dst = result.rgba.data();
-	for (int y = 0; y < h; ++y) {
-		const uint8_t *src = surface.at(0, y);
-		for (int x = 0; x < w; ++x) {
-			uint8_t idx = src[x];
-			if (idx != 0) {
-				SDL_Color c = orig_palette[idx];
-				int px = (y * w + x) * 4;
-				dst[px + 0] = c.r;
-				dst[px + 1] = c.g;
-				dst[px + 2] = c.b;
-				dst[px + 3] = 255;
-			}
-		}
-	}
+	RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba, trn);
 	return result;
 }
 
@@ -1757,7 +1770,7 @@ D1TilePieceRgba GetDungeonPieceRgba(int pieceId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1TilePieceRgba result;
-	if (!IsBridgeSafeToRead() || pieceId <= 0 || pieceId >= MAXTILES || pDungeonCels == nullptr)
+	if (!IsBridgeSafeToRead() || pieceId < 0 || pieceId >= MAXTILES || pDungeonCels == nullptr)
 		return result;
 
 	const MICROS &micros = DPieceMicros[pieceId];
@@ -1886,7 +1899,7 @@ void CopyD1LightGrid(uint8_t *dest, size_t maxTiles)
 		std::memset(dest, 15, count);
 		return;
 	}
-	bool isTown = (leveltype == DTYPE_TOWN);
+	bool isTown = (currlevel == 0);
 	for (size_t y = 0; y < 112; ++y) {
 		for (size_t x = 0; x < 112; ++x) {
 			size_t idx = y * 112 + x;
@@ -1950,48 +1963,14 @@ std::vector<uint8_t> GetTransList()
 	return result;
 }
 
-static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH, std::vector<uint8_t> &outRgba, const uint8_t *trn = nullptr)
-{
-	int w = sprite.width();
-	int h = sprite.height();
-	if (w <= 0 || h <= 0 || w > 1024 || h > 1024) {
-		outW = 0;
-		outH = 0;
-		outRgba.clear();
-		return;
-	}
-
-	outW = w;
-	outH = h;
-	OwnedSurface surface(w, h);
-	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
-	RenderClxSprite(surface, sprite, { 0, 0 });
-
-	outRgba.resize(w * h * 4, 0);
-	uint8_t *dst = outRgba.data();
-	for (int y = 0; y < h; ++y) {
-		const uint8_t *src = surface.at(0, y);
-		for (int x = 0; x < w; ++x) {
-			uint8_t idx = src[x];
-			if (idx != 0) {
-				SDL_Color c = orig_palette[trn ? trn[idx] : idx];
-				int px = (y * w + x) * 4;
-				dst[px + 0] = c.r;
-				dst[px + 1] = c.g;
-				dst[px + 2] = c.b;
-				dst[px + 3] = 255;
-			}
-		}
-	}
-}
-
 std::vector<D1ObjectInfo> GetActiveObjectsList()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	std::vector<D1ObjectInfo> list;
-	if (!IsBridgeSafeToRead()) return list;
+	if (!IsBridgeSafeToRead() || currlevel == 0) return list;
 
-	for (int i = 0; i < ActiveObjectCount; ++i) {
+	int count = std::min(ActiveObjectCount, MAXOBJECTS);
+	for (int i = 0; i < count; ++i) {
 		int oi = ActiveObjects[i];
 		if (oi < 0 || oi >= MAXOBJECTS) continue;
 		const Object &obj = Objects[oi];
@@ -2023,7 +2002,7 @@ D1ObjectSpriteRgba GetObjectSpriteRgba(int objectId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1ObjectSpriteRgba result;
-	if (!IsBridgeSafeToRead() || objectId < 0 || objectId >= MAXOBJECTS) return result;
+	if (!IsBridgeSafeToRead() || currlevel == 0 || objectId < 0 || objectId >= MAXOBJECTS) return result;
 	const Object &obj = Objects[objectId];
 	if (!obj._oAnimData.has_value() || obj._oAnimFrame <= 0 ||
 	    static_cast<size_t>(obj._oAnimFrame) > (*obj._oAnimData).numSprites())
@@ -2211,6 +2190,62 @@ D1MissileSpriteRgba GetMissileSpriteRgba(int missileId)
 			}
 			RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba, trn);
 			return result;
+		}
+	}
+	return result;
+}
+
+int GetModalType()
+{
+	if (!IsBridgeSafeToRead()) return 0;
+	if (gmenu_is_active() || PauseMode != 0 || MyPlayerIsDead) return 1; // Esc Menu / Pause / Death Menu
+	if (stextflag != TalkID::None || qtextflag || talkflag) return 2; // NPC Dialog / Store
+	if (HelpFlag || ChatLogFlag) return 1;
+	return 0;
+}
+
+bool IsModalActiveLive()
+{
+	if (!IsBridgeSafeToRead()) return false;
+	return (stextflag != TalkID::None || HelpFlag || ChatLogFlag || talkflag || qtextflag || gmenu_is_active() || PauseMode != 0 || MyPlayerIsDead);
+}
+
+bool IsAutomapActive()
+{
+	if (!IsBridgeSafeToRead()) return false;
+	return AutomapActive;
+}
+
+D1AutomapRgba GetAutomapRgba()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1AutomapRgba result;
+	if (!IsBridgeSafeToRead() || !AutomapActive || gnScreenWidth <= 0 || gnViewportHeight <= 0)
+		return result;
+
+	int w = gnScreenWidth;
+	int h = gnViewportHeight;
+	result.width = w;
+	result.height = h;
+
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+	DrawAutomap(surface);
+
+	result.rgba.resize(static_cast<size_t>(w) * h * 4, 0);
+	uint8_t *dst = result.rgba.data();
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = orig_palette[idx];
+				int px = (y * w + x) * 4;
+				dst[px + 0] = c.r;
+				dst[px + 1] = c.g;
+				dst[px + 2] = c.b;
+				dst[px + 3] = 220;
+			}
 		}
 	}
 	return result;

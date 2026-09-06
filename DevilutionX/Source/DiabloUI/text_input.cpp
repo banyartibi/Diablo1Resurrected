@@ -37,16 +37,18 @@ bool HandleInputEvent(const SDL_Event &event, TextInputState &state,
 			if (isCtrl) {
 				state.setCursorToStart();
 				state.setSelectCursorToEnd();
+				return true;
 			}
-			return true;
+			break;
 		case SDLK_c:
 			if (isCtrl) {
 				const std::string selectedText { state.selectedText() };
 				if (SDL_SetClipboardText(selectedText.c_str()) < 0) {
 					Log("{}", SDL_GetError());
 				}
+				return true;
 			}
-			return true;
+			break;
 		case SDLK_x:
 			if (isCtrl) {
 				const std::string selectedText { state.selectedText() };
@@ -55,8 +57,9 @@ bool HandleInputEvent(const SDL_Event &event, TextInputState &state,
 				} else {
 					state.eraseSelection();
 				}
+				return true;
 			}
-			return true;
+			break;
 		case SDLK_v:
 			if (isCtrl) {
 				if (SDL_HasClipboardText() == SDL_TRUE) {
@@ -67,8 +70,9 @@ bool HandleInputEvent(const SDL_Event &event, TextInputState &state,
 						typeFn(clipboard.get());
 					}
 				}
+				return true;
 			}
-			return true;
+			break;
 #endif
 		case SDLK_BACKSPACE:
 			state.backspace(/*word=*/isCtrl || isAlt);
@@ -102,6 +106,9 @@ bool HandleInputEvent(const SDL_Event &event, TextInputState &state,
 		if (gbGodotBridgeActive) {
 			if (!isCtrl && !isAlt && event.key.keysym.sym >= SDLK_SPACE && event.key.keysym.sym <= 126) {
 				char ch = static_cast<char>(event.key.keysym.sym);
+				if (isShift && ch >= 'a' && ch <= 'z') {
+					ch = static_cast<char>(ch - 'a' + 'A');
+				}
 				std::string utf8(1, ch);
 				typeFn(utf8);
 				return true;

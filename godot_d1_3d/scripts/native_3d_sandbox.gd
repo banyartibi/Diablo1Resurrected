@@ -624,6 +624,15 @@ func handle_input(event: InputEvent) -> bool:
 	if not is_sandbox_active:
 		return false
 
+	# If the game is not actively in a dungeon/game session (e.g. main menu, hero select, character create),
+	# do NOT intercept input with 3D raycasting! Pass through to classic UI!
+	if diablo_bridge and diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
+		return false
+
+	# When a modal menu, store, or dialog is active, pass input through to screen-space UI
+	if diablo_bridge and diablo_bridge.has_method("is_modal_active") and diablo_bridge.is_modal_active():
+		return false
+
 	# Camera Tilt / Pitch Controls (PageUp / PageDown)
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_PAGEUP:

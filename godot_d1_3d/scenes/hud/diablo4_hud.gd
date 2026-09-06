@@ -295,7 +295,8 @@ func _input(event: InputEvent):
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_S:
+		// Spells / Speedbook window (hotkey B)
+		if event.keycode == KEY_B:
 			toggle_speedbook()
 			get_viewport().set_input_as_handled()
 			return
@@ -561,7 +562,7 @@ func update_secondary_spell():
 			secondary_icon.texture = null
 			secondary_icon.visible = false
 		if secondary_slot:
-			secondary_slot.tooltip_text = "Select Skill / Spell [S]\nClick or press 'S' to open Speedbook."
+			secondary_slot.tooltip_text = "Select Skill / Spell [B]\nClick or press 'B' to open Speedbook."
 		return
 
 	# If spell changed OR if secondary_icon doesn't have a valid texture yet:
@@ -578,7 +579,7 @@ func update_secondary_spell():
 			var type_name = SPELL_TYPE_NAMES.get(spell_type, "Skill")
 
 			if secondary_slot:
-				secondary_slot.tooltip_text = "%s (%s) [RMB]\nClick or press 'S' to change active spell." % [spell_name, type_name]
+				secondary_slot.tooltip_text = "%s (%s) [RMB]\nClick or press 'B' to change active spell." % [spell_name, type_name]
 		else:
 			# Palette not ready yet: do not show a black box!
 			if secondary_icon and current_spell_id <= 0:
