@@ -44,6 +44,7 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_vanilla_hud_hidden"), &DiabloBridge::is_vanilla_hud_hidden);
 	ClassDB::bind_method(D_METHOD("is_game_running"), &DiabloBridge::is_game_running);
 	ClassDB::bind_method(D_METHOD("is_level_loading"), &DiabloBridge::is_level_loading);
+	ClassDB::bind_method(D_METHOD("is_modal_active"), &DiabloBridge::is_modal_active);
 	ClassDB::bind_method(D_METHOD("get_spell_icon_texture", "spell_id", "spell_type"), &DiabloBridge::get_spell_icon_texture);
 	ClassDB::bind_method(D_METHOD("get_belt_item_texture", "slot_index"), &DiabloBridge::get_belt_item_texture);
 	ClassDB::bind_method(D_METHOD("has_hover_item"), &DiabloBridge::has_hover_item);
@@ -306,7 +307,11 @@ bool DiabloBridge::is_game_running() const {
 }
 
 bool DiabloBridge::is_level_loading() const {
-	return devilution::g_D1LevelTransitioning.load();
+	return devilution::g_D1LevelTransitioning.load() || !devilution::IsBridgeSafeToRead();
+}
+
+bool DiabloBridge::is_modal_active() const {
+	return devilution::g_D1EngineData.isModalActive;
 }
 
 Ref<ImageTexture> DiabloBridge::get_spell_icon_texture(int spell_id, int spell_type) {

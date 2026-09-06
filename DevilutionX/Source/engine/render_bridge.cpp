@@ -42,6 +42,11 @@
 #include "itemdat.h"
 #include "dead.h"
 #include "missiles.h"
+#include "towners.h"
+#include "stores.h"
+#include "help.h"
+#include "gmenu.h"
+#include "qol/chatlog.h"
 #include <cmath>
 
 namespace devilution {
@@ -51,7 +56,7 @@ bool gbHideVanillaHUD = false;
 std::atomic<bool> g_D1LevelTransitioning{false};
 D1EngineData g_D1EngineData;
 
-static inline bool IsBridgeSafeToRead()
+bool IsBridgeSafeToRead()
 {
 	return gbRunGame && !g_D1LevelTransitioning.load() && MyPlayer != nullptr && MyPlayer->_pmode != PM_NEWLVL && !MyPlayer->_pLvlChanging;
 }
@@ -244,6 +249,7 @@ void ExportGodotFrame(const SDL_Surface *surface)
 
 		g_D1EngineData.isGameRunning = gbRunGame;
 		g_D1EngineData.zoomMode = static_cast<int>(CurrentZoomMode);
+		g_D1EngineData.isModalActive = (stextflag != TalkID::None || HelpFlag || ChatLogFlag || talkflag || qtextflag || gmenu_is_active() || PauseMode != 0);
 
 		size_t reqBytes = static_cast<size_t>(srcSurface->w) * srcSurface->h * 4;
 		if (g_D1InternalFrame.size() != reqBytes) {
@@ -1487,8 +1493,40 @@ std::vector<D1MonsterEntityData> GetActiveMonstersData()
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	std::vector<D1MonsterEntityData> result;
-	if (!IsBridgeSafeToRead() || currlevel == 0) // Town has no hostile monsters
+	if (!IsBridgeSafeToRead())
 		return result;
+
+	if (currlevel == 0) {
+		// Town has Towners (Griswold, Pepin, Cain, Wirt, Ogden, Adria, Gillian, Farnham, Cows...)
+		for (int i = 0; i < NUM_TOWNERS; ++i) {
+			const auto &towner = Towners[i];
+			if (!towner.anim.has_value() || (towner.position.x == 0 && towner.position.y == 0))
+				continue;
+
+			D1MonsterEntityData med;
+			med.id = i;
+			med.type = 1000 + static_cast<int>(towner._ttype);
+			med.dir = 0;
+			med.mode = 0;
+			med.hp = 100;
+			med.maxHp = 100;
+			med.isAlive = true;
+			med.isWalking = false;
+			med.animFrame = towner._tAnimFrame;
+
+			string_view nameView = towner.name;
+			size_t copyLen = std::min(nameView.size(), sizeof(med.name) - 1);
+			std::memcpy(med.name, nameView.data(), copyLen);
+			med.name[copyLen] = '\0';
+
+			med.posX = static_cast<float>(towner.position.x);
+			med.posY = static_cast<float>(towner.position.y);
+			med.isVisible = true;
+
+			result.push_back(med);
+		}
+		return result;
+	}
 
 	size_t count = std::min(ActiveMonsterCount, MaxMonsters);
 	result.reserve(count);
@@ -1506,7 +1544,7 @@ std::vector<D1MonsterEntityData> GetActiveMonstersData()
 		med.mode = static_cast<int>(m.mode);
 		med.hp = m.hitPoints >> 6;
 		med.maxHp = m.maxHitPoints >> 6;
-		med.isAlive = (m.hitPoints > 0 && m.mode != MonsterMode::Death);
+		med.isAlive = (m.hitPoints > 0 || m.mode == MonsterMode::Death);
 		med.isWalking = m.isWalking();
 		med.animFrame = m.animInfo.sprites ? m.animInfo.getFrameToUseForRendering() : 0;
 
@@ -1622,7 +1660,50 @@ D1SpriteFrameRgba GetMonsterSpriteRgba(int monsterId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1SpriteFrameRgba result;
-	if (!IsBridgeSafeToRead() || monsterId < 0 || monsterId >= static_cast<int>(MaxMonsters))
+	if (!IsBridgeSafeToRead() || monsterId < 0)
+		return result;
+
+	if (currlevel == 0) {
+		if (monsterId >= NUM_TOWNERS)
+			return result;
+		const auto &towner = Towners[monsterId];
+		if (!towner.anim.has_value())
+			return result;
+		const ClxSprite sprite = towner.currentSprite();
+		int w = sprite.width();
+		int h = sprite.height();
+		if (w <= 0 || h <= 0 || w > 512 || h > 512)
+			return result;
+
+		result.width = w;
+		result.height = h;
+		result.frame = towner._tAnimFrame;
+		result.dir = 0;
+
+		OwnedSurface surface(w, h);
+		std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+		RenderClxSprite(surface, sprite, { 0, 0 });
+
+		result.rgba.resize(w * h * 4, 0);
+		uint8_t *dst = result.rgba.data();
+		for (int y = 0; y < h; ++y) {
+			const uint8_t *src = surface.at(0, y);
+			for (int x = 0; x < w; ++x) {
+				uint8_t idx = src[x];
+				if (idx != 0) {
+					SDL_Color c = orig_palette[idx];
+					int px = (y * w + x) * 4;
+					dst[px + 0] = c.r;
+					dst[px + 1] = c.g;
+					dst[px + 2] = c.b;
+					dst[px + 3] = 255;
+				}
+			}
+		}
+		return result;
+	}
+
+	if (monsterId >= static_cast<int>(MaxMonsters))
 		return result;
 
 	const Monster &m = Monsters[monsterId];

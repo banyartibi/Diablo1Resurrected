@@ -65,6 +65,10 @@ var native_25d_instance = null
 var sandbox_scene = preload("res://scenes/sandbox/native_3d_sandbox.tscn")
 var sandbox_instance = null
 
+# Modal Dialog & Menu Overlay (for Mode 1 / Mode 2 when talking to Towners, visiting shops, or in Esc menu)
+var modal_layer: CanvasLayer = null
+var modal_rect: TextureRect = null
+
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
 	"1.0x (Normál / Széles Látószög)",
@@ -190,6 +194,7 @@ func _ready():
 		listener.make_current()
 		
 	setup_osd()
+	setup_modal_overlay()
 	apply_upscaler_mode()
 	update_fog_mode()
 	update_torch_light()
@@ -244,6 +249,19 @@ func setup_osd():
 	fps_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	fps_label.visible = show_fps
 	canvas.add_child(fps_label)
+
+func setup_modal_overlay():
+	modal_layer = CanvasLayer.new()
+	modal_layer.layer = 120 # Above 2.5D/3D world, below OSD
+	modal_layer.visible = false
+	add_child(modal_layer)
+
+	modal_rect = TextureRect.new()
+	modal_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	modal_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	modal_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	modal_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	modal_layer.add_child(modal_rect)
 
 func update_torch_light():
 	if hero_light:
@@ -406,6 +424,14 @@ func _process(delta: float):
 				if cur_zoom >= 0 and cur_zoom < zoom_step_names.size() and cur_zoom != current_zoom_step:
 					current_zoom_step = cur_zoom
 
+			# Modal dialog & menu overlay for Native 2.5D / 3D views
+			if modal_layer and diablo_bridge.has_method("is_modal_active"):
+				var modal_active = diablo_bridge.is_modal_active()
+				if current_display_mode != DisplayMode.ORIGINAL_25D:
+					modal_layer.visible = modal_active
+				else:
+					modal_layer.visible = false
+
 			# Dynamic 3D Lights & Native Particles
 			if is_ingame:
 				update_dynamic_lighting(delta)
@@ -477,8 +503,12 @@ func update_frame_texture(w: int, h: int, bytes: PackedByteArray):
 		image_texture = ImageTexture.create_from_image(img)
 		if shader_material:
 			shader_material.set_shader_parameter("d1_texture", image_texture)
+		if modal_rect:
+			modal_rect.texture = image_texture
 	else:
 		image_texture.update(img)
+		if modal_rect and modal_rect.texture != image_texture:
+			modal_rect.texture = image_texture
 
 func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var norm_x = screen_pos.x / vp_size.x
@@ -498,6 +528,8 @@ func switch_display_mode(new_mode: int):
 
 	if current_display_mode == DisplayMode.ORIGINAL_25D:
 		# Mode 0: Classic 2.5D Blit (Vanilla + PBR Relief Shader)
+		if modal_layer:
+			modal_layer.visible = false
 		if mesh_instance:
 			mesh_instance.visible = true
 		if hero_light:
@@ -520,6 +552,8 @@ func switch_display_mode(new_mode: int):
 			torch_container.visible = false
 		if effects_container:
 			effects_container.visible = false
+		if modal_layer and diablo_bridge and diablo_bridge.has_method("is_modal_active"):
+			modal_layer.visible = diablo_bridge.is_modal_active()
 		if native_25d_instance:
 			native_25d_instance.activate()
 		show_osd("[F3] Display Mode 2/3: Native Godot 2.5D Engine (144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)", 3.5)
@@ -534,6 +568,8 @@ func switch_display_mode(new_mode: int):
 			torch_container.visible = false
 		if effects_container:
 			effects_container.visible = false
+		if modal_layer and diablo_bridge and diablo_bridge.has_method("is_modal_active"):
+			modal_layer.visible = diablo_bridge.is_modal_active()
 		if sandbox_instance:
 			sandbox_instance.activate()
 		show_osd("[F3] Display Mode 3/3: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)", 3.5)

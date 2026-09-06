@@ -102,6 +102,7 @@ struct D1EngineData {
 	int hoverItemQuality = 0;
 	bool isInventoryHover = false;
 	bool isMonsterHover = false;
+	bool isModalActive = false;
 	int hoverMouseX = 0;
 	int hoverMouseY = 0;
 	int zoomMode = 2; // 0=1.0x, 1=1.5x, 2=2.0x, 3=2.5x, 4=3.0x
@@ -452,6 +453,8 @@ struct D1MissileSpriteRgba {
 
 std::vector<D1MissileInfo> GetActiveMissilesList();
 D1MissileSpriteRgba GetMissileSpriteRgba(int missileId);
+
+bool IsBridgeSafeToRead();
 
 } // namespace devilution
 
