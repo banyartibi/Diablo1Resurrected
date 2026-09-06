@@ -1,0 +1,16 @@
+========================================================
+    Launching Diablo 1: Resurrected – In-Process Engine 
+        Native Godot 4.7.2 GDExtension Architecture      
+========================================================
+[1/1] Starting Godot 4.7.2 with embedded DevilutionX Core (GDExtension)...
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+Vulkan 1.4.354 - Forward+ - Using Device #0: AMD - AMD Radeon RX 6800 XT (RADV NAVI21)
+
+[Godot-D1 Bridge] GDExtension DiabloBridge started directly in-process!
+[Godot-D1 Audio] Native Godot 4.7 Audio Engine initialized with 3D Spatial SFX and Crossfade Music!
+[Native 2.5D View] Deactivated
+[Native 3D Sandbox] Deactivated. Classic 2.5D view restored.
+[Godot-D1 Bridge] 3-Mode Architecture ready: [Original 2.5D] / [Native Godot 2.5D] / [Native 3D Sandbox].
+[DiabloBridge] Starting embedded DevilutionX core with MPQ dir: /home/biti/.local/share/diasurgical/devilution
+[Godot-D1 Bridge] In-Process Engine Connected! Streaming live frames to 3D Viewport.
+[Godot-D1 Bridge] DevilutionX engine requested exit. Terminating Godot process cleanly...

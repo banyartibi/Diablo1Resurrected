@@ -295,7 +295,7 @@ func _input(event: InputEvent):
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
-		// Spells / Speedbook window (hotkey B)
+		# Spells / Speedbook window (hotkey B)
 		if event.keycode == KEY_B:
 			toggle_speedbook()
 			get_viewport().set_input_as_handled()

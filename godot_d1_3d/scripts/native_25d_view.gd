@@ -668,8 +668,8 @@ func update_objects():
 	var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
 	var has_light = (light_grid.size() >= 112 * 112)
 
-	// Camera-visible tile window around the hero, using the same math as update_lighting_and_transparency().
-	// Without this cull every door/chest/barrel/arches anywhere in the level renders on screen.
+	# Camera-visible tile window around the hero, using the same math as update_lighting_and_transparency().
+	# Without this cull every door/chest/barrel/arches anywhere in the level renders on screen.
 	var p_pos = diablo_bridge.get_player_continuous_pos() if diablo_bridge.has_method("get_player_continuous_pos") else {}
 	var ppx = float(p_pos.get("pos_x", 25.0))
 	var ppy = float(p_pos.get("pos_y", 25.0))
@@ -690,7 +690,7 @@ func update_objects():
 		var tx = obj.get("tile_x", 0)
 		var ty = obj.get("tile_y", 0)
 
-		// Cull anything outside the visible tile window (doors, chests, barrels, arches...).
+		# Cull anything outside the visible tile window (doors, chests, barrels, arches...).
 		if tx < min_x or tx > max_x or ty < min_y or ty > max_y:
 			continue
 		var o_type = obj.get("type", 0)
@@ -866,12 +866,13 @@ func update_ground_items():
 			lbl.reset_size()
 			var sz = lbl.get_combined_minimum_size()
 
-			// Anchor the label to the sprite's REAL drawn rect (get_rect already accounts for
-			// the sprite offset + centered pivot) so the name sits a few px directly above the
-			// drop position instead of floating far away on a fixed tile-grid formula.
+			# Anchor the label to the sprite's REAL drawn rect (get_rect already accounts for
+			# the sprite offset + centered pivot) so the name sits a few px directly above the
+			# drop position instead of floating far away on a fixed tile-grid formula.
 			var icon_rect: Rect2 = spr.get_rect() if (spr and tex) else Rect2(Vector2(0.0, 16.0), Vector2.ZERO)
 
-			lbl.position = Vector2(icon_rect.center.x - sz.x * 0.5, icon_rect.top - sz.y - 4.0)
+			# center.x = position.x + size.x*0.5 ; top edge = position.y (valid Rect2 props in every Godot 4 build)
+			lbl.position = Vector2(icon_rect.position.x + icon_rect.size.x * 0.5 - sz.x * 0.5, icon_rect.position.y - sz.y - 4.0)
 
 	for i_id in item_nodes:
 		if not seen_ids.has(i_id):
@@ -1076,8 +1077,8 @@ func handle_input(event: InputEvent) -> bool:
 			btn = 2
 		var state = 1 if event.pressed else 0
 
-		// Click-to-NPC-talk: standing next to a Townsman? A left-click opens their dialogue.
-		// Towners are reported by the bridge with type >= 1000 and only exist in town (currlevel == 0).
+		# Click-to-NPC-talk: standing next to a Townsman? A left-click opens their dialogue.
+		# Towners are reported by the bridge with type >= 1000 and only exist in town (currlevel == 0).
 		if event.button_index == MOUSE_BUTTON_LEFT and diablo_bridge.has_method("get_active_monsters_data"):
 			var p_tile = diablo_bridge.get_player_tile_pos() if diablo_bridge.has_method("get_player_tile_pos") else Vector2i.ZERO
 			for m in diablo_bridge.get_active_monsters_data():
@@ -1085,8 +1086,8 @@ func handle_input(event: InputEvent) -> bool:
 					var mtx = int(m.get("pos_x", -999))
 					var mty = int(m.get("pos_y", -999))
 					if abs(mtx - p_tile.x) <= 1 and abs(mty - p_tile.y) <= 1:
-						diablo_bridge.send_key_event(32, true)   // SDLK_SPACE pressed
-						diablo_bridge.send_key_event(32, false)  // released
+						diablo_bridge.send_key_event(32, true)   # SDLK_SPACE pressed
+						diablo_bridge.send_key_event(32, false)  # released
 						return true
 
 		if diablo_bridge and diablo_bridge.has_method("send_input"):
