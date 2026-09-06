@@ -25,3 +25,4 @@ godot_d1_extension/build/
 .DS_Store
 *.tmp
 *~
+run.log
