@@ -332,29 +332,35 @@ void PollGodotBridgeInput()
 	// PollEvent(), i.e. on g_DiabloThread, so these state-mutating calls (which can trigger a full
 	// RenderPresent cycle) never run concurrently with the engine thread's own rendering. Calling
 	// them directly from Godot's main thread races on shared SDL/heap state and corrupts the heap.
+	// Snapshot and clear queued jobs UNDER the lock, then execute them OUTSIDE the lock.
+	// Long-running actions (e.g. Save Game -> DrawAndBlit / interface_msg_pump) must never run
+	// while holding g_BridgeJobMutex: that would block any re-entrant PushBridgeAction() from Godot
+	// and can deadlock/freeze the engine thread. Clearing first also removes the unlocked-clear
+	// data race on the previous implementation.
+	std::vector<D1BridgeJob> drainedJobs;
 	{
 		std::lock_guard<std::mutex> lock(g_BridgeJobMutex);
-		for (const auto &job : g_BridgeJobs) {
-			switch (job.type) {
-			case D1BridgeActionType::ActivateModal:       ActivateModalItem(job.a); break;
-			case D1BridgeActionType::SelectModal:         SelectModalItem(job.a); break;
-			case D1BridgeActionType::UseBeltSlot:         UseBeltSlot(job.a); break;
-			case D1BridgeActionType::ClickBeltSlot:       ClickBeltSlot(job.a); break;
-			case D1BridgeActionType::SetVanillaHUDHidden: SetVanillaHUDHidden(job.a != 0); break;
-			case D1BridgeActionType::DismissQText:        DismissQText(); break;
-			case D1BridgeActionType::SelectSpell:         SelectSpell(job.a, job.b); break;
-			case D1BridgeActionType::AddAttributePoint:   AddAttributePoint(job.a); break;
-			case D1BridgeActionType::ToggleCharacterSheet: ToggleCharacterSheet(); break;
-			case D1BridgeActionType::SelectQuest:         SelectQuest(job.a); break;
-			case D1BridgeActionType::ToggleQuestLog:      ToggleQuestLog(); break;
-			case D1BridgeActionType::ToggleInventory:     ToggleInventory(); break;
-			case D1BridgeActionType::ClickInventorySlot:  ClickInventorySlot(job.a, job.b, job.c != 0, job.d != 0); break;
-			case D1BridgeActionType::UseInventorySlot:    UseInventorySlot(job.a, job.b); break;
-			default: break;
-		}
+		drainedJobs.swap(g_BridgeJobs);
+	}
+	for (const auto &job : drainedJobs) {
+		switch (job.type) {
+		case D1BridgeActionType::ActivateModal:       ActivateModalItem(job.a); break;
+		case D1BridgeActionType::SelectModal:         SelectModalItem(job.a); break;
+		case D1BridgeActionType::UseBeltSlot:         UseBeltSlot(job.a); break;
+		case D1BridgeActionType::ClickBeltSlot:       ClickBeltSlot(job.a); break;
+		case D1BridgeActionType::SetVanillaHUDHidden: SetVanillaHUDHidden(job.a != 0); break;
+		case D1BridgeActionType::DismissQText:        DismissQText(); break;
+		case D1BridgeActionType::SelectSpell:         SelectSpell(job.a, job.b); break;
+		case D1BridgeActionType::AddAttributePoint:   AddAttributePoint(job.a); break;
+		case D1BridgeActionType::ToggleCharacterSheet: ToggleCharacterSheet(); break;
+		case D1BridgeActionType::SelectQuest:         SelectQuest(job.a); break;
+		case D1BridgeActionType::ToggleQuestLog:      ToggleQuestLog(); break;
+		case D1BridgeActionType::ToggleInventory:     ToggleInventory(); break;
+		case D1BridgeActionType::ClickInventorySlot:  ClickInventorySlot(job.a, job.b, job.c != 0, job.d != 0); break;
+		case D1BridgeActionType::UseInventorySlot:    UseInventorySlot(job.a, job.b); break;
+		default: break;
 	}
 	}
-	g_BridgeJobs.clear();
 
 	// 1. Process in-process GDExtension direct input queue
 	{

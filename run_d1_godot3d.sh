@@ -4,6 +4,7 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GODOT="$DIR/tools/godot4/godot4"
 GODOT_PROJ="$DIR/godot_d1_3d"
+LIBEXT_SO="$DIR/godot_d1_3d/bin/libdiablo.linux.template_debug.x86.64.so"
 
 echo "========================================================"
 echo "    Launching Diablo 1: Resurrected – In-Process Engine "
@@ -12,6 +13,23 @@ echo "========================================================"
 
 if [ ! -f "$GODOT" ]; then
     echo "ERROR: Godot 4 binary not found at $GODOT!"
+    exit 1
+fi
+
+# SINGLE-EXECUTABLE GUARD (legacy IPC deprecation):
+# Only ONE executable may ever run on the Godot engine, even in legacy/original-2.5D rendering.
+# The standalone DevilutionX binary must NOT run side-by-side with the GDExtension build. Kill any
+# stray standalone process before launch so we never end up with two DevilutionX processes.
+for pid in $(pgrep -f "$DIR/DevilutionX/build/devilutionx" 2>/dev/null || true); do
+    if [ "$pid" != "$$" ]; then
+        echo "[single-exec] Killing stray standalone DevilutionX process (pid $pid) so only the Godot GDExtension runs..."
+        kill "$pid" 2>/dev/null || true
+    fi
+done
+
+if [ ! -f "$LIBEXT_SO" ]; then
+    echo "ERROR: GDExtension library not found at $LIBEXT_SO!"
+    echo "       Build it first with: ./build_gdextension.sh"
     exit 1
 fi
 
