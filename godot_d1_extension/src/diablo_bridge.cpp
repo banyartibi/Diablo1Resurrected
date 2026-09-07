@@ -299,15 +299,16 @@ Array DiabloBridge::get_belt_items() const {
 }
 
 void DiabloBridge::use_belt_slot(int slot_index) {
-	devilution::UseBeltSlot(slot_index);
+	// Route to engine thread (queued): mutates state, can trigger a render cycle.
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::UseBeltSlot, slot_index);
 }
 
 void DiabloBridge::click_belt_slot(int slot_index) {
-	devilution::ClickBeltSlot(slot_index);
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::ClickBeltSlot, slot_index);
 }
 
 void DiabloBridge::set_vanilla_hud_hidden(bool hidden) {
-	devilution::SetVanillaHUDHidden(hidden);
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetVanillaHUDHidden, hidden ? 1 : 0);
 }
 
 bool DiabloBridge::is_vanilla_hud_hidden() const {
@@ -353,11 +354,13 @@ int DiabloBridge::get_modal_selection_index() const {
 }
 
 void DiabloBridge::activate_modal_item(int index) {
-	devilution::ActivateModalItem(index);
+	// CRASH FIX: enqueue -> engine thread. Inline call runs on Godot's main thread and races
+	// with the engine thread's RenderPresent(), corrupting SDL/heap state (malloc corruption).
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::ActivateModal, index);
 }
 
 void DiabloBridge::select_modal_item(int index) {
-	devilution::SelectModalItem(index);
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SelectModal, index);
 }
 
 bool DiabloBridge::is_qtext_active() const {
@@ -378,7 +381,7 @@ String DiabloBridge::get_qtext_title() const {
 }
 
 void DiabloBridge::dismiss_qtext() {
-	devilution::DismissQText();
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::DismissQText);
 }
 
 bool DiabloBridge::is_automap_active() const {
@@ -465,7 +468,7 @@ Array DiabloBridge::get_available_spells() const {
 }
 
 void DiabloBridge::select_spell(int spell_id, int spell_type) {
-	devilution::SelectSpell(spell_id, spell_type);
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SelectSpell, spell_id, spell_type);
 }
 
 int DiabloBridge::get_zoom_mode() const {
@@ -916,7 +919,7 @@ Dictionary DiabloBridge::get_character_info() const {
 }
 
 void DiabloBridge::add_attribute_point(int attr_idx) {
-	devilution::AddAttributePoint(attr_idx);
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::AddAttributePoint, attr_idx);
 }
 
 bool DiabloBridge::is_character_open() const {
@@ -924,7 +927,7 @@ bool DiabloBridge::is_character_open() const {
 }
 
 void DiabloBridge::toggle_character_sheet() {
-	devilution::ToggleCharacterSheet();
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::ToggleCharacterSheet);
 }
 
 Array DiabloBridge::get_quests_info() const {
@@ -941,7 +944,7 @@ Array DiabloBridge::get_quests_info() const {
 }
 
 void DiabloBridge::select_quest(int quest_idx) {
-	devilution::SelectQuest(quest_idx);
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SelectQuest, quest_idx);
 }
 
 bool DiabloBridge::is_quest_log_open() const {
@@ -949,7 +952,7 @@ bool DiabloBridge::is_quest_log_open() const {
 }
 
 void DiabloBridge::toggle_quest_log() {
-	devilution::ToggleQuestLog();
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::ToggleQuestLog);
 }
 
 bool DiabloBridge::is_inventory_open() const {
@@ -957,7 +960,7 @@ bool DiabloBridge::is_inventory_open() const {
 }
 
 void DiabloBridge::toggle_inventory() {
-	devilution::ToggleInventory();
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::ToggleInventory);
 }
 
 static Dictionary InvDataToDict(const devilution::D1InvItemData &item) {
@@ -1037,11 +1040,12 @@ Ref<ImageTexture> DiabloBridge::get_item_texture(int curs_id) {
 }
 
 void DiabloBridge::click_inventory_slot(int slot_type, int slot_idx, bool is_shift, bool is_ctrl) {
-	devilution::ClickInventorySlot(slot_type, slot_idx, is_shift, is_ctrl);
+	// bool args encoded as 0/1; drained on the engine thread each frame.
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::ClickInventorySlot, slot_type, slot_idx, is_shift ? 1 : 0, is_ctrl ? 1 : 0);
 }
 
 void DiabloBridge::use_inventory_slot(int slot_type, int slot_idx) {
-	devilution::UseInventorySlot(slot_type, slot_idx);
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::UseInventorySlot, slot_type, slot_idx);
 }
 
 Array DiabloBridge::get_active_objects() const {

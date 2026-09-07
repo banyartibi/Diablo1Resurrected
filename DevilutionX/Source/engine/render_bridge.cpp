@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <signal.h>
 #include <cstring>
 #include <mutex>
 #include <vector>
@@ -84,6 +85,16 @@ std::vector<uint8_t> g_D1InternalFrame;
 std::mutex g_DirectInputMutex;
 std::vector<D1InputMsg> g_DirectInputQueue;
 
+// Queued high-level game actions (modal activations, belt/spell clicks, toggles, ...).
+// These are pushed by the Godot layer and drained ONLY on this engine thread so they never race
+// with the engine thread's own RenderPresent()/game state. See PushBridgeAction / D1BridgeActionType.
+struct D1BridgeJob {
+	D1BridgeActionType type;
+	int a = 0, b = 0, c = 0, d = 0;
+};
+std::mutex g_BridgeJobMutex;
+std::vector<D1BridgeJob> g_BridgeJobs;
+
 std::thread g_DiabloThread;
 } // namespace
 
@@ -98,7 +109,14 @@ void InitGodotBridge(int width, int height)
 	if (g_ShmMapped != nullptr && g_ShmTotalSize == reqSize)
 		return;
 
-	CleanupGodotBridge();
+	// Only tear down an existing mapping when its size actually changed. The very
+	// first creation must NOT request an engine quit: ExportGodotFrame() calls this
+	// on every frame (including during the intro/splash movie), so unconditionally
+	// tearing down here would call RequestDevilutionXQuit() and abort startup before
+	// the engine ever reaches the main menu.
+	if (g_ShmMapped != nullptr) {
+		CleanupGodotBridge();
+	}
 
 	g_ShmTotalSize = reqSize;
 	g_ShmFd = open("/dev/shm/d1_godot_frame", O_RDWR | O_CREAT, 0666);
@@ -295,8 +313,49 @@ void ExportGodotFrame(const SDL_Surface *surface)
 	}
 }
 
+void PushBridgeAction(D1BridgeActionType type, int arg1, int arg2, int arg3, int arg4)
+{
+	D1BridgeJob job;
+	job.type = type;
+	job.a = arg1;
+	job.b = arg2;
+	job.c = arg3;
+	job.d = arg4;
+	// Only enqueue; execution happens on the engine thread in the drain below.
+	std::lock_guard<std::mutex> lock(g_BridgeJobMutex);
+	g_BridgeJobs.push_back(job);
+}
+
 void PollGodotBridgeInput()
 {
+	// Drain queued high-level game actions on the ENGINE thread. This runs every frame from
+	// PollEvent(), i.e. on g_DiabloThread, so these state-mutating calls (which can trigger a full
+	// RenderPresent cycle) never run concurrently with the engine thread's own rendering. Calling
+	// them directly from Godot's main thread races on shared SDL/heap state and corrupts the heap.
+	{
+		std::lock_guard<std::mutex> lock(g_BridgeJobMutex);
+		for (const auto &job : g_BridgeJobs) {
+			switch (job.type) {
+			case D1BridgeActionType::ActivateModal:       ActivateModalItem(job.a); break;
+			case D1BridgeActionType::SelectModal:         SelectModalItem(job.a); break;
+			case D1BridgeActionType::UseBeltSlot:         UseBeltSlot(job.a); break;
+			case D1BridgeActionType::ClickBeltSlot:       ClickBeltSlot(job.a); break;
+			case D1BridgeActionType::SetVanillaHUDHidden: SetVanillaHUDHidden(job.a != 0); break;
+			case D1BridgeActionType::DismissQText:        DismissQText(); break;
+			case D1BridgeActionType::SelectSpell:         SelectSpell(job.a, job.b); break;
+			case D1BridgeActionType::AddAttributePoint:   AddAttributePoint(job.a); break;
+			case D1BridgeActionType::ToggleCharacterSheet: ToggleCharacterSheet(); break;
+			case D1BridgeActionType::SelectQuest:         SelectQuest(job.a); break;
+			case D1BridgeActionType::ToggleQuestLog:      ToggleQuestLog(); break;
+			case D1BridgeActionType::ToggleInventory:     ToggleInventory(); break;
+			case D1BridgeActionType::ClickInventorySlot:  ClickInventorySlot(job.a, job.b, job.c != 0, job.d != 0); break;
+			case D1BridgeActionType::UseInventorySlot:    UseInventorySlot(job.a, job.b); break;
+			default: break;
+		}
+	}
+	}
+	g_BridgeJobs.clear();
+
 	// 1. Process in-process GDExtension direct input queue
 	{
 		std::lock_guard<std::mutex> lock(g_DirectInputMutex);
@@ -373,6 +432,23 @@ void PollGodotBridgeInput()
 	}
 }
 
+namespace {
+void (*g_PrevTermHandler)(int) = nullptr;
+
+// Invoked on SIGINT/SIGTERM (e.g. Ctrl+C or `kill`). RequestDevilutionXQuit() stops the
+// engine and, when this runs off the main thread, joins g_DiabloThread so it is no longer
+// destroyed joinable at static destruction (which used to abort with std::terminate). We
+// then chain back to the previous handler so Godot's own SIGINT/SIGTERM handling still runs.
+void d1_term_handler(int sig)
+{
+	RequestDevilutionXQuit();
+	if (g_PrevTermHandler != nullptr && g_PrevTermHandler != reinterpret_cast<void (*)(int)>(SIG_DFL)
+		&& g_PrevTermHandler != reinterpret_cast<void (*)(int)>(SIG_IGN)) {
+		g_PrevTermHandler(sig);
+	}
+}
+} // namespace
+
 void StartDevilutionXThread(const char *basePath)
 {
 	if (g_DiabloThreadRunning)
@@ -380,6 +456,11 @@ void StartDevilutionXThread(const char *basePath)
 
 	g_DiabloThreadRunning = true;
 	setenv("D1_MINIMIZE_WINDOW", "1", 1);
+
+	// A forced Ctrl+C / `kill` may otherwise terminate the engine thread out from under us,
+	// leaving g_DiabloThread joinable at static destruction -> std::terminate. Stop+join it first.
+	g_PrevTermHandler = reinterpret_cast<void (*)(int)>(signal(SIGINT, d1_term_handler));
+	signal(SIGTERM, d1_term_handler);
 
 	static std::string s_BasePath = (basePath != nullptr && basePath[0] != '\0')
 		? basePath
@@ -391,6 +472,12 @@ void StartDevilutionXThread(const char *basePath)
 	}
 
 	g_DiabloThread = std::thread([]() {
+		// Chain SIGINT/SIGTERM handling to the engine thread too (best-effort: it can join
+		// only if delivered off-engine). The process-wide handler set above already covers the
+		// main-thread case, which is where these signals normally land.
+		signal(SIGINT, d1_term_handler);
+		signal(SIGTERM, d1_term_handler);
+
 		char arg0[] = "devilutionx";
 		char arg1[] = "--data-dir";
 		std::vector<char> arg2(s_BasePath.begin(), s_BasePath.end());
@@ -481,13 +568,23 @@ void RequestDevilutionXQuit()
 {
 	if (!g_D1EngineQuitRequested.exchange(true)) {
 		// Break DiabloMain's SDL event loop (mainmenu_loop) so the engine thread exits
-		// promptly, then join it BEFORE Godot frees its objects / shared memory.
+		// promptly via the pushed SDL_QUIT.
 		SDL_Event quitEv {};
 		quitEv.type = SDL_QUIT;
 		SDL_PushEvent(&quitEv);
 
-		if (g_DiabloThread.joinable() && g_DiabloThread.get_id() != std::this_thread::get_id()) {
-			g_DiabloThread.join();
+		const bool onEngineThread =
+			g_DiabloThread.joinable() && (g_DiabloThread.get_id() == std::this_thread::get_id());
+		if (!onEngineThread && g_DiabloThread.joinable()) {
+			// Invoked off-engine: from a SIGINT/SIGTERM handler or Godot's main thread.
+			// Do NOT block-join here. Waiting on the engine loop to drain the pushed SDL event
+			// is scheduling-dependent and can hang shutdown (stuck process / non-zero exit), while
+			// also risking static destruction of a still-joinable std::thread -> std::terminate.
+			// Detach so the thread winds down once it sees the quit request; it is no longer
+			// joinable at exit, which avoids both the hang and the terminate. CleanupGodotBridge()
+			// (the only SHM unmapper) never runs on the quit path, so there is no concurrent SHM
+			// write to race against. The engine thread exits its loop promptly after SDL_QUIT.
+			g_DiabloThread.detach();
 		}
 		g_DiabloThreadRunning = false;
 	}

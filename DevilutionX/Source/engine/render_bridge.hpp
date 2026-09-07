@@ -131,6 +131,30 @@ void ExportGodotFrame(const SDL_Surface *surface);
 void PollGodotBridgeInput();
 void CleanupGodotBridge();
 
+// High-level game actions dispatched from the Godot layer. These MUST run on the DevilutionX
+// ENGINE thread (drained here each frame), never directly from Godot's main thread: calling them
+// inline mutates engine state and can trigger a full RenderPresent() cycle, which races with the
+// engine thread's own rendering and corrupts SDL/heap state ("malloc(): unsorted double linked list
+// corrupted"). See CODEBASE_DOCUMENTATION.md "Bridge Thread-Safety" section.
+enum class D1BridgeActionType : int {
+	ActivateModal = 0,
+	SelectModal = 1,
+	UseBeltSlot = 2,
+	ClickBeltSlot = 3,
+	SetVanillaHUDHidden = 4,
+	DismissQText = 5,
+	SelectSpell = 6,
+	AddAttributePoint = 7,
+	ToggleCharacterSheet = 8,
+	SelectQuest = 9,
+	ToggleQuestLog = 10,
+	ToggleInventory = 11,
+	ClickInventorySlot = 12,
+	UseInventorySlot = 13
+};
+
+void PushBridgeAction(D1BridgeActionType type, int arg1 = 0, int arg2 = 0, int arg3 = 0, int arg4 = 0);
+
 void StartDevilutionXThread(const char *basePath);
 void PushDevilutionXInput(uint32_t type, uint32_t code, uint32_t state, int32_t x, int32_t y);
 bool CopyD1FrameBytes(uint8_t *dest, size_t maxBytes, uint32_t *outFrameId, int *outW, int *outH);
