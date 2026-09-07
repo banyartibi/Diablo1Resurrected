@@ -1067,9 +1067,11 @@ func handle_input(event: InputEvent) -> bool:
 	# Mouse Click & Motion Conversion
 	if event is InputEventMouseButton:
 		var mouse_world = get_global_mouse_position()
-		var d1_coords = diablo_bridge.map_world_to_screen(mouse_world) if diablo_bridge and diablo_bridge.has_method("map_world_to_screen") else Vector2i(int(float(d1_width) * 0.5 + (mouse_world.x - player_node.position.x)), int(float(d1_height) * 0.5 + (mouse_world.y - player_node.position.y)))
-		var d1_x = d1_coords.x
-		var d1_y = d1_coords.y
+		var d1_w = diablo_bridge.get_frame_width() if (diablo_bridge and diablo_bridge.has_method("get_frame_width")) else 640
+		var d1_h = diablo_bridge.get_frame_height() if (diablo_bridge and diablo_bridge.has_method("get_frame_height")) else 480
+		var offset = mouse_world - player_node.position
+		var d1_x = clampi(int(float(d1_w) * 0.5 + offset.x), 0, d1_w - 1)
+		var d1_y = clampi(int(float(d1_h) * 0.5 + offset.y), 0, d1_h - 1)
 		var btn = 1
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			btn = 3
@@ -1077,28 +1079,17 @@ func handle_input(event: InputEvent) -> bool:
 			btn = 2
 		var state = 1 if event.pressed else 0
 
-		# Click-to-NPC-talk: standing next to a Townsman? A left-click opens their dialogue.
-		# Towners are reported by the bridge with type >= 1000 and only exist in town (currlevel == 0).
-		if event.button_index == MOUSE_BUTTON_LEFT and diablo_bridge.has_method("get_active_monsters_data"):
-			var p_tile = diablo_bridge.get_player_tile_pos() if diablo_bridge.has_method("get_player_tile_pos") else Vector2i.ZERO
-			for m in diablo_bridge.get_active_monsters_data():
-				if int(m.get("type", 0)) >= 1000:
-					var mtx = int(m.get("pos_x", -999))
-					var mty = int(m.get("pos_y", -999))
-					if abs(mtx - p_tile.x) <= 1 and abs(mty - p_tile.y) <= 1:
-						diablo_bridge.send_key_event(32, true)   # SDLK_SPACE pressed
-						diablo_bridge.send_key_event(32, false)  # released
-						return true
-
 		if diablo_bridge and diablo_bridge.has_method("send_input"):
 			diablo_bridge.send_input(2, btn, state, d1_x, d1_y)
 		return true
 
 	elif event is InputEventMouseMotion:
 		var mouse_world = get_global_mouse_position()
-		var d1_coords = diablo_bridge.map_world_to_screen(mouse_world) if diablo_bridge and diablo_bridge.has_method("map_world_to_screen") else Vector2i(int(float(d1_width) * 0.5 + (mouse_world.x - player_node.position.x)), int(float(d1_height) * 0.5 + (mouse_world.y - player_node.position.y)))
-		var d1_x = d1_coords.x
-		var d1_y = d1_coords.y
+		var d1_w = diablo_bridge.get_frame_width() if (diablo_bridge and diablo_bridge.has_method("get_frame_width")) else 640
+		var d1_h = diablo_bridge.get_frame_height() if (diablo_bridge and diablo_bridge.has_method("get_frame_height")) else 480
+		var offset = mouse_world - player_node.position
+		var d1_x = clampi(int(float(d1_w) * 0.5 + offset.x), 0, d1_w - 1)
+		var d1_y = clampi(int(float(d1_h) * 0.5 + offset.y), 0, d1_h - 1)
 		if diablo_bridge and diablo_bridge.has_method("send_input"):
 			diablo_bridge.send_input(1, 0, 0, d1_x, d1_y)
 		return true

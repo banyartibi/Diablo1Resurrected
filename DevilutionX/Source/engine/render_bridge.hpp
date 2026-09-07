@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <atomic>
+#include <filesystem>
 #include <vector>
 #include <SDL.h>
 #include "engine/point.hpp"
@@ -386,6 +387,22 @@ D1ObjectSpriteRgba GetObjectSpriteRgba(int objectId);
 int GetModalType();
 bool IsModalActiveLive();
 bool IsAutomapActive();
+
+// Godot native-modal-overlay bridge: active menu items + selection for the
+// current D1 modal (pause/gamemenu, dialog/store, death-restart).
+struct D1MenuItemInfo {
+	std::string text;
+	bool enabled = true;
+	bool selectable = true;
+};
+std::vector<D1MenuItemInfo> GetCurrentMenuItems();
+int GetCurrentModalSelectionIndex();
+void ActivateModalItem(int index);
+void SelectModalItem(int index);
+bool IsQTextActive();
+std::vector<std::string> GetQTextLines();
+std::string GetQTextTitle();
+void DismissQText();
 
 struct D1AutomapRgba {
 	int width = 0;

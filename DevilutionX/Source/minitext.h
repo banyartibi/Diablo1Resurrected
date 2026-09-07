@@ -8,6 +8,9 @@
 #include "engine.h"
 #include "textdat.h"
 
+#include <string>
+#include <vector>
+
 namespace devilution {
 
 /** Specify if the quest dialog window is being shown */
@@ -38,5 +41,15 @@ void DrawQTextBack(const Surface &out);
  * @brief Draw the quest dialog window text.
  */
 void DrawQText(const Surface &out);
+
+/**
+ * @brief Get formatted speech text lines for the Godot native dialogue overlay.
+ */
+std::vector<std::string> GetRawQTextLines();
+
+/**
+ * @brief Dismiss active quest speech narration.
+ */
+void DismissRawQText();
 
 } // namespace devilution

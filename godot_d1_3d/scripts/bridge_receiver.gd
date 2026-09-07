@@ -68,11 +68,15 @@ var native_25d_instance = null
 var sandbox_scene = preload("res://scenes/sandbox/native_3d_sandbox.tscn")
 var sandbox_instance = null
 
-# Modal Dialog & Menu Overlay (for Mode 1 / Mode 2 when talking to Towners, visiting shops, or in Esc menu)
+# Native Godot modal overlay script (D1 pause/gamemenu, dialog/store, death-restart menus)
+const MODAL_SCENE = preload("res://scenes/modals/native_modal_layer.tscn")
+
+# Modal Dialog & Menu Overlay (for Mode 1 / Mode 2 when talking to Towners, visiting shops, or in Esc menu).
+# Renders D1's own menus natively with Control nodes (see native_modal_layer.gd) instead of blitting
+# D1's rasterized vanilla frame onto the mesh.
 var modal_layer: CanvasLayer = null
 var modal_container: Control = null
-var modal_rect: TextureRect = null
-var modal_shader_mat: ShaderMaterial = null
+var native_modal: Control = null
 
 # Automap Overlay (for Tab map in Native 2.5D / 3D)
 var automap_layer: CanvasLayer = null
@@ -227,6 +231,9 @@ func _ready():
 	sandbox_instance.diablo_bridge = diablo_bridge
 	sandbox_instance.main_receiver = self
 	sandbox_instance.deactivate()
+
+	if native_modal:
+		native_modal.call("set_bridge", diablo_bridge)
 	
 	show_osd("Diablo 1 Resurrected | [F3] Switch Display Mode (Original 2.5D / Native 2.5D / 3D Sandbox) | [H] HUD", 4.5)
 	print("[Godot-D1 Bridge] 3-Mode Architecture ready: [Original 2.5D] / [Native Godot 2.5D] / [Native 3D Sandbox].")
@@ -270,13 +277,12 @@ func setup_modal_overlay():
 	modal_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	modal_layer.add_child(modal_container)
 
-	modal_rect = TextureRect.new()
-	modal_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	modal_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	modal_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	modal_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	modal_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	modal_container.add_child(modal_rect)
+	# Native Godot modal overlay: renders D1's menus with Control nodes.
+	native_modal = MODAL_SCENE.instantiate()
+	native_modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	native_modal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	native_modal.visible = false
+	modal_container.add_child(native_modal)
 
 	# Transparent Automap Layer (Layer 115: Above 2.5D/3D world, below modals)
 	automap_layer = CanvasLayer.new()
@@ -407,6 +413,7 @@ func _process(delta: float):
 	if use_gdextension and diablo_bridge != null:
 		if diablo_bridge.is_quit_requested() or (had_connected and not diablo_bridge.is_engine_running()):
 			print("[Godot-D1 Bridge] DevilutionX engine requested exit. Terminating Godot process cleanly...")
+			diablo_bridge.quit_engine()
 			get_tree().quit()
 			return
 
@@ -429,6 +436,8 @@ func _process(delta: float):
 					native_25d_instance.diablo_bridge = diablo_bridge
 				if sandbox_instance:
 					sandbox_instance.diablo_bridge = diablo_bridge
+				if native_modal:
+					native_modal.call("set_bridge", diablo_bridge)
 			var cur_frame_id = diablo_bridge.get_frame_id()
 			if cur_frame_id != last_frame_id:
 				last_frame_id = cur_frame_id
@@ -457,14 +466,13 @@ func _process(delta: float):
 					current_zoom_step = cur_zoom
 
 			# Modal dialog & menu overlay for Native 2.5D / 3D views.
-			# In native modes we show D1's authentic UI (pause/death/talk/store) by blitting D1's own frame
-			# onto the mesh, because Godot's reconstructed world does not draw D1's vanilla panels/menus.
+			# Native modes render D1's authentic UI (pause/death/talk/store) with Godot Control nodes
+			# (native_modal_layer.gd); the world view does not need to rebuild.
 			if modal_layer and diablo_bridge.has_method("is_modal_active"):
 				var modal_active = diablo_bridge.is_modal_active()
 				if current_display_mode != DisplayMode.ORIGINAL_25D and modal_active != last_modal_active:
 					last_modal_active = modal_active
-					# Re-apply display mode so the native view toggles off/on with the menu
-					apply_display_mode()
+					modal_layer.visible = modal_active
 
 
 			# Transparent Automap Overlay for Native 2.5D / 3D views
@@ -550,12 +558,8 @@ func update_frame_texture(w: int, h: int, bytes: PackedByteArray):
 		image_texture = ImageTexture.create_from_image(img)
 		if shader_material:
 			shader_material.set_shader_parameter("d1_texture", image_texture)
-		if modal_rect:
-			modal_rect.texture = image_texture
 	else:
 		image_texture.update(img)
-		if modal_rect and modal_rect.texture != image_texture:
-			modal_rect.texture = image_texture
 
 func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var norm_x = screen_pos.x / vp_size.x
@@ -616,19 +620,6 @@ func apply_display_mode():
 
 	elif current_display_mode == DisplayMode.NATIVE_25D:
 		# Mode 1: Native Godot 2.5D Engine (Smooth 144Hz Camera, Y-Sorted Sprites, PointLight2D)
-		var _modal_active = diablo_bridge.is_modal_active() if (diablo_bridge and diablo_bridge.has_method("is_modal_active")) else false
-		if _modal_active:
-			# D1 renders the pause/death/talk/store UI into its own frame; Godot's reconstructed world cannot.
-			# Blit D1's current frame onto the mesh so the authentic vanilla menu appears fullscreen.
-			if automap_layer: automap_layer.visible = false
-			if native_25d_instance: native_25d_instance.deactivate()
-			if sandbox_instance: sandbox_instance.deactivate()
-			if mesh_instance: mesh_instance.visible = true
-			if hero_light: hero_light.visible = false
-			if torch_container: torch_container.visible = false
-			if effects_container: effects_container.visible = false
-			if camera: camera.make_current()
-			return
 		if mesh_instance:
 			mesh_instance.visible = false
 		if hero_light:
@@ -645,19 +636,6 @@ func apply_display_mode():
 
 	elif current_display_mode == DisplayMode.NATIVE_3D:
 		# Mode 2: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)
-		var _modal_active = diablo_bridge.is_modal_active() if (diablo_bridge and diablo_bridge.has_method("is_modal_active")) else false
-		if _modal_active:
-			# D1 renders the pause/death/talk/store UI into its own frame; Godot's reconstructed world cannot.
-			# Blit D1's current frame onto the mesh so the authentic vanilla menu appears fullscreen.
-			if automap_layer: automap_layer.visible = false
-			if native_25d_instance: native_25d_instance.deactivate()
-			if sandbox_instance: sandbox_instance.deactivate()
-			if mesh_instance: mesh_instance.visible = true
-			if hero_light: hero_light.visible = false
-			if torch_container: torch_container.visible = false
-			if effects_container: effects_container.visible = false
-			if camera: camera.make_current()
-			return
 		if mesh_instance:
 			mesh_instance.visible = false
 		if hero_light:
@@ -788,20 +766,6 @@ func _unhandled_input(event: InputEvent):
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			btn = 2
 		var state = 1 if event.pressed else 0
-
-		# Click-to-NPC-talk (all modes): standing next to a Townsman? A left-click opens their dialogue.
-		# Towners are reported by the bridge with type >= 1000 and only exist in town (currlevel == 0).
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed and diablo_bridge.has_method("get_active_monsters_data"):
-			var p_tile = diablo_bridge.get_player_tile_pos() if diablo_bridge.has_method("get_player_tile_pos") else Vector2i.ZERO
-			for m in diablo_bridge.get_active_monsters_data():
-				if int(m.get("type", 0)) >= 1000:
-					var mtx = int(m.get("pos_x", -999))
-					var mty = int(m.get("pos_y", -999))
-					if abs(mtx - p_tile.x) <= 1 and abs(mty - p_tile.y) <= 1:
-						diablo_bridge.send_key_event(32, true)   # SDLK_SPACE pressed
-						diablo_bridge.send_key_event(32, false)  # released
-						break
-
 		send_input_to_d1(2, btn, state, mpos.x, mpos.y)
 	elif event is InputEventKey:
 		var key = get_sdl_key(event.keycode)

@@ -46,6 +46,14 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_level_loading"), &DiabloBridge::is_level_loading);
 	ClassDB::bind_method(D_METHOD("is_modal_active"), &DiabloBridge::is_modal_active);
 	ClassDB::bind_method(D_METHOD("get_modal_type"), &DiabloBridge::get_modal_type);
+	ClassDB::bind_method(D_METHOD("get_current_menu_items"), &DiabloBridge::get_current_menu_items);
+	ClassDB::bind_method(D_METHOD("get_modal_selection_index"), &DiabloBridge::get_modal_selection_index);
+	ClassDB::bind_method(D_METHOD("activate_modal_item", "index"), &DiabloBridge::activate_modal_item);
+	ClassDB::bind_method(D_METHOD("select_modal_item", "index"), &DiabloBridge::select_modal_item);
+	ClassDB::bind_method(D_METHOD("is_qtext_active"), &DiabloBridge::is_qtext_active);
+	ClassDB::bind_method(D_METHOD("get_qtext_lines"), &DiabloBridge::get_qtext_lines);
+	ClassDB::bind_method(D_METHOD("get_qtext_title"), &DiabloBridge::get_qtext_title);
+	ClassDB::bind_method(D_METHOD("dismiss_qtext"), &DiabloBridge::dismiss_qtext);
 	ClassDB::bind_method(D_METHOD("is_automap_active"), &DiabloBridge::is_automap_active);
 	ClassDB::bind_method(D_METHOD("get_automap_texture"), &DiabloBridge::get_automap_texture);
 	ClassDB::bind_method(D_METHOD("get_spell_icon_texture", "spell_id", "spell_type"), &DiabloBridge::get_spell_icon_texture);
@@ -143,6 +151,7 @@ DiabloBridge::DiabloBridge() {
 }
 
 DiabloBridge::~DiabloBridge() {
+	quit_engine();
 }
 
 bool DiabloBridge::init_engine(const String &mpq_dir) {
@@ -319,6 +328,57 @@ bool DiabloBridge::is_modal_active() const {
 
 int DiabloBridge::get_modal_type() const {
 	return devilution::GetModalType();
+}
+
+// Export the active menu items (gamemenu for pause/death OR stext for dialog/store)
+// to the Godot native UI overlay. Navigation and buy/select actions remain handled
+// by D1's own keyboard handling; Godot just renders + forwards input.
+Array DiabloBridge::get_current_menu_items() const {
+	if (!devilution::IsModalActiveLive()) return {};
+	auto items = devilution::GetCurrentMenuItems();
+	Array arr;
+	for (const auto &it : items) {
+		Dictionary d;
+		d["text"] = String::utf8(it.text.c_str());
+		d["enabled"] = it.enabled;
+		d["selectable"] = it.selectable;
+		arr.push_back(d);
+	}
+	return arr;
+}
+
+int DiabloBridge::get_modal_selection_index() const {
+	if (!devilution::IsModalActiveLive()) return -1;
+	return devilution::GetCurrentModalSelectionIndex();
+}
+
+void DiabloBridge::activate_modal_item(int index) {
+	devilution::ActivateModalItem(index);
+}
+
+void DiabloBridge::select_modal_item(int index) {
+	devilution::SelectModalItem(index);
+}
+
+bool DiabloBridge::is_qtext_active() const {
+	return devilution::IsQTextActive();
+}
+
+Array DiabloBridge::get_qtext_lines() const {
+	Array arr;
+	auto lines = devilution::GetQTextLines();
+	for (const auto &s : lines) {
+		arr.push_back(String::utf8(s.c_str()));
+	}
+	return arr;
+}
+
+String DiabloBridge::get_qtext_title() const {
+	return String::utf8(devilution::GetQTextTitle().c_str());
+}
+
+void DiabloBridge::dismiss_qtext() {
+	devilution::DismissQText();
 }
 
 bool DiabloBridge::is_automap_active() const {

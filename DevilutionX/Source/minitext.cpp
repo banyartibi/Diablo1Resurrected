@@ -189,4 +189,20 @@ void DrawQText(const Surface &out)
 	DrawQTextContent(out.subregionY(GetUIRectangle().position.y + 49, 260));
 }
 
+std::vector<std::string> GetRawQTextLines()
+{
+	if (!qtextflag)
+		return {};
+	return TextLines;
+}
+
+void DismissRawQText()
+{
+	if (qtextflag) {
+		qtextflag = false;
+		if (leveltype == DTYPE_TOWN)
+			stream_stop();
+	}
+}
+
 } // namespace devilution

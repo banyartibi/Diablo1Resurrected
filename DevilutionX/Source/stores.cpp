@@ -51,7 +51,6 @@ Item witchitem[WITCH_ITEMS];
 int boylevel;
 Item boyitem;
 
-namespace {
 
 /** The current towner being interacted with */
 _talker_id talker;
@@ -100,6 +99,8 @@ struct STextStruct {
 
 /** Text lines */
 STextStruct stext[STORE_LINES];
+
+
 
 /** Whether to render the player's gold amount in the top left */
 bool RenderGold;
@@ -173,6 +174,91 @@ int LineHeight()
 int TextHeight()
 {
 	return IsSmallFontTall() ? LargeTextHeight : SmallTextHeight;
+}
+
+/** Export modal/dialog text lines (NPC talk + store menu) for the Godot native UI layer.
+ *  Returns every non-empty stext[] text line in order, so the Godot side can render an
+ *  authentic dialog/store overlay instead of blitting D1's vanilla frame. */
+std::vector<D1StoreLineInfo> GetStoreDialogLines()
+{
+	std::vector<D1StoreLineInfo> lines;
+	lines.reserve(32);
+	for (int i = 0; i < STORE_LINES; ++i) {
+		const STextStruct &line = stext[i];
+		if (!line.hasText())
+			continue;
+		bool sel = line.isSelectable() || (stextscrl && i == BackButtonLine());
+		lines.push_back(D1StoreLineInfo{ line.text, sel });
+	}
+	return lines;
+}
+
+/** Currently selected line, expressed as a visible (non-empty) row index matching
+ *  GetStoreDialogLines(). Returns -1 when nothing is selected. This lets the Godot
+ *  native overlay highlight exactly the row it renders. */
+int GetCurrentStextSel()
+{
+	if (stextsel < 0 || stextsel >= STORE_LINES) return -1;
+	int visible = 0;
+	for (int i = 0; i <= stextsel; ++i) {
+		if (!stext[i].hasText())
+			continue;
+		if (i == stextsel)
+			return visible;
+		++visible;
+	}
+	return -1;
+}
+
+void ActivateStextItem(int index)
+{
+	if (stextflag == TalkID::None)
+		return;
+	int visible = 0;
+	for (int i = 0; i < STORE_LINES; ++i) {
+		if (!stext[i].hasText())
+			continue;
+		if (visible == index) {
+			if (stext[i].isSelectable() || (stextscrl && i == BackButtonLine())) {
+				stextsel = i;
+				PlaySFX(IS_TITLEMOV);
+				StoreEnter();
+			}
+			return;
+		}
+		++visible;
+	}
+}
+
+void SelectStextItem(int index)
+{
+	if (stextflag == TalkID::None)
+		return;
+	int visible = 0;
+	for (int i = 0; i < STORE_LINES; ++i) {
+		if (!stext[i].hasText())
+			continue;
+		if (visible == index) {
+			if (stext[i].isSelectable() || (stextscrl && i == BackButtonLine())) {
+				if (stextsel != i) {
+					stextsel = i;
+					PlaySFX(IS_TITLEMOV);
+				}
+			}
+			return;
+		}
+		++visible;
+	}
+}
+
+std::string GetActiveTalkerName()
+{
+	int t = static_cast<int>(talker);
+	if (t >= 0 && t < 9) {
+		if (TownerNames[t] != nullptr && TownerNames[t][0] != '\0')
+			return std::string(_(TownerNames[t]));
+	}
+	return "Dialogue";
 }
 
 void CalculateLineHeights()
@@ -2136,7 +2222,6 @@ void DrawSelector(const Surface &out, const Rectangle &rect, string_view text, U
 	ClxDraw(out, { x2, rect.position.y + 13 }, (*pSPentSpn2Cels)[PentSpn2Spin()]);
 }
 
-} // namespace
 
 void AddStoreHoldRepair(Item *itm, int8_t i)
 {

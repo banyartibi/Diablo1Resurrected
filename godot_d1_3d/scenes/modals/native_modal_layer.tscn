@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://cmodalnative01"]
+
+[ext_resource type="Script" path="res://scenes/modals/native_modal_layer.gd" id="1_modal"]
+
+[node name="NativeModalLayer" type="Control"]
+anchors_and_offsets_preset = 15
+mouse_filter = 2
+script = ExtResource("1_modal")

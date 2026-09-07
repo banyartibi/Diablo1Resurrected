@@ -51,6 +51,17 @@ enum class TalkID : uint8_t {
 /** Currently active store */
 extern TalkID stextflag;
 
+/** Export modal/dialog text lines (NPC talk + store menu) for the Godot bridge. */
+struct D1StoreLineInfo {
+	std::string text;
+	bool selectable = false;
+};
+std::vector<D1StoreLineInfo> GetStoreDialogLines();
+int GetCurrentStextSel();
+void ActivateStextItem(int index);
+void SelectStextItem(int index);
+std::string GetActiveTalkerName();
+
 /** Current index into storehidx/storehold */
 extern DVL_API_FOR_TEST int storenumh;
 /** Map of inventory items being presented in the store */

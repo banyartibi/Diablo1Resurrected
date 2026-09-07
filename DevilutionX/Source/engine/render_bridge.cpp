@@ -1,4 +1,7 @@
 #include "engine/render_bridge.hpp"
+#include "stores.h"
+#include "gmenu.h"
+#include "loadsave.h"
 #include "engine/render/scrollrt.h"
 #include "engine/render/clx_render.hpp"
 #include "utils/clx_decode.hpp"
@@ -382,6 +385,11 @@ void StartDevilutionXThread(const char *basePath)
 		? basePath
 		: "/home/biti/.local/share/diasurgical/devilution";
 
+	// If a previous engine run was not yet joined, finish it before starting a new one.
+	if (g_DiabloThread.joinable()) {
+		g_DiabloThread.join();
+	}
+
 	g_DiabloThread = std::thread([]() {
 		char arg0[] = "devilutionx";
 		char arg1[] = "--data-dir";
@@ -404,7 +412,6 @@ void StartDevilutionXThread(const char *basePath)
 		devilution::DiabloMain(argc, argv);
 		g_DiabloThreadRunning = false;
 	});
-	g_DiabloThread.detach();
 }
 
 void PushDevilutionXInput(uint32_t type, uint32_t code, uint32_t state, int32_t x, int32_t y)
@@ -445,6 +452,7 @@ void CopyD1DungeonGrid(int32_t *dest, size_t maxTiles)
 
 void CleanupGodotBridge()
 {
+	RequestDevilutionXQuit();
 	if (g_ShmMapped != nullptr && g_ShmTotalSize > 0) {
 		D1BridgeHeader *hdr = static_cast<D1BridgeHeader *>(g_ShmMapped);
 		hdr->magic = 0xDEADBEEF;
@@ -471,8 +479,18 @@ bool IsDevilutionXQuitRequested()
 
 void RequestDevilutionXQuit()
 {
-	g_D1EngineQuitRequested = true;
-	g_DiabloThreadRunning = false;
+	if (!g_D1EngineQuitRequested.exchange(true)) {
+		// Break DiabloMain's SDL event loop (mainmenu_loop) so the engine thread exits
+		// promptly, then join it BEFORE Godot frees its objects / shared memory.
+		SDL_Event quitEv {};
+		quitEv.type = SDL_QUIT;
+		SDL_PushEvent(&quitEv);
+
+		if (g_DiabloThread.joinable() && g_DiabloThread.get_id() != std::this_thread::get_id()) {
+			g_DiabloThread.join();
+		}
+		g_DiabloThreadRunning = false;
+	}
 }
 
 namespace {
@@ -2214,6 +2232,101 @@ bool IsAutomapActive()
 {
 	if (!IsBridgeSafeToRead()) return false;
 	return AutomapActive;
+}
+
+// =====================================================================
+// Godot native-modal-overlay bridge.
+// Exports the ACTIVE menu items + current selection for every D1 modal
+// (pause/gamemenu, dialog/store, death-restart) so the Godot overlay can
+// render D1's own menus with Control nodes instead of blitting its vanilla
+// frame onto the mesh. Selection/buy/enter actions stay handled by D1's own
+// keyboard input; Godot just renders rows and forwards keys.
+// =====================================================================
+
+std::vector<D1MenuItemInfo> GetCurrentMenuItems()
+{
+	auto out = std::vector<D1MenuItemInfo>();
+	if (!IsBridgeSafeToRead())
+		return out;
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	const int t = GetModalType();
+	if (t == 2) {
+		if (qtextflag) {
+			return out;
+		}
+		// Dialog / store: stext lines.
+		auto lines = devilution::GetStoreDialogLines();
+		for (const auto &s : lines)
+			out.push_back(D1MenuItemInfo{ s.text, true, s.selectable });
+	} else if (t == 1) {
+		// Pause / death-restart: gamemenu items.
+		auto items = devilution::GetCurrentGamemenuItems();
+		for (const auto &it : items)
+			out.push_back(D1MenuItemInfo{ it.text, it.enabled, it.enabled });
+	}
+	return out;
+}
+
+int GetCurrentModalSelectionIndex()
+{
+	if (!IsBridgeSafeToRead()) return -1;
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	const int t = GetModalType();
+	if (t == 2) return devilution::GetCurrentStextSel();
+	if (t == 1) return GetCurrentGamemenuSelection();
+	return -1;
+}
+
+void ActivateModalItem(int index)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!IsBridgeSafeToRead()) return;
+	const int t = GetModalType();
+	if (t == 1) {
+		devilution::ActivateGamemenuItem(index);
+	} else if (t == 2) {
+		if (qtextflag) {
+			devilution::DismissQText();
+		} else {
+			devilution::ActivateStextItem(index);
+		}
+	}
+}
+
+void SelectModalItem(int index)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!IsBridgeSafeToRead()) return;
+	const int t = GetModalType();
+	if (t == 1) {
+		devilution::SelectGamemenuItem(index);
+	} else if (t == 2) {
+		devilution::SelectStextItem(index);
+	}
+}
+
+bool IsQTextActive()
+{
+	if (!IsBridgeSafeToRead()) return false;
+	return qtextflag;
+}
+
+std::vector<std::string> GetQTextLines()
+{
+	if (!IsBridgeSafeToRead() || !qtextflag) return {};
+	return devilution::GetRawQTextLines();
+}
+
+std::string GetQTextTitle()
+{
+	if (!IsBridgeSafeToRead()) return "";
+	return devilution::GetActiveTalkerName();
+}
+
+void DismissQText()
+{
+	if (!IsBridgeSafeToRead()) return;
+	devilution::DismissRawQText();
 }
 
 D1AutomapRgba GetAutomapRgba()

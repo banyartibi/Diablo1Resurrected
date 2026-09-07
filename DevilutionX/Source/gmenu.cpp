@@ -168,6 +168,99 @@ int GmenuGetSliderFill()
 
 TMenuItem *sgpCurrentMenu;
 
+// Godot bridge export: snapshot the active gamemenu (pause / death-restart)
+// as a list of visible labeled items plus current selection. Rows with an
+// empty label (e.g. slider entries) are skipped so the overlay renders one
+// row per visible item; the selection index matches that filtered list.
+std::vector<D1GamemenuItem> GetCurrentGamemenuItems()
+{
+	auto out = std::vector<D1GamemenuItem>();
+	if (sgpCurrentMenu == nullptr)
+		return out;
+	for (int i = 0; ; ++i) {
+		const TMenuItem &m = sgpCurrentMenu[i];
+		if (m.pszStr == nullptr && m.fnMenu == nullptr)
+			break; // sentinel
+		std::string text(m.pszStr ? m.pszStr : "");
+		if (!text.empty())
+			out.push_back(D1GamemenuItem{ text, m.enabled() });
+	}
+	return out;
+}
+
+int GetCurrentGamemenuSelection()
+{
+	if (sgpCurrentMenu == nullptr)
+		return -1;
+	int visible = 0;
+	for (int i = 0; ; ++i) {
+		const TMenuItem &m = sgpCurrentMenu[i];
+		if (m.pszStr == nullptr && m.fnMenu == nullptr)
+			break;
+		std::string text(m.pszStr ? m.pszStr : "");
+		bool empty = text.empty();
+		if (i == sgCurrentMenuIdx) {
+			return empty ? -1 : visible;
+		}
+		if (!empty)
+			++visible;
+	}
+	return -1;
+}
+
+void ActivateGamemenuItem(int index)
+{
+	if (sgpCurrentMenu == nullptr)
+		return;
+	int visible = 0;
+	for (int i = 0; ; ++i) {
+		TMenuItem &m = sgpCurrentMenu[i];
+		if (m.pszStr == nullptr && m.fnMenu == nullptr)
+			break;
+		std::string text(m.pszStr ? m.pszStr : "");
+		if (!text.empty()) {
+			if (visible == index) {
+				if (m.enabled()) {
+					sgpCurrItem = &m;
+					sgCurrentMenuIdx = i;
+					PlaySFX(IS_TITLEMOV);
+					if (m.fnMenu != nullptr) {
+						m.fnMenu(true);
+					}
+				}
+				return;
+			}
+			++visible;
+		}
+	}
+}
+
+void SelectGamemenuItem(int index)
+{
+	if (sgpCurrentMenu == nullptr)
+		return;
+	int visible = 0;
+	for (int i = 0; ; ++i) {
+		TMenuItem &m = sgpCurrentMenu[i];
+		if (m.pszStr == nullptr && m.fnMenu == nullptr)
+			break;
+		std::string text(m.pszStr ? m.pszStr : "");
+		if (!text.empty()) {
+			if (visible == index) {
+				if (m.enabled()) {
+					if (sgCurrentMenuIdx != i) {
+						sgCurrentMenuIdx = i;
+						sgpCurrItem = &m;
+						PlaySFX(IS_TITLEMOV);
+					}
+				}
+				return;
+			}
+			++visible;
+		}
+	}
+}
+
 void gmenu_draw_pause(const Surface &out)
 {
 	if (leveltype != DTYPE_TOWN)

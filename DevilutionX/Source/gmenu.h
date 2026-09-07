@@ -6,6 +6,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include "engine.h"
 
@@ -97,4 +99,17 @@ int gmenu_slider_get(TMenuItem *pItem, int min, int max);
  */
 void gmenu_slider_steps(TMenuItem *pItem, int steps);
 
+
+// Godot bridge export: snapshot the active gamemenu (pause / death-restart)
+// as a list of visible labeled items plus current selection so the overlay
+// can render D1's own menu instead of blitting its vanilla frame.
+struct D1GamemenuItem {
+	std::string text;
+	bool enabled = true;
+};
+std::vector<D1GamemenuItem> GetCurrentGamemenuItems();
+int GetCurrentGamemenuSelection();
+void ActivateGamemenuItem(int index);
+void SelectGamemenuItem(int index);
 } // namespace devilution
+

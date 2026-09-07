@@ -73,6 +73,15 @@ public:
 	bool is_level_loading() const;
 	bool is_modal_active() const;
 	int get_modal_type() const;
+	// Native modal overlay data for pause/gamemenu and dialog/store menus.
+	Array get_current_menu_items() const; // [{"text", "enabled", "selectable"}] for the active menu
+	int get_modal_selection_index() const; // visible selected row index (-1 none)
+	void activate_modal_item(int index);
+	void select_modal_item(int index);
+	bool is_qtext_active() const;
+	Array get_qtext_lines() const;
+	String get_qtext_title() const;
+	void dismiss_qtext();
 	bool is_automap_active() const;
 	Ref<ImageTexture> get_automap_texture() const;
 	Ref<ImageTexture> get_spell_icon_texture(int spell_id, int spell_type);
