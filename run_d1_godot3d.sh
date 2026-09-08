@@ -4,7 +4,7 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GODOT="$DIR/tools/godot4/godot4"
 GODOT_PROJ="$DIR/godot_d1_3d"
-LIBEXT_SO="$DIR/godot_d1_3d/bin/libdiablo.linux.template_debug.x86.64.so"
+LIBEXT_SO="$DIR/godot_d1_3d/bin/libdiablo.linux.template_debug.x86_64.so"
 
 echo "========================================================"
 echo "    Launching Diablo 1: Resurrected – In-Process Engine "
