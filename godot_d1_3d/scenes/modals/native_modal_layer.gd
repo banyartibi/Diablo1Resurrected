@@ -405,6 +405,8 @@ func _on_opt_gamma_changed(v: float) -> void:
 		diablo_bridge.set_gamma(g)
 	if diablo_bridge and diablo_bridge.has_method("set_gamma_immediate"):
 		diablo_bridge.set_gamma_immediate(g)
+	# Force an immediate viewport refresh so the gamma change is visible without closing the menu
+	get_viewport().update()
 
 func _on_opt_speed_changed(v: float) -> void:
 	if _options_refreshing:
