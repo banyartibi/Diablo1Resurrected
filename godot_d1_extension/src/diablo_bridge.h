@@ -101,6 +101,7 @@ public:
 	void set_music_volume(int volume);
 	void set_sound_volume(int volume);
 	void set_gamma(int gamma);
+	void set_gamma_immediate(int gamma);
 	void set_speed(int tick_rate);
 
 	// Native Godot Diablo IV Character Sheet & Quest Log

@@ -1848,7 +1848,7 @@ static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH
 								outRgba[idx + 2] = 0;
 								outRgba[idx + 3] = 160;
 							} else {
-								SDL_Color c = orig_palette[color];
+								SDL_Color c = system_palette[color];
 								outRgba[idx + 0] = c.r;
 								outRgba[idx + 1] = c.g;
 								outRgba[idx + 2] = c.b;
@@ -1872,7 +1872,7 @@ static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH
 								outRgba[idx + 2] = 0;
 								outRgba[idx + 3] = 160;
 							} else {
-								SDL_Color c = orig_palette[color];
+								SDL_Color c = system_palette[color];
 								outRgba[idx + 0] = c.r;
 								outRgba[idx + 1] = c.g;
 								outRgba[idx + 2] = c.b;
@@ -2004,7 +2004,7 @@ D1TilePieceRgba GetDungeonPieceRgba(int pieceId)
 		for (int x = 0; x < w; ++x) {
 			uint8_t idx = src[x];
 			if (idx != 0) {
-				SDL_Color c = orig_palette[idx];
+				SDL_Color c = system_palette[idx];
 				int px = (y * w + x) * 4;
 				dst[px + 0] = c.r;
 				dst[px + 1] = c.g;
@@ -2044,7 +2044,7 @@ D1SpecialCelRgba GetSpecialCelRgba(int specialId)
 		for (int x = 0; x < w; ++x) {
 			uint8_t idx = src[x];
 			if (idx != 0) {
-				SDL_Color c = orig_palette[idx];
+				SDL_Color c = system_palette[idx];
 				int px = (y * w + x) * 4;
 				dst[px + 0] = c.r;
 				dst[px + 1] = c.g;
@@ -2517,7 +2517,7 @@ D1AutomapRgba GetAutomapRgba()
 		for (int x = 0; x < w; ++x) {
 			uint8_t idx = src[x];
 			if (idx != 0) {
-				SDL_Color c = orig_palette[idx];
+				SDL_Color c = system_palette[idx];
 				int px = (y * w + x) * 4;
 				dst[px + 0] = c.r;
 				dst[px + 1] = c.g;
