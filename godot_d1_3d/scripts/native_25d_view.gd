@@ -391,9 +391,10 @@ func update_lighting_and_transparency():
 			var tile_mod: Color
 
 			if is_town:
-				# Tristram peaceful moonlight with subtle warm glows near braziers/torches
+				# Tristram: full daylight/moonlight range — lit tiles reach true white,
+				# deep shadows have a subtle cool-night tint. No brightness suppression.
 				var bright = clamp(1.0 - raw_l / 15.0, 0.0, 1.0)
-				tile_mod = Color(0.70, 0.72, 0.78).lerp(Color(1.0, 0.96, 0.90), bright * 0.55)
+				tile_mod = Color(0.55, 0.58, 0.65).lerp(Color(1.0, 1.0, 1.0), bright)
 			else:
 				# Dungeon / Catacombs / Caves / Hell: 5-tap spatial filter to eliminate blocky tiles
 				if raw_l >= 15.0:
@@ -509,7 +510,7 @@ func update_player(delta: float):
 	if is_town:
 		var p_light = p_light_grid[p_tile_idx] if p_light_grid.size() >= 112 * 112 else 0
 		var bright = clamp(1.0 - float(p_light) / 15.0, 0.0, 1.0)
-		player_sprite.self_modulate = Color(0.70, 0.72, 0.78).lerp(Color(1.0, 0.96, 0.90), bright * 0.55)
+		player_sprite.self_modulate = Color(0.55, 0.58, 0.65).lerp(Color(1.0, 1.0, 1.0), bright)
 		if player_shadow:
 			player_shadow.self_modulate = Color(1.0, 1.0, 1.0, 0.60)
 	elif p_light_grid.size() >= 112 * 112:
