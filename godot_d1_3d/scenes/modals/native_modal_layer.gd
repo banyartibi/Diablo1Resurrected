@@ -209,6 +209,13 @@ func _ready() -> void:
 	_opt_gamma_value = gamma_row.get_node("ValueLabel")
 	_opt_gamma_slider.value_changed.connect(_on_opt_gamma_changed)
 
+	# Legacy Gamma toggle – when enabled forces gamma to 30 (dark, matching classic Legacy mode)
+	var legacy_chb := CheckButton.new()
+	legacy_chb.name = "LegacyGammaChb"
+	legacy_chb.text = "Legacy Gamma"
+	legacy_chb.pressed.connect(_on_legacy_gamma_toggled)
+	opt_vbox.add_child(legacy_chb)
+
 	var speed_row := _add_option_row(opt_vbox, "Speed", OPT_SPEED_MIN, OPT_SPEED_MAX)
 	_opt_speed_slider = speed_row.get_node("Slider")
 	_opt_speed_value = speed_row.get_node("ValueLabel")
@@ -403,6 +410,11 @@ func _on_opt_gamma_changed(v: float) -> void:
 	_opt_gamma_value.text = "%d%%" % g
 	if diablo_bridge and diablo_bridge.has_method("set_gamma"):
 		diablo_bridge.set_gamma(g)
+
+func _on_legacy_gamma_toggled(pressed: bool) -> void:
+	if diablo_bridge and diablo_bridge.has_method("set_gamma"):
+		# 30 = dark (classic Legacy), 100 = bright (modern default)
+		diablo_bridge.set_gamma(pressed ? 30 : 100)
 
 func _on_opt_speed_changed(v: float) -> void:
 	if _options_refreshing:
