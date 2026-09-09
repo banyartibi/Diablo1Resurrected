@@ -1,5 +1,6 @@
 # Build artifacts
 DevilutionX/build/
+DevilutionX/build_debug/
 *.o
 *.a
 *.so
