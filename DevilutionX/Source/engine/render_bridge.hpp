@@ -150,7 +150,13 @@ enum class D1BridgeActionType : int {
 	ToggleQuestLog = 10,
 	ToggleInventory = 11,
 	ClickInventorySlot = 12,
-	UseInventorySlot = 13
+	UseInventorySlot = 13,
+	// Options-menu settings (Music/Sound volume, Gamma, Speed/tick-rate). Applied on the
+	// engine thread so they never race RenderPresent()/SDL state from Godot's main thread.
+	SetMusicVolume = 14,
+	SetSoundVolume = 15,
+	SetGamma = 16,
+	SetSpeed = 17
 };
 
 void PushBridgeAction(D1BridgeActionType type, int arg1 = 0, int arg2 = 0, int arg3 = 0, int arg4 = 0);

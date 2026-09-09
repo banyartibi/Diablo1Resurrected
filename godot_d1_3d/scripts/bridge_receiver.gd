@@ -196,6 +196,10 @@ func _ready():
 		if mesh_instance.material_override:
 			shader_material = mesh_instance.material_override as ShaderMaterial
 			update_shader_params()
+	# DEBUG (dev only): startup render-path state for automated runtime tests
+	print("[D1-DEBUG] ready: mesh=%s camera=%s shader_mat=%s mesh_visible=%s" % [
+		mesh_instance != null, camera != null, shader_material != null,
+		(mesh_instance.visible if mesh_instance else false)])
 			
 	if camera:
 		camera.fov = 60.0
@@ -388,10 +392,48 @@ func update_fog_mode():
 			env.volumetric_fog_emission = Color(0.06, 0.03, 0.015, 1)
 			env.volumetric_fog_emission_energy = 0.35
 
+# --- DEBUG (dev only): external screenshot + state dump trigger --------------
+# Touch /tmp/d1_dbg_shot_req to capture a viewport PNG and log the current
+# modal/options state. Used by automated runtime tests of the native Options
+# panel; the file is never created during normal play.
+var _dbg_shot_count := 0
+
+func _dbg_capture() -> void:
+	_dbg_shot_count += 1
+	var out_path := "/tmp/d1_dbg_shot_%02d.png" % _dbg_shot_count
+	var img := get_viewport().get_texture().get_image()
+	img.save_png(out_path)
+	print("[D1-DEBUG] screenshot saved: ", out_path)
+	if diablo_bridge != null and diablo_bridge.has_method("is_modal_active"):
+		var modal: bool = diablo_bridge.is_modal_active()
+		var mtype := -1
+		var sel := -1
+		var item_texts := ""
+		if modal:
+			if diablo_bridge.has_method("get_modal_type"):
+				mtype = diablo_bridge.get_modal_type()
+			if diablo_bridge.has_method("get_modal_selection_index"):
+				sel = diablo_bridge.get_modal_selection_index()
+			if diablo_bridge.has_method("get_current_menu_items"):
+				for d in diablo_bridge.get_current_menu_items():
+					item_texts += str(d.get("text", "")) + " | "
+		print("[D1-DEBUG] modal=%s type=%d sel=%d items=[%s]" % [modal, mtype, sel, item_texts])
+	if diablo_bridge != null and diablo_bridge.has_method("get_music_volume"):
+		print("[D1-DEBUG] options music_vol=%d sound_vol=%d gamma=%d speed=%d" % [
+			diablo_bridge.get_music_volume(),
+			diablo_bridge.get_sound_volume(),
+			diablo_bridge.get_gamma(),
+			diablo_bridge.get_speed()])
+	DirAccess.remove_absolute("/tmp/d1_dbg_shot_req")
+
 func _process(delta: float):
 	time_accum += delta
 	frame_counter += 1
 	fps_timer += delta
+
+	# DEBUG trigger (see _dbg_capture above)
+	if FileAccess.file_exists("/tmp/d1_dbg_shot_req"):
+		_dbg_capture()
 	
 	if hero_light and hero_light_enabled:
 		# Organic soft torch breathing flicker
@@ -411,8 +453,10 @@ func _process(delta: float):
 			osd_label.text = ""
 			
 	if use_gdextension and diablo_bridge != null:
-		if diablo_bridge.is_quit_requested() or (had_connected and not diablo_bridge.is_engine_running()):
-			print("[Godot-D1 Bridge] DevilutionX engine requested exit. Terminating Godot process cleanly...")
+		var quit_req = diablo_bridge.is_quit_requested()
+		var eng_run = diablo_bridge.is_engine_running()
+		if quit_req or (had_connected and not eng_run):
+			print("[Godot-D1 Bridge] DevilutionX engine requested exit. Terminating Godot process cleanly... [diag: is_quit_requested=%s, is_engine_running=%s, had_connected=%s]" % [quit_req, eng_run, had_connected])
 			diablo_bridge.quit_engine()
 			get_tree().quit()
 			return
@@ -549,7 +593,16 @@ func _process(delta: float):
 		if pixel_bytes.size() == d1_width * d1_height * 4:
 			update_frame_texture(d1_width, d1_height, pixel_bytes)
 
+# DEBUG (dev only): frame-update tracing for automated runtime tests
+var _dbg_frame_updates := 0
+
 func update_frame_texture(w: int, h: int, bytes: PackedByteArray):
+	_dbg_frame_updates += 1
+	if _dbg_frame_updates <= 3 or _dbg_frame_updates % 600 == 0:
+		print("[D1-DEBUG] frame_update #%d w=%d h=%d bytes=%d shader_mat_bound=%s tex_size=(%d,%d)" % [
+			_dbg_frame_updates, w, h, bytes.size(), shader_material != null,
+			(image_texture.get_width() if image_texture else 0),
+			(image_texture.get_height() if image_texture else 0)])
 	var img = Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, bytes)
 	if not img:
 		return
@@ -652,10 +705,12 @@ func apply_display_mode():
 
 func switch_display_mode(new_mode: int):
 	current_display_mode = new_mode
+	print("[D1-DEBUG] display_mode -> %d" % new_mode)
 	apply_display_mode()
 
 func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
+		print("[D1-DEBUG] key_unhandled keycode=%d phys=%d" % [event.keycode, event.physical_keycode])
 		if event.keycode == KEY_H:
 			modern_hud_enabled = !modern_hud_enabled
 			if modern_hud:

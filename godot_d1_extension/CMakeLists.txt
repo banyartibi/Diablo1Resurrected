@@ -23,10 +23,27 @@ target_include_directories(diablo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../godot-cpp/gdextension
     ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/Source
     ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/Source
-    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/sdl2-src/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/libfmt-src/include
+    # Mirror the core build's include paths (see DevilutionX/build/build.ninja) so that
+    # any header chain pulled in by render_bridge.hpp/sound.h/palette.h/multi.h resolves.
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/3rdParty/hoehrmann_utf8
     ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/3rdParty/libmpq
-    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/3rdParty/PKWare
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/3rdParty/PKWare/.
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/3rdParty/tl
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/bzip2-src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/libfmt-src/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/libmpq-src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/libpng-build
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/libpng-src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/libsmackerdec-src/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/sdl2-build/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/sdl2-build/include-config-release
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/sdl2-src/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/sdl_audiolib-build
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/sdl_audiolib-src/3rdparty/dr_libs
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/sdl_audiolib-src/3rdparty/speex_resampler
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/sdl_audiolib-src/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/sdl_image-src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../DevilutionX/build/_deps/simpleini-src
 )
 
 target_compile_options(diablo PRIVATE

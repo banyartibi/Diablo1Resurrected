@@ -92,6 +92,17 @@ public:
 	void select_spell(int spell_id, int spell_type);
 	int get_zoom_mode() const;
 
+	// Native Godot Options menu (Music/Sound/Gamma/Speed).
+	// Getters return raw D1 units; setters are queued to the engine thread.
+	int get_music_volume() const;  // -1600..0 (-1600 = mute, 0 = max)
+	int get_sound_volume() const;  // -1600..0
+	int get_gamma() const;         // 30..100 (vanilla slider range)
+	int get_speed() const;         // ticks per second: 20..50
+	void set_music_volume(int volume);
+	void set_sound_volume(int volume);
+	void set_gamma(int gamma);
+	void set_speed(int tick_rate);
+
 	// Native Godot Diablo IV Character Sheet & Quest Log
 	Dictionary get_character_info() const;
 	void add_attribute_point(int attr_idx);

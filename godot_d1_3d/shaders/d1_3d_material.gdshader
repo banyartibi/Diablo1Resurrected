@@ -42,7 +42,7 @@ vec3 sample_catmull_rom_8k(sampler2D tex, vec2 uv, vec2 texel_size) {
     for (int j = 0; j < 4; j++) {
         for (int i = 0; i < 4; i++) {
             vec2 offset = vec2(float(i - 1), float(j - 1)) * texel_size;
-            vec3 s = texture(tex, base + offset).bgr;
+            vec3 s = texture(tex, base + offset).rgb;
             color += s * (wx[i] * wy[j]);
         }
     }
@@ -51,11 +51,11 @@ vec3 sample_catmull_rom_8k(sampler2D tex, vec2 uv, vec2 texel_size) {
 
 // AMD FidelityFX Contrast Adaptive Sharpening (CAS)
 vec3 apply_fsr_cas(sampler2D tex, vec2 uv, vec2 texel) {
-    vec3 c = texture(tex, uv).bgr;
-    vec3 a = texture(tex, uv + vec2(0.0, -1.0) * texel).bgr;
-    vec3 b = texture(tex, uv + vec2(-1.0, 0.0) * texel).bgr;
-    vec3 d = texture(tex, uv + vec2(1.0, 0.0) * texel).bgr;
-    vec3 e = texture(tex, uv + vec2(0.0, 1.0) * texel).bgr;
+    vec3 c = texture(tex, uv).rgb;
+    vec3 a = texture(tex, uv + vec2(0.0, -1.0) * texel).rgb;
+    vec3 b = texture(tex, uv + vec2(-1.0, 0.0) * texel).rgb;
+    vec3 d = texture(tex, uv + vec2(1.0, 0.0) * texel).rgb;
+    vec3 e = texture(tex, uv + vec2(0.0, 1.0) * texel).rgb;
 
     vec3 min_c = min(c, min(min(a, b), min(d, e)));
     vec3 max_c = max(c, max(max(a, b), max(d, e)));
@@ -69,17 +69,17 @@ vec3 apply_fsr_cas(sampler2D tex, vec2 uv, vec2 texel) {
 
 // Anime4K / Neural Spatial CNN: Gradient Normal Edge Push
 vec3 sample_neural_edge_push(sampler2D tex, vec2 uv, vec2 texel) {
-    vec3 cc = texture(tex, uv).bgr;
+    vec3 cc = texture(tex, uv).rgb;
     const vec3 luma = vec3(0.299, 0.587, 0.114);
     
-    float l_tl = dot(texture(tex, uv + vec2(-1.0, -1.0) * texel).bgr, luma);
-    float l_tc = dot(texture(tex, uv + vec2( 0.0, -1.0) * texel).bgr, luma);
-    float l_tr = dot(texture(tex, uv + vec2( 1.0, -1.0) * texel).bgr, luma);
-    float l_ml = dot(texture(tex, uv + vec2(-1.0,  0.0) * texel).bgr, luma);
-    float l_mr = dot(texture(tex, uv + vec2( 1.0,  0.0) * texel).bgr, luma);
-    float l_bl = dot(texture(tex, uv + vec2(-1.0,  1.0) * texel).bgr, luma);
-    float l_bc = dot(texture(tex, uv + vec2( 0.0,  1.0) * texel).bgr, luma);
-    float l_br = dot(texture(tex, uv + vec2( 1.0,  1.0) * texel).bgr, luma);
+    float l_tl = dot(texture(tex, uv + vec2(-1.0, -1.0) * texel).rgb, luma);
+    float l_tc = dot(texture(tex, uv + vec2( 0.0, -1.0) * texel).rgb, luma);
+    float l_tr = dot(texture(tex, uv + vec2( 1.0, -1.0) * texel).rgb, luma);
+    float l_ml = dot(texture(tex, uv + vec2(-1.0,  0.0) * texel).rgb, luma);
+    float l_mr = dot(texture(tex, uv + vec2( 1.0,  0.0) * texel).rgb, luma);
+    float l_bl = dot(texture(tex, uv + vec2(-1.0,  1.0) * texel).rgb, luma);
+    float l_bc = dot(texture(tex, uv + vec2( 0.0,  1.0) * texel).rgb, luma);
+    float l_br = dot(texture(tex, uv + vec2( 1.0,  1.0) * texel).rgb, luma);
 
     float gx = (l_tr + 2.0 * l_mr + l_br) - (l_tl + 2.0 * l_ml + l_bl);
     float gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);
@@ -88,7 +88,7 @@ vec3 sample_neural_edge_push(sampler2D tex, vec2 uv, vec2 texel) {
     if (edge > 0.035) {
         vec2 dir = normalize(vec2(gx, gy));
         vec2 pushed_uv = uv - dir * (texel * 0.45 * clamp(edge * 2.5, 0.0, 1.0));
-        vec3 pushed_col = texture(tex, pushed_uv).bgr;
+        vec3 pushed_col = texture(tex, pushed_uv).rgb;
         return mix(cc, pushed_col, clamp(edge * 2.8, 0.0, 1.0));
     }
     return cc;
@@ -97,10 +97,10 @@ vec3 sample_neural_edge_push(sampler2D tex, vec2 uv, vec2 texel) {
 // Anime4K: Ultra Thin Line Reconstruction & Anti-Aliased Contours
 vec3 sample_anime4k_thin_lines(sampler2D tex, vec2 uv, vec2 texel) {
     vec3 pushed = sample_neural_edge_push(tex, uv, texel);
-    vec3 up = texture(tex, uv + vec2(0.0, -1.0) * texel).bgr;
-    vec3 dn = texture(tex, uv + vec2(0.0,  1.0) * texel).bgr;
-    vec3 lf = texture(tex, uv + vec2(-1.0, 0.0) * texel).bgr;
-    vec3 rt = texture(tex, uv + vec2( 1.0, 0.0) * texel).bgr;
+    vec3 up = texture(tex, uv + vec2(0.0, -1.0) * texel).rgb;
+    vec3 dn = texture(tex, uv + vec2(0.0,  1.0) * texel).rgb;
+    vec3 lf = texture(tex, uv + vec2(-1.0, 0.0) * texel).rgb;
+    vec3 rt = texture(tex, uv + vec2( 1.0, 0.0) * texel).rgb;
     
     vec3 min_c = min(pushed, min(min(up, dn), min(lf, rt)));
     vec3 max_c = max(pushed, max(max(up, dn), max(lf, rt)));
@@ -194,7 +194,7 @@ void fragment() {
     // 1:1 seamless UV sampling (all zoom levels are handled natively in the engine)
     vec2 sample_uv = UV;
 
-    vec3 raw_pixel = texture(d1_texture, sample_uv).bgr;
+    vec3 raw_pixel = texture(d1_texture, sample_uv).rgb;
 
     // Apply selected Upscaler
     vec3 base_color;
@@ -222,14 +222,14 @@ void fragment() {
     if (relief_mode > 0 && !in_ui) {
         const vec3 luma = vec3(0.299, 0.587, 0.114);
 
-        float l_tl = dot(texture(d1_texture, sample_uv + vec2(-1.0, -1.0) * texel_size).bgr, luma);
-        float l_tc = dot(texture(d1_texture, sample_uv + vec2( 0.0, -1.0) * texel_size).bgr, luma);
-        float l_tr = dot(texture(d1_texture, sample_uv + vec2( 1.0, -1.0) * texel_size).bgr, luma);
-        float l_ml = dot(texture(d1_texture, sample_uv + vec2(-1.0,  0.0) * texel_size).bgr, luma);
-        float l_mr = dot(texture(d1_texture, sample_uv + vec2( 1.0,  0.0) * texel_size).bgr, luma);
-        float l_bl = dot(texture(d1_texture, sample_uv + vec2(-1.0,  1.0) * texel_size).bgr, luma);
-        float l_bc = dot(texture(d1_texture, sample_uv + vec2( 0.0,  1.0) * texel_size).bgr, luma);
-        float l_br = dot(texture(d1_texture, sample_uv + vec2( 1.0,  1.0) * texel_size).bgr, luma);
+        float l_tl = dot(texture(d1_texture, sample_uv + vec2(-1.0, -1.0) * texel_size).rgb, luma);
+        float l_tc = dot(texture(d1_texture, sample_uv + vec2( 0.0, -1.0) * texel_size).rgb, luma);
+        float l_tr = dot(texture(d1_texture, sample_uv + vec2( 1.0, -1.0) * texel_size).rgb, luma);
+        float l_ml = dot(texture(d1_texture, sample_uv + vec2(-1.0,  0.0) * texel_size).rgb, luma);
+        float l_mr = dot(texture(d1_texture, sample_uv + vec2( 1.0,  0.0) * texel_size).rgb, luma);
+        float l_bl = dot(texture(d1_texture, sample_uv + vec2(-1.0,  1.0) * texel_size).rgb, luma);
+        float l_bc = dot(texture(d1_texture, sample_uv + vec2( 0.0,  1.0) * texel_size).rgb, luma);
+        float l_br = dot(texture(d1_texture, sample_uv + vec2( 1.0,  1.0) * texel_size).rgb, luma);
 
         gx = (l_tr + 2.0 * l_mr + l_br) - (l_tl + 2.0 * l_ml + l_bl);
         gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);

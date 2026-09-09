@@ -4,6 +4,9 @@
 #include <godot_cpp/classes/image.hpp>
 
 #include "engine/render_bridge.hpp"
+#include "engine/sound.h"    // sound_get_or_set_music_volume / sound_get_or_set_sound_volume
+#include "engine/palette.h"  // UpdateGamma (0 = read-only)
+#include "multi.h"           // sgGameInitInfo.nTickRate
 
 using namespace godot;
 
@@ -63,6 +66,16 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_available_spells"), &DiabloBridge::get_available_spells);
 	ClassDB::bind_method(D_METHOD("select_spell", "spell_id", "spell_type"), &DiabloBridge::select_spell);
 	ClassDB::bind_method(D_METHOD("get_zoom_mode"), &DiabloBridge::get_zoom_mode);
+
+	// Native Godot Options menu (Music/Sound/Gamma/Speed)
+	ClassDB::bind_method(D_METHOD("get_music_volume"), &DiabloBridge::get_music_volume);
+	ClassDB::bind_method(D_METHOD("get_sound_volume"), &DiabloBridge::get_sound_volume);
+	ClassDB::bind_method(D_METHOD("get_gamma"), &DiabloBridge::get_gamma);
+	ClassDB::bind_method(D_METHOD("get_speed"), &DiabloBridge::get_speed);
+	ClassDB::bind_method(D_METHOD("set_music_volume", "volume"), &DiabloBridge::set_music_volume);
+	ClassDB::bind_method(D_METHOD("set_sound_volume", "volume"), &DiabloBridge::set_sound_volume);
+	ClassDB::bind_method(D_METHOD("set_gamma", "gamma"), &DiabloBridge::set_gamma);
+	ClassDB::bind_method(D_METHOD("set_speed", "tick_rate"), &DiabloBridge::set_speed);
 
 	// Native Godot Diablo IV Character Sheet & Quest Log
 	ClassDB::bind_method(D_METHOD("get_character_info"), &DiabloBridge::get_character_info);
@@ -473,6 +486,45 @@ void DiabloBridge::select_spell(int spell_id, int spell_type) {
 
 int DiabloBridge::get_zoom_mode() const {
 	return devilution::g_D1EngineData.zoomMode;
+}
+
+// ---------------------------------------------------------------------------
+// Native Godot Options menu: Music/Sound volume, Gamma, Speed.
+// Getters read plain ints (safe from the main thread). Setters are queued to
+// the engine thread via PushBridgeAction — audio/palette/tick-rate state must
+// never be mutated from Godot's main thread (see Bridge Thread-Safety docs).
+// ---------------------------------------------------------------------------
+
+int DiabloBridge::get_music_volume() const {
+	return devilution::sound_get_or_set_music_volume(1); // 1 = read-only
+}
+
+int DiabloBridge::get_sound_volume() const {
+	return devilution::sound_get_or_set_sound_volume(1); // 1 = read-only
+}
+
+int DiabloBridge::get_gamma() const {
+	return devilution::UpdateGamma(0); // 0 = no-op, returns current gamma (30..100)
+}
+
+int DiabloBridge::get_speed() const {
+	return devilution::sgGameInitInfo.nTickRate; // ticks per second (20..50)
+}
+
+void DiabloBridge::set_music_volume(int volume) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetMusicVolume, volume);
+}
+
+void DiabloBridge::set_sound_volume(int volume) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetSoundVolume, volume);
+}
+
+void DiabloBridge::set_gamma(int gamma) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetGamma, gamma);
+}
+
+void DiabloBridge::set_speed(int tick_rate) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetSpeed, tick_rate);
 }
 
 PackedInt32Array DiabloBridge::get_dungeon_grid() const {

@@ -1,6 +1,8 @@
 #include "engine/render_bridge.hpp"
 #include "stores.h"
 #include "gmenu.h"
+#include "multi.h"
+#include "options.h"
 #include "loadsave.h"
 #include "engine/render/scrollrt.h"
 #include "engine/render/clx_render.hpp"
@@ -31,6 +33,7 @@
 #include "panels/spell_icons.hpp"
 #include "utils/language.h"
 #include "engine/palette.h"
+#include "engine/sound_defs.hpp"
 #include "engine/surface.hpp"
 #include "items.h"
 #include "quests.h"
@@ -135,10 +138,29 @@ void ExportGodotFrame(const SDL_Surface *surface)
 	const SDL_Surface *srcSurface = surface;
 	SDL_Surface *converted = nullptr;
 
-	if (surface->format == nullptr || surface->format->BytesPerPixel != 4) {
-		converted = SDL_ConvertSurfaceFormat(const_cast<SDL_Surface *>(surface), SDL_PIXELFORMAT_ARGB8888, 0);
+	// Godot's Image::create_from_data(FORMAT_RGBA8) expects memory layout R,G,B,A,
+	// which on little-endian is SDL_PIXELFORMAT_RGBA32 (== ABGR8888). D1's output surfaces vary:
+	//  - OpenGL upscale path: 24-bit RGB888 (no alpha channel at all),
+	//  - Vulkan readback path: ARGB8888 (memory B,G,R,A; GPU readback leaves alpha=0).
+	// Converting to ARGB8888 used to export memory layout B,G,R,A with alpha=0, which Godot
+	// interpreted as R/B-swapped and fully transparent -> black viewport. Always normalize
+	// to RGBA32 and force opaque alpha so the exported frame is never transparent.
+	const Uint32 targetFormat = SDL_PIXELFORMAT_RGBA32;
+	if (surface->format == nullptr || surface->format->format != targetFormat) {
+		converted = SDL_ConvertSurfaceFormat(const_cast<SDL_Surface *>(surface), targetFormat, 0);
 		if (converted != nullptr && converted->pixels != nullptr) {
 			srcSurface = converted;
+
+			// Force opaque alpha: D1 surfaces carry no meaningful per-pixel alpha.
+			const int w = srcSurface->w;
+			const int h = srcSurface->h;
+			uint8_t *px = static_cast<uint8_t *>(srcSurface->pixels);
+			for (int y = 0; y < h; ++y) {
+				uint8_t *row = px + y * srcSurface->pitch;
+				for (int x = 0; x < w; ++x) {
+					row[x * 4 + 3] = 255; // alpha byte in RGBA32 memory layout
+				}
+			}
 		} else {
 			if (converted != nullptr) SDL_FreeSurface(converted);
 			return;
@@ -358,6 +380,46 @@ void PollGodotBridgeInput()
 		case D1BridgeActionType::ToggleInventory:     ToggleInventory(); break;
 		case D1BridgeActionType::ClickInventorySlot:  ClickInventorySlot(job.a, job.b, job.c != 0, job.d != 0); break;
 		case D1BridgeActionType::UseInventorySlot:    UseInventorySlot(job.a, job.b); break;
+		case D1BridgeActionType::SetMusicVolume: {
+			int volume = job.a;
+			if (volume < VOLUME_MIN) volume = VOLUME_MIN;
+			else if (volume > VOLUME_MAX) volume = VOLUME_MAX;
+			sound_get_or_set_music_volume(volume);
+			// Keep gbMusicOn in sync with the slider, mirroring D1's own options
+			// screen: dragging to minimum mutes music, dragging up resumes it.
+			if (volume > VOLUME_MIN && !gbMusicOn) {
+				gbMusicOn = true;
+				music_start(GetLevelMusic(leveltype));
+			} else if (volume == VOLUME_MIN && gbMusicOn) {
+				gbMusicOn = false;
+				music_stop();
+			}
+			break;
+		}
+		case D1BridgeActionType::SetSoundVolume: {
+			int volume = job.a;
+			if (volume < VOLUME_MIN) volume = VOLUME_MIN;
+			else if (volume > VOLUME_MAX) volume = VOLUME_MAX;
+			sound_get_or_set_sound_volume(volume);
+			// Keep gbSoundOn in sync with the slider, mirroring D1's own options screen.
+			if (volume > VOLUME_MIN && !gbSoundOn) {
+				gbSoundOn = true;
+			} else if (volume == VOLUME_MIN && gbSoundOn) {
+				gbSoundOn = false;
+				sound_stop();
+			}
+			break;
+		}
+		case D1BridgeActionType::SetGamma:            UpdateGamma(job.a); break;
+		case D1BridgeActionType::SetSpeed: {
+			int rate = job.a;
+			if (rate < 20) rate = 20;
+			else if (rate > 50) rate = 50;
+			sgGameInitInfo.nTickRate = static_cast<uint8_t>(rate);
+			gnTickDelay = static_cast<uint16_t>(1000 / rate);
+			sgOptions.Gameplay.tickRate.SetValue(rate);
+			break;
+		}
 		default: break;
 	}
 	}
