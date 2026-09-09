@@ -523,11 +523,6 @@ void DiabloBridge::set_gamma(int gamma) {
 	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetGamma, gamma);
 }
 
-void DiabloBridge::set_gamma_immediate(int gamma) {
-	devilution::UpdateGamma(gamma);
-	palette_update();
-}
-
 void DiabloBridge::set_speed(int tick_rate) {
 	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetSpeed, tick_rate);
 }
