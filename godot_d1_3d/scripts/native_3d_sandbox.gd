@@ -44,6 +44,7 @@ var monsters_root: Node3D
 var monster_instances: Dictionary = {}    # id (int) -> Node3D
 var monster_textures: Dictionary = {}     # id (int) -> ImageTexture
 var monster_last_frame: Dictionary = {}   # id (int) -> int
+var last_gamma_value: int = -1  # bridge gamma; on change -> invalidate palette-baked sprites
 var monster_last_dir: Dictionary = {}     # id (int) -> int
 
 # Waypoint / Click Feedback
@@ -304,6 +305,19 @@ func _process(delta: float):
 		return
 	if diablo_bridge.has_method("is_level_loading") and diablo_bridge.is_level_loading():
 		return
+
+	# Gamma changed (options slider) -> palette-baked sprite textures are stale. Force a re-fetch with the new
+	# palette so the whole scene brightens/darkens like legacy mode. We poll the gamma VALUE (not the raw palette
+	# version, which also ticks every frame for animated lava in cave/crypt levels).
+	if diablo_bridge.has_method("get_gamma"):
+		var cur_gamma = diablo_bridge.get_gamma()
+		if cur_gamma != last_gamma_value:
+			last_gamma_value = cur_gamma
+			player_texture = null
+			last_player_frame = -1
+			last_player_dir = -1
+			monster_textures.clear()
+			monster_last_frame.clear()
 
 	time_accum += delta
 	last_check_timer += delta

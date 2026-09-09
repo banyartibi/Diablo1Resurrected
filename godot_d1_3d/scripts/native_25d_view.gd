@@ -20,6 +20,7 @@ var canvas_modulate: CanvasModulate = null
 # State tracking
 var last_level_idx: int = -999
 var pending_dungeon_rebuild: bool = false
+var last_gamma_value: int = -1  # bridge gamma; on change -> invalidate all palette-baked textures
 var tile_sprites: Dictionary = {} # Vector2i -> Sprite2D
 var special_sprites: Dictionary = {} # Vector2i -> Sprite2D (Arches, Doorways, Column Tops)
 var last_visible_tiles: Dictionary = {} # Vector2i -> bool (track visible tiles for efficient culling)
@@ -189,6 +190,27 @@ func _process(delta: float):
 		if cur_lvl != last_level_idx:
 			last_level_idx = cur_lvl
 			pending_dungeon_rebuild = true
+
+	# Gamma changed (options slider) -> palette-baked textures are stale. Invalidate all of them so the
+	# whole scene re-renders with the new palette, matching legacy behaviour where gamma affects the entire
+	# image. We poll the gamma VALUE (not the raw palette version), because that counter also ticks every frame
+	# for animated lava/glow in cave/crypt levels and would force a full rebuild per frame there.
+	if diablo_bridge.has_method("get_gamma"):
+		var cur_gamma = diablo_bridge.get_gamma()
+		if cur_gamma != last_gamma_value:
+			last_gamma_value = cur_gamma
+			pending_dungeon_rebuild = true
+			player_texture = null
+			last_player_frame = -999
+			last_player_dir = -999
+			last_player_mode = -999
+			monster_textures.clear()
+			monster_last_frame.clear()
+			monster_last_dir.clear()
+			object_textures.clear()
+			item_textures.clear()
+			corpse_textures.clear()
+			missile_textures.clear()
 
 	# During level transitions, DevilutionX is tearing down and rebuilding memory.
 	# Freeze rendering updates until the new level is 100% ready to eliminate race conditions.
