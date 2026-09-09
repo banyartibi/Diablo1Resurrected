@@ -414,7 +414,7 @@ func _on_opt_gamma_changed(v: float) -> void:
 func _on_legacy_gamma_toggled(pressed: bool) -> void:
 	if diablo_bridge and diablo_bridge.has_method("set_gamma"):
 		# 30 = dark (classic Legacy), 100 = bright (modern default)
-		diablo_bridge.set_gamma(pressed ? 30 : 100)
+		diablo_bridge.set_gamma(30 if pressed else 100)
 
 func _on_opt_speed_changed(v: float) -> void:
 	if _options_refreshing:
