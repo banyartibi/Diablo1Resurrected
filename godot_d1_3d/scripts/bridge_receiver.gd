@@ -24,10 +24,16 @@ var current_relief_mode: int = 4        # Default: 4 = Mode 4 (Extreme Sculpted 
 var current_hdr_level: int = 1          # Default: 1 = Balanced Gothic Glow (1.0x) [F5]
 var hero_light_enabled: bool = true     # Default: ENABLED [F6]
 
-# Dynamic 3D Lights, Shadows & Particles
-@onready var torch_container: Node3D = get_node_or_null("TorchLightsContainer")
-@onready var shadow_container: Node3D = get_node_or_null("ShadowCastersContainer")
-@onready var effects_container: Node3D = get_node_or_null("EffectsContainer")
+# Dynamic 3D Lights, Shadows & Particles (all live inside the GameView SubViewport)
+@onready var game_view: SubViewport = $GameView
+@onready var torch_container: Node3D = get_node_or_null("GameView/TorchLightsContainer")
+@onready var shadow_container: Node3D = get_node_or_null("GameView/ShadowCastersContainer")
+@onready var effects_container: Node3D = get_node_or_null("GameView/EffectsContainer")
+
+# Godot-native global Brightness (SubViewport post-process). Independent of the C++/palette gamma pipeline.
+var current_brightness_pct := 100        # Default: 100% (neutral)
+var brightness_material: ShaderMaterial = null
+var composite_rect: TextureRect = null
 
 var blood_splatter_scene = preload("res://scenes/effects/blood_splatter.tscn")
 var bone_shards_scene = preload("res://scenes/effects/bone_shards.tscn")
@@ -142,6 +148,8 @@ func _ready():
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	DisplayServer.window_move_to_foreground()
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED)
+
+# Set up the GameView SubViewport + global brightness composite (see _setup_game_view).
 	
 	if ClassDB.class_exists("DiabloBridge"):
 		diablo_bridge = ClassDB.instantiate("DiabloBridge")
@@ -225,19 +233,24 @@ func _ready():
 
 	# Initialize Native Godot 2.5D View (Mode 1)
 	native_25d_instance = native_25d_scene.instantiate()
-	add_child(native_25d_instance)
+	game_view.add_child(native_25d_instance)
 	native_25d_instance.diablo_bridge = diablo_bridge
 	native_25d_instance.deactivate()
 
 	# Initialize Native 3D Sandbox (Mode 2)
 	sandbox_instance = sandbox_scene.instantiate()
-	add_child(sandbox_instance)
+	game_view.add_child(sandbox_instance)
 	sandbox_instance.diablo_bridge = diablo_bridge
 	sandbox_instance.main_receiver = self
 	sandbox_instance.deactivate()
 
+	# Set up the GameView SubViewport composite + global brightness (must run so the
+	# SubViewport's render target is actually displayed in the main viewport).
+	_setup_game_view()
+
 	if native_modal:
 		native_modal.call("set_bridge", diablo_bridge)
+		native_modal.call("set_brightness_host", self)
 	
 	show_osd("Diablo 1 Resurrected | [F3] Switch Display Mode (Original 2.5D / Native 2.5D / 3D Sandbox) | [H] HUD", 4.5)
 	print("[Godot-D1 Bridge] 3-Mode Architecture ready: [Original 2.5D] / [Native Godot 2.5D] / [Native 3D Sandbox].")
@@ -333,7 +346,8 @@ func apply_zoom_step(old_step: int, new_step: int):
 	show_osd("[Zoom] " + zoom_step_names[new_step], 1.2)
 
 func apply_upscaler_mode():
-	var vp = get_viewport()
+	# 3D content now renders inside the GameView SubViewport, so upscaling must target it.
+	var vp = game_view if game_view else get_viewport()
 	if not vp: return
 	
 	if current_upscaler_mode == 0:
@@ -356,6 +370,60 @@ func apply_upscaler_mode():
 		vp.scaling_3d_scale = 1.0
 		
 	update_shader_params()
+
+# --- GameView SubViewport + global Brightness composite ----------------------
+# All game 3D/2D content renders inside the GameView SubViewport; its render target is
+# composited onto a full-screen TextureRect in the main viewport with a brightness shader.
+# UI CanvasLayers (HUD=100, automap=115, modal=120, OSD=150) stay above and are unaffected.
+func _setup_game_view():
+	if not game_view:
+		return
+	var vp_size = get_viewport().get_visible_rect().size
+	game_view.size = Vector2i(vp_size) if (vp_size.x > 0 and vp_size.y > 0) else Vector2i(2560, 1440)
+	game_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# Mirror the project rendering settings onto GameView (they only apply to the root window by default).
+	game_view.msaa_3d = 2
+	game_view.screen_space_aa = 1
+	game_view.snap_2d_transforms_to_pixel = true
+	game_view.snap_2d_vertices_to_pixel = true
+	# Positional audio inside the subviewport (required for AudioListener3D to work there).
+	game_view.audio_listener_enable_2d = true
+	game_view.audio_listener_enable_3d = true
+
+	var comp_layer = CanvasLayer.new()
+	comp_layer.name = "GameComposite"
+	comp_layer.layer = 0
+	add_child(comp_layer)
+
+	composite_rect = TextureRect.new()
+	composite_rect.name = "GameViewTexture"
+	composite_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	composite_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	composite_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	composite_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	composite_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	brightness_material = ShaderMaterial.new()
+	var shd = load("res://shaders/view_brightness.gdshader")
+	if shd:
+		brightness_material.shader = shd
+	brightness_material.set_shader_parameter("brightness", float(current_brightness_pct) / 100.0)
+	composite_rect.material = brightness_material
+
+	composite_rect.texture = game_view.get_texture()
+	comp_layer.add_child(composite_rect)
+
+func get_brightness() -> int:
+	return current_brightness_pct
+
+# Godot-native global brightness (percent). Independent of the C++/palette gamma pipeline.
+func set_brightness(pct: int) -> void:
+	current_brightness_pct = clampi(pct, 50, 150)
+	_apply_brightness()
+
+func _apply_brightness():
+	if brightness_material:
+		brightness_material.set_shader_parameter("brightness", float(current_brightness_pct) / 100.0)
 
 func update_shader_params():
 	if shader_material:
@@ -419,11 +487,12 @@ func _dbg_capture() -> void:
 					item_texts += str(d.get("text", "")) + " | "
 		print("[D1-DEBUG] modal=%s type=%d sel=%d items=[%s]" % [modal, mtype, sel, item_texts])
 	if diablo_bridge != null and diablo_bridge.has_method("get_music_volume"):
-		print("[D1-DEBUG] options music_vol=%d sound_vol=%d gamma=%d speed=%d" % [
+		print("[D1-DEBUG] options music_vol=%d sound_vol=%d gamma=%d speed=%d brightness=%d" % [
 			diablo_bridge.get_music_volume(),
 			diablo_bridge.get_sound_volume(),
 			diablo_bridge.get_gamma(),
-			diablo_bridge.get_speed()])
+			diablo_bridge.get_speed(),
+	current_brightness_pct])
 	DirAccess.remove_absolute("/tmp/d1_dbg_shot_req")
 
 func _process(delta: float):

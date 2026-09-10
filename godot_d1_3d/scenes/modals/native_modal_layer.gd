@@ -30,15 +30,20 @@ const OPT_GAMMA_MIN := 30       # vanilla gamma slider range (percent)
 const OPT_GAMMA_MAX := 100
 const OPT_SPEED_MIN := 20       # ticks per second
 const OPT_SPEED_MAX := 50
+const OPT_BRIGHTNESS_MIN := 50   # Godot-native global brightness (percent), via GameView post-process
+const OPT_BRIGHTNESS_MAX := 150
 
 var _options_panel: Control     # full-rect input blocker hosting the options UI
 var _opt_music_slider: HSlider
 var _opt_sound_slider: HSlider
 var _opt_gamma_slider: HSlider
+var _opt_brightness_slider: HSlider
 var _opt_speed_slider: HSlider
+var brightness_host = null   # bridge_receiver (owns GameView + global brightness)
 var _opt_music_value: Label
 var _opt_sound_value: Label
 var _opt_gamma_value: Label
+var _opt_brightness_value: Label
 var _opt_speed_value: Label
 var _options_open := false
 var _options_closing := false   # waiting for D1 to leave its own options screen (flow B)
@@ -47,6 +52,10 @@ var _options_refreshing := false
 
 func set_bridge(b) -> void:
 	diablo_bridge = b
+
+# Host that owns the Godot-native global Brightness (bridge_receiver / GameView).
+func set_brightness_host(host) -> void:
+	brightness_host = host
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -215,6 +224,12 @@ func _ready() -> void:
 	legacy_chb.text = "Legacy Gamma"
 	legacy_chb.pressed.connect(_on_legacy_gamma_toggled)
 	opt_vbox.add_child(legacy_chb)
+
+	# Godot-native global Brightness (SubViewport post-process) - independent of C++/palette gamma.
+	var brightness_row := _add_option_row(opt_vbox, "Brightness", OPT_BRIGHTNESS_MIN, OPT_BRIGHTNESS_MAX)
+	_opt_brightness_slider = brightness_row.get_node("Slider")
+	_opt_brightness_value = brightness_row.get_node("ValueLabel")
+	_opt_brightness_slider.value_changed.connect(_on_opt_brightness_changed)
 
 	var speed_row := _add_option_row(opt_vbox, "Speed", OPT_SPEED_MIN, OPT_SPEED_MAX)
 	_opt_speed_slider = speed_row.get_node("Slider")
@@ -385,6 +400,11 @@ func _refresh_option_values() -> void:
 	_opt_gamma_value.text = "%d%%" % g
 	_opt_speed_slider.value = float(s)
 	_opt_speed_value.text = _speed_label(s)
+	var b := 100
+	if brightness_host and brightness_host.has_method("get_brightness"):
+		b = clampi(int(brightness_host.get_brightness()), OPT_BRIGHTNESS_MIN, OPT_BRIGHTNESS_MAX)
+	_opt_brightness_slider.value = float(b)
+	_opt_brightness_value.text = "%d%%" % b
 	_options_refreshing = false
 
 func _on_opt_music_changed(v: float) -> void:
@@ -410,6 +430,14 @@ func _on_opt_gamma_changed(v: float) -> void:
 	_opt_gamma_value.text = "%d%%" % g
 	if diablo_bridge and diablo_bridge.has_method("set_gamma"):
 		diablo_bridge.set_gamma(g)
+
+func _on_opt_brightness_changed(v: float) -> void:
+	if _options_refreshing:
+		return
+	var pct := int(round(v))
+	_opt_brightness_value.text = "%d%%" % pct
+	if brightness_host and brightness_host.has_method("set_brightness"):
+		brightness_host.set_brightness(pct)
 
 func _on_legacy_gamma_toggled(pressed: bool) -> void:
 	if diablo_bridge and diablo_bridge.has_method("set_gamma"):

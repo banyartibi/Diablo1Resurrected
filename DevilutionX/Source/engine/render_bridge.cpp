@@ -19,6 +19,7 @@
 #include <mutex>
 #include <vector>
 #include <thread>
+#include <chrono>
 #include <atomic>
 #include <fmt/format.h>
 
@@ -112,13 +113,19 @@ void InitGodotBridge(int width, int height)
 	if (g_ShmMapped != nullptr && g_ShmTotalSize == reqSize)
 		return;
 
-	// Only tear down an existing mapping when its size actually changed. The very
-	// first creation must NOT request an engine quit: ExportGodotFrame() calls this
-	// on every frame (including during the intro/splash movie), so unconditionally
-	// tearing down here would call RequestDevilutionXQuit() and abort startup before
-	// the engine ever reaches the main menu.
+	// Resize the SHM mapping when its size changes WITHOUT requesting an engine quit.
+	// ExportGodotFrame() calls this every frame, and D1 renders at different resolutions during
+	// intro/cutscene/level transitions (storm_svid.cpp sets the renderer logical size to the video
+	// dimensions). The previous implementation called CleanupGodotBridge(), which invoked
+	// RequestDevilutionXQuit() - aborting gameplay mid-transition. Now we simply release and
+	// recreate the mapping at the new size; no quit is requested.
 	if (g_ShmMapped != nullptr) {
-		CleanupGodotBridge();
+		D1BridgeHeader *hdr = static_cast<D1BridgeHeader *>(g_ShmMapped);
+		hdr->magic = 0xDEADBEEF;
+		munmap(g_ShmMapped, g_ShmTotalSize);
+		g_ShmMapped = nullptr;
+		if (g_ShmFd >= 0) { close(g_ShmFd); g_ShmFd = -1; }
+		shm_unlink("/dev/shm/d1_godot_frame");
 	}
 
 	g_ShmTotalSize = reqSize;
@@ -645,14 +652,21 @@ void RequestDevilutionXQuit()
 			g_DiabloThread.joinable() && (g_DiabloThread.get_id() == std::this_thread::get_id());
 		if (!onEngineThread && g_DiabloThread.joinable()) {
 			// Invoked off-engine: from a SIGINT/SIGTERM handler or Godot's main thread.
-			// Do NOT block-join here. Waiting on the engine loop to drain the pushed SDL event
-			// is scheduling-dependent and can hang shutdown (stuck process / non-zero exit), while
-			// also risking static destruction of a still-joinable std::thread -> std::terminate.
-			// Detach so the thread winds down once it sees the quit request; it is no longer
-			// joinable at exit, which avoids both the hang and the terminate. CleanupGodotBridge()
-			// (the only SHM unmapper) never runs on the quit path, so there is no concurrent SHM
-			// write to race against. The engine thread exits its loop promptly after SDL_QUIT.
-			g_DiabloThread.detach();
+			// Wait (bounded) for the engine thread to finish its wind-down after SDL_QUIT, then JOIN
+			// it so it is fully stopped BEFORE Godot tears down the shared libSDL2/Vulkan resources.
+			// Detaching (the previous approach) left the thread racing with Godot's shutdown ->
+			// SIGSEGV at static destruction. If the thread does not finish within the timeout, fall
+			// back to detach to avoid an infinite hang.
+			bool finished = false;
+			for (int i = 0; i < 100; ++i) { // up to ~5s
+				if (!g_DiabloThreadRunning.load()) { finished = true; break; }
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			}
+			if (finished && g_DiabloThread.joinable()) {
+				g_DiabloThread.join();
+			} else {
+				g_DiabloThread.detach(); // fallback: avoid infinite hang if thread did not wind down
+			}
 		}
 		g_DiabloThreadRunning = false;
 	}
