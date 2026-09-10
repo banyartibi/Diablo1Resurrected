@@ -1089,12 +1089,15 @@ func handle_input(event: InputEvent) -> bool:
 
 	# Mouse Click & Motion Conversion
 	if event is InputEventMouseButton:
-		var mouse_world = get_global_mouse_position()
 		var d1_w = diablo_bridge.get_frame_width() if (diablo_bridge and diablo_bridge.has_method("get_frame_width")) else 640
 		var d1_h = diablo_bridge.get_frame_height() if (diablo_bridge and diablo_bridge.has_method("get_frame_height")) else 480
-		var offset = mouse_world - player_node.position
-		var d1_x = clampi(int(float(d1_w) * 0.5 + offset.x), 0, d1_w - 1)
-		var d1_y = clampi(int(float(d1_h) * 0.5 + offset.y), 0, d1_h - 1)
+		# Mirror the legacy blit mouse mapping exactly: scale the cursor's screen position
+		# into frame coordinates. CheckCursMove then converts frame -> tile identically to mode 0.
+		var vp_size = get_viewport().get_visible_rect().size
+		var norm_x = event.position.x / float(vp_size.x)
+		var norm_y = event.position.y / float(vp_size.y)
+		var d1_x = clampi(int(norm_x * float(d1_w)), 0, d1_w - 1)
+		var d1_y = clampi(int(norm_y * float(d1_h)), 0, d1_h - 1)
 		var btn = 1
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			btn = 3
@@ -1107,12 +1110,14 @@ func handle_input(event: InputEvent) -> bool:
 		return true
 
 	elif event is InputEventMouseMotion:
-		var mouse_world = get_global_mouse_position()
 		var d1_w = diablo_bridge.get_frame_width() if (diablo_bridge and diablo_bridge.has_method("get_frame_width")) else 640
 		var d1_h = diablo_bridge.get_frame_height() if (diablo_bridge and diablo_bridge.has_method("get_frame_height")) else 480
-		var offset = mouse_world - player_node.position
-		var d1_x = clampi(int(float(d1_w) * 0.5 + offset.x), 0, d1_w - 1)
-		var d1_y = clampi(int(float(d1_h) * 0.5 + offset.y), 0, d1_h - 1)
+		# Same screen -> frame mapping as the click handler above.
+		var vp_size = get_viewport().get_visible_rect().size
+		var norm_x = event.position.x / float(vp_size.x)
+		var norm_y = event.position.y / float(vp_size.y)
+		var d1_x = clampi(int(norm_x * float(d1_w)), 0, d1_w - 1)
+		var d1_y = clampi(int(norm_y * float(d1_h)), 0, d1_h - 1)
 		if diablo_bridge and diablo_bridge.has_method("send_input"):
 			diablo_bridge.send_input(1, 0, 0, d1_x, d1_y)
 		return true
