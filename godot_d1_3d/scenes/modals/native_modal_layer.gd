@@ -218,13 +218,6 @@ func _ready() -> void:
 	_opt_gamma_value = gamma_row.get_node("ValueLabel")
 	_opt_gamma_slider.value_changed.connect(_on_opt_gamma_changed)
 
-	# Legacy Gamma toggle – when enabled forces gamma to 30 (dark, matching classic Legacy mode)
-	var legacy_chb := CheckButton.new()
-	legacy_chb.name = "LegacyGammaChb"
-	legacy_chb.text = "Legacy Gamma"
-	legacy_chb.pressed.connect(_on_legacy_gamma_toggled)
-	opt_vbox.add_child(legacy_chb)
-
 	# Godot-native global Brightness (SubViewport post-process) - independent of C++/palette gamma.
 	var brightness_row := _add_option_row(opt_vbox, "Brightness", OPT_BRIGHTNESS_MIN, OPT_BRIGHTNESS_MAX)
 	_opt_brightness_slider = brightness_row.get_node("Slider")
@@ -438,11 +431,6 @@ func _on_opt_brightness_changed(v: float) -> void:
 	_opt_brightness_value.text = "%d%%" % pct
 	if brightness_host and brightness_host.has_method("set_brightness"):
 		brightness_host.set_brightness(pct)
-
-func _on_legacy_gamma_toggled(pressed: bool) -> void:
-	if diablo_bridge and diablo_bridge.has_method("set_gamma"):
-		# 30 = dark (classic Legacy), 100 = bright (modern default)
-		diablo_bridge.set_gamma(30 if pressed else 100)
 
 func _on_opt_speed_changed(v: float) -> void:
 	if _options_refreshing:
