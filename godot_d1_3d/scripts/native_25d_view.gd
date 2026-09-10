@@ -310,7 +310,9 @@ func rebuild_dungeon_tiles():
 			var idx = y * 112 + x
 			var piece_id = grid[idx]
 			var special_id = special_grid[idx] if idx < special_grid.size() else 0
-			var tile_pos = Vector2(float(x - y) * 32.0, float(x + y) * 16.0)
+			# Y-sort depth key = bottom vertex of the tile diamond (position.y), matching vanilla D1's
+			# depth ordering: sprites are sorted by their feet position, tiles by their south point.
+			var tile_pos = Vector2(float(x - y) * 32.0, float(x + y) * 16.0 + 16.0)
 
 			# 1. Base Dungeon Piece (Floor & Walls)
 			if piece_id >= 0:
@@ -325,7 +327,7 @@ func rebuild_dungeon_tiles():
 					spr.centered = false
 					var h = tex.get_height()
 					spr.position = tile_pos
-					spr.offset = Vector2(-32.0, 16.0 - float(h))
+					spr.offset = Vector2(-32.0, -float(h))
 					# Initialize hidden in deep gothic darkness / fog of war
 					spr.self_modulate = Color(0.0, 0.0, 0.0)
 					spr.visible = false
@@ -346,7 +348,7 @@ func rebuild_dungeon_tiles():
 					arch_spr.centered = false
 					var ah = arch_tex.get_height()
 					arch_spr.position = tile_pos
-					arch_spr.offset = Vector2(-32.0, 16.0 - float(ah))
+					arch_spr.offset = Vector2(-32.0, -float(ah))
 					# Initialize hidden in deep gothic darkness / fog of war
 					arch_spr.self_modulate = Color(0.0, 0.0, 0.0)
 					arch_spr.visible = false
@@ -495,7 +497,9 @@ func update_player(delta: float):
 	var mode = p_data.get("mode", 0)
 
 	# Target position in isometric coordinates
-	player_target_pos = Vector2(float(px - py) * 32.0, float(px + py) * 16.0)
+	# Y-sort depth key = hero's feet (position.y), matching vanilla D1's depth ordering:
+	# the sprite is sorted by its feet position, not its origin.
+	player_target_pos = Vector2(float(px - py) * 32.0, float(px + py) * 16.0 + 20.0)
 	if player_node.position == Vector2.ZERO or player_node.position.distance_to(player_target_pos) > 200.0:
 		player_node.position = player_target_pos
 	else:
@@ -522,8 +526,8 @@ func update_player(delta: float):
 					player_sprite.texture = player_texture
 				else:
 					player_texture.update(img)
-				# Offset so player feet rest precisely on the ground diamond without floating
-				player_sprite.offset = Vector2(0, -float(sh) * 0.5 + 20.0)
+				# Sprite center sits at position.y (feet); offset keeps visual position identical to before
+				player_sprite.offset = Vector2(0, -float(sh) * 0.5)
 
 	# Authentic per-tile lighting on player & blob ground shadow
 	var p_light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
@@ -568,7 +572,8 @@ func update_monsters(delta: float):
 		var dir = m.get("dir", 0)
 		var anim_frame = m.get("anim_frame", -1)
 
-		var target_pos = Vector2(float(mx - my) * 32.0, float(mx + my) * 16.0)
+		# Y-sort depth key = monster's feet (position.y), matching vanilla D1's depth ordering
+		var target_pos = Vector2(float(mx - my) * 32.0, float(mx + my) * 16.0 + 16.0)
 		if is_new or node.position == Vector2.ZERO or node.position.distance_to(target_pos) > 200.0:
 			node.position = target_pos
 		else:
@@ -598,7 +603,7 @@ func update_monsters(delta: float):
 					else:
 						cur_tex.update(m_img)
 					if m_sprite:
-						m_sprite.offset = Vector2(0, -float(mh) * 0.5 + 16.0)
+						m_sprite.offset = Vector2(0, -float(mh) * 0.5)
 
 		# Milestone 2: Per-Tile Authentic Lighting on Monsters, Ground Shadows & Fog of War
 		var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
@@ -729,7 +734,8 @@ func update_objects():
 			object_sprites[o_id] = spr
 
 		spr.visible = true
-		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0)
+		# Y-sort depth key = object's bottom vertex (position.y), matching vanilla D1's depth ordering
+		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0 + 16.0)
 		spr.position = tile_pos
 		spr.z_index = -1 if pre_flag else 0
 
@@ -748,7 +754,7 @@ func update_objects():
 
 		if tex:
 			spr.texture = tex
-			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, -float(tex.get_height()))
 
 		# Authentic per-tile lighting (Objects in Diablo 1 are NEVER transparent!)
 		spr.modulate.a = 1.0
@@ -1017,7 +1023,8 @@ func update_missiles():
 			missile_nodes[m_id] = node
 
 		node.z_index = 0
-		node.position = Vector2(px, py)
+		# Y-sort depth key = missile's bottom vertex (position.y), matching vanilla D1's depth ordering
+		node.position = Vector2(px, py + 16.0)
 
 		var spr = node.get_node_or_null("Sprite") as Sprite2D
 
@@ -1052,7 +1059,7 @@ func update_missiles():
 
 		if spr and tex:
 			spr.texture = tex
-			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, -float(tex.get_height()))
 
 	# Hide inactive missiles
 	for m_id in missile_nodes:
