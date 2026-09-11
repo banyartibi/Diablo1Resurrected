@@ -32,7 +32,9 @@
 #include "engine.h"
 #include "engine/assets.hpp"
 #include "panels/spell_icons.hpp"
+#include "panels/spell_book.hpp"
 #include "utils/language.h"
+#include "utils/format_int.hpp"
 #include "engine/palette.h"
 #include "engine/sound_defs.hpp"
 #include "engine/surface.hpp"
@@ -56,6 +58,7 @@
 #include "help.h"
 #include "gmenu.h"
 #include "qol/chatlog.h"
+#include "qol/itemlabels.h"
 #include "automap.h"
 #include <cmath>
 
@@ -427,6 +430,14 @@ void PollGodotBridgeInput()
 			sgOptions.Gameplay.tickRate.SetValue(rate);
 			break;
 		}
+		case D1BridgeActionType::CloseStash:          CloseStash(); break;
+		case D1BridgeActionType::StashChangePage:     StashChangePage(job.a); break;
+		case D1BridgeActionType::StashSetPage:        StashSetPage(job.a); break;
+		case D1BridgeActionType::ClickStashSlot:      ClickStashSlot(job.a, job.b != 0, job.c != 0); break;
+		case D1BridgeActionType::StashWithdrawGold:   StashWithdrawGold(job.a); break;
+		case D1BridgeActionType::ToggleSpellBook:     ToggleSpellBook(); break;
+		case D1BridgeActionType::SetSpellBookPage:    SetSpellBookPage(job.a); break;
+		case D1BridgeActionType::SelectSpellBookEntry: SelectSpellBookEntry(job.a, job.b); break;
 		default: break;
 	}
 	}
@@ -2096,16 +2107,11 @@ void CopyD1LightGrid(uint8_t *dest, size_t maxTiles)
 		std::memset(dest, 15, count);
 		return;
 	}
-	bool isTown = (currlevel == 0);
 	for (size_t y = 0; y < 112; ++y) {
 		for (size_t x = 0; x < 112; ++x) {
 			size_t idx = y * 112 + x;
 			if (idx < count) {
-				if (!isTown && !HasAnyOf(dFlags[x][y], DungeonFlag::Lit | DungeonFlag::Visible)) {
-					dest[idx] = 15;
-				} else {
-					dest[idx] = dLight[x][y];
-				}
+				dest[idx] = dLight[x][y];
 			}
 		}
 	}
@@ -2216,30 +2222,46 @@ std::vector<D1ItemInfo> GetActiveItemsList()
 	std::vector<D1ItemInfo> list;
 	if (!IsBridgeSafeToRead()) return list;
 
-	for (int i = 0; i < ActiveItemCount; ++i) {
-		int ii = ActiveItems[i];
-		if (ii < 0 || ii >= MAXITEMS) continue;
-		const Item &item = Items[ii];
-		if (item.isEmpty()) continue;
+	for (int y = 0; y < 112; ++y) {
+		for (int x = 0; x < 112; ++x) {
+			int8_t bItem = dItem[x][y];
+			if (bItem <= 0) continue;
+			int ii = bItem - 1;
+			if (ii < 0 || ii >= MAXITEMS) continue;
+			Item &item = Items[ii];
+			if (item.isEmpty()) continue;
 
-		D1ItemInfo info;
-		info.id = ii;
-		info.tileX = item.position.x;
-		info.tileY = item.position.y;
-		info.cursId = item._iCurs;
-		info.quality = static_cast<int>(item._iMagical);
-		info.identified = item._iIdentified;
-		const char *srcName = item._iIdentified ? item._iIName : item._iName;
-		strncpy(info.name, srcName ? srcName : "", sizeof(info.name) - 1);
-		info.name[sizeof(info.name) - 1] = '\0';
-		info.width = 0;
-		info.height = 0;
-		if (item.AnimInfo.sprites.has_value()) {
-			const ClxSprite sprite = item.AnimInfo.currentSprite();
-			info.width = sprite.width();
-			info.height = sprite.height();
+			if (!item.AnimInfo.sprites.has_value()) {
+				GetItemFrm(item);
+			}
+
+			D1ItemInfo info;
+			info.id = ii;
+			info.tileX = x;
+			info.tileY = y;
+			info.cursId = item._iCurs;
+			info.quality = static_cast<int>(item._iMagical);
+			info.identified = item._iIdentified;
+			if (item._itype == ItemType::Gold) {
+				std::string goldStr = fmt::format(fmt::runtime(_("{:s} gold")), FormatInteger(item._ivalue));
+				strncpy(info.name, goldStr.c_str(), sizeof(info.name) - 1);
+			} else {
+				string_view nameView = item.getName().str();
+				size_t copyLen = std::min(nameView.size(), sizeof(info.name) - 1);
+				std::memcpy(info.name, nameView.data(), copyLen);
+				info.name[copyLen] = '\0';
+			}
+			info.name[sizeof(info.name) - 1] = '\0';
+			info.width = 0;
+			info.height = 0;
+			info.animFrame = item.AnimInfo.sprites.has_value() ? item.AnimInfo.currentFrame : 0;
+			if (item.AnimInfo.sprites.has_value()) {
+				const ClxSprite sprite = item.AnimInfo.currentSprite();
+				info.width = sprite.width();
+				info.height = sprite.height();
+			}
+			list.push_back(info);
 		}
-		list.push_back(info);
 	}
 	return list;
 }
@@ -2249,12 +2271,21 @@ D1ItemSpriteRgba GetGroundItemSpriteRgba(int itemId)
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	D1ItemSpriteRgba result;
 	if (!IsBridgeSafeToRead() || itemId < 0 || itemId >= MAXITEMS) return result;
-	const Item &item = Items[itemId];
+	Item &item = Items[itemId];
+	if (!item.AnimInfo.sprites.has_value()) {
+		GetItemFrm(item);
+	}
 	if (!item.AnimInfo.sprites.has_value()) return result;
 
 	const ClxSprite sprite = item.AnimInfo.currentSprite();
 	RasterizeClxSpriteRgba(sprite, result.width, result.height, result.rgba);
 	return result;
+}
+
+bool IsItemLabelHighlightEnabled()
+{
+	if (!IsBridgeSafeToRead()) return true;
+	return devilution::IsHighlightingLabelsEnabled();
 }
 
 std::vector<D1CorpseInfo> GetActiveCorpsesList()
@@ -2436,7 +2467,7 @@ std::vector<D1MenuItemInfo> GetCurrentMenuItems()
 		// Dialog / store: stext lines.
 		auto lines = devilution::GetStoreDialogLines();
 		for (const auto &s : lines)
-			out.push_back(D1MenuItemInfo{ s.text, true, s.selectable });
+			out.push_back(D1MenuItemInfo{ s.text, true, s.selectable, s.price });
 	} else if (t == 1) {
 		// Pause / death-restart: gamemenu items.
 		auto items = devilution::GetCurrentGamemenuItems();
@@ -2541,6 +2572,221 @@ D1AutomapRgba GetAutomapRgba()
 		}
 	}
 	return result;
+}
+
+int GetBridgeStoreGold()
+{
+	if (!IsBridgeSafeToRead()) return -1;
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!devilution::IsRenderGold()) return -1;
+	return static_cast<int>(devilution::GetStoreGold());
+}
+
+bool IsBridgeStashOpen()
+{
+	if (!IsBridgeSafeToRead()) return false;
+	return devilution::IsStashOpen;
+}
+
+void CloseBridgeStash()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame) return;
+	devilution::CloseStash();
+	g_InventoryVersion.fetch_add(1);
+}
+
+D1StashInfo GetStashInfo()
+{
+	D1StashInfo info;
+	if (!IsBridgeSafeToRead()) return info;
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	info.page = devilution::Stash.GetPage() + 1;
+	info.totalPages = 100;
+	info.gold = devilution::Stash.gold;
+	return info;
+}
+
+std::vector<D1InvItemData> GetStashItems()
+{
+	if (!IsBridgeSafeToRead() || !devilution::IsStashOpen) return {};
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+
+	std::vector<D1InvItemData> result;
+	for (int y = 0; y < 10; ++y) {
+		for (int x = 0; x < 10; ++x) {
+			Point slot { x, y };
+			devilution::StashStruct::StashCell itemId = devilution::Stash.GetItemIdAtPosition(slot);
+			if (itemId == devilution::StashStruct::EmptyCell)
+				continue;
+			if (itemId >= devilution::Stash.stashList.size())
+				continue;
+			const Item &item = devilution::Stash.stashList[itemId];
+			if (item.position != slot)
+				continue; // Only take the root slot of multi-cell items
+			result.push_back(ConvertItemToInvData(item, y * 10 + x, x, y, itemId));
+		}
+	}
+	return result;
+}
+
+void StashChangePage(int delta)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame || !devilution::IsStashOpen) return;
+	if (delta > 0)
+		devilution::Stash.NextPage(static_cast<unsigned>(delta));
+	else if (delta < 0)
+		devilution::Stash.PreviousPage(static_cast<unsigned>(-delta));
+	g_InventoryVersion.fetch_add(1);
+}
+
+void StashSetPage(int page)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame || !devilution::IsStashOpen) return;
+	if (page >= 1 && page <= 100)
+		devilution::Stash.SetPage(static_cast<unsigned>(page - 1));
+	g_InventoryVersion.fetch_add(1);
+}
+
+void ClickStashSlot(int cellIdx, bool isShift, bool isCtrl)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame || MyPlayer == nullptr || !devilution::IsStashOpen)
+		return;
+
+	if (cellIdx < 0 || cellIdx >= 100)
+		return;
+
+	int cellX = cellIdx % 10;
+	int cellY = cellIdx / 10;
+	Point slot { cellX, cellY };
+	Point clickPos = devilution::GetStashSlotCoord(slot) + Displacement { 14, 14 };
+
+	devilution::CheckStashItem(clickPos, isShift, isCtrl);
+	CalcPlrInv(*MyPlayer, true);
+	g_InventoryVersion.fetch_add(1);
+}
+
+void StashWithdrawGold(int amount)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame || MyPlayer == nullptr || !devilution::IsStashOpen)
+		return;
+	if (amount <= 0 || amount > devilution::Stash.gold)
+		amount = devilution::Stash.gold;
+	if (amount <= 0)
+		return;
+	int leftover = AddGoldToInventory(*MyPlayer, amount);
+	int taken = amount - leftover;
+	devilution::Stash.gold -= taken;
+	devilution::Stash.dirty = true;
+	CalcPlrInv(*MyPlayer, true);
+	g_InventoryVersion.fetch_add(1);
+}
+
+bool IsSpellBookOpen()
+{
+	if (!IsBridgeSafeToRead()) return false;
+	return devilution::sbookflag;
+}
+
+void ToggleSpellBook()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame) return;
+	devilution::SpellBookKeyPressed();
+	g_InventoryVersion.fetch_add(1);
+}
+
+int GetSpellBookPage()
+{
+	if (!IsBridgeSafeToRead()) return 0;
+	return devilution::sbooktab;
+}
+
+void SetSpellBookPage(int page)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame) return;
+	int maxTab = gbIsHellfire ? 4 : 3;
+	devilution::sbooktab = std::clamp(page, 0, maxTab);
+}
+
+std::vector<D1SpellBookEntry> GetSpellBookEntries()
+{
+	if (!IsBridgeSafeToRead() || MyPlayer == nullptr) return {};
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+
+	std::vector<D1SpellBookEntry> result;
+	Player &player = *MyPlayer;
+	uint64_t spl = player._pMemSpells | player._pISpells | player._pAblSpells;
+
+	for (size_t pageEntry = 0; pageEntry < 7; pageEntry++) {
+		SpellID sn = devilution::GetSpellFromSpellPage(devilution::sbooktab, pageEntry);
+		if (IsValidSpell(sn) && (spl & GetSpellBitmask(sn)) != 0) {
+			D1SpellBookEntry entry;
+			entry.spellId = static_cast<int>(sn);
+			SpellType st = devilution::GetSBookTrans(sn, true);
+			entry.spellType = static_cast<int>(st);
+			entry.name = pgettext("spell", GetSpellData(sn).sNameText);
+			entry.isEquipped = (sn == player._pRSpell && st == player._pRSplType);
+			entry.level = player.GetSpellLevel(sn);
+			entry.mana = GetManaAmount(player, sn) >> 6;
+			entry.canCast = (st != SpellType::Invalid);
+
+			switch (devilution::GetSBookTrans(sn, false)) {
+			case SpellType::Skill:
+				entry.typeText = _("Skill");
+				break;
+			case SpellType::Charges: {
+				int charges = player.InvBody[INVLOC_HAND_LEFT]._iCharges;
+				entry.typeText = fmt::format(fmt::runtime(ngettext("Staff ({:d} charge)", "Staff ({:d} charges)", charges)), charges);
+			} break;
+			default:
+				entry.typeText = fmt::format(fmt::runtime(_("Level {:d}")), entry.level);
+				if (entry.level == 0) {
+					entry.detail = _("Unusable");
+				} else {
+					if (sn != SpellID::BoneSpirit) {
+						int minDmg = 0;
+						int maxDmg = 0;
+						GetDamageAmt(sn, &minDmg, &maxDmg);
+						if (minDmg != -1) {
+							if (sn == SpellID::Healing || sn == SpellID::HealOther) {
+								entry.detail = fmt::format(fmt::runtime(_("Heals: {:d} - {:d}")), minDmg, maxDmg);
+							} else {
+								entry.detail = fmt::format(fmt::runtime(_("Damage: {:d} - {:d}")), minDmg, maxDmg);
+							}
+						}
+					} else {
+						entry.detail = _("Dmg: 1/3 target hp");
+					}
+				}
+				break;
+			}
+			result.push_back(entry);
+		}
+	}
+	return result;
+}
+
+void SelectSpellBookEntry(int spellId, int spellType)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame || MyPlayer == nullptr) return;
+
+	SpellID sn = static_cast<SpellID>(spellId);
+	if (!IsValidSpell(sn)) return;
+
+	Player &player = *MyPlayer;
+	uint64_t spl = player._pMemSpells | player._pISpells | player._pAblSpells;
+	if ((spl & GetSpellBitmask(sn)) == 0) return;
+
+	SpellType st = static_cast<SpellType>(spellType);
+	player._pRSpell = sn;
+	player._pRSplType = st;
 }
 
 } // namespace devilution

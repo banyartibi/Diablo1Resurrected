@@ -1415,7 +1415,8 @@ void DrawView(const Surface &out, Point startPosition)
 	if (invflag) {
 		DrawInv(out);
 	} else if (sbookflag) {
-		DrawSpellBook(out);
+		if (!gbHideVanillaHUD)
+			DrawSpellBook(out);
 	}
 
 	DrawDurIcon(out);
@@ -1427,7 +1428,8 @@ void DrawView(const Surface &out, Point startPosition)
 		if (!gbHideVanillaHUD)
 			DrawQuestLog(out);
 	} else if (IsStashOpen) {
-		DrawStash(out);
+		if (!gbHideVanillaHUD)
+			DrawStash(out);
 	}
 	if (!gbHideVanillaHUD)
 		DrawLevelUpIcon(out);

@@ -14,6 +14,8 @@
 #include "utils/attributes.h"
 #include "utils/stdcompat/optional.hpp"
 
+#include "towners.h"
+
 namespace devilution {
 
 #define WITCH_ITEMS 25
@@ -51,13 +53,19 @@ enum class TalkID : uint8_t {
 /** Currently active store */
 extern TalkID stextflag;
 
+/** Currently active talker / store NPC */
+extern _talker_id talker;
+
 /** Export modal/dialog text lines (NPC talk + store menu) for the Godot bridge. */
 struct D1StoreLineInfo {
 	std::string text;
 	bool selectable = false;
+	int price = 0;
 };
 std::vector<D1StoreLineInfo> GetStoreDialogLines();
 int GetCurrentStextSel();
+bool IsRenderGold();
+uint32_t GetStoreGold();
 void ActivateStextItem(int index);
 void SelectStextItem(int index);
 std::string GetActiveTalkerName();

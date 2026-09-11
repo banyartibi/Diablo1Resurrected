@@ -156,7 +156,17 @@ enum class D1BridgeActionType : int {
 	SetMusicVolume = 14,
 	SetSoundVolume = 15,
 	SetGamma = 16,
-	SetSpeed = 17
+	SetSpeed = 17,
+	// Stash actions
+	CloseStash = 18,
+	StashChangePage = 19,
+	StashSetPage = 20,
+	ClickStashSlot = 21,
+	StashWithdrawGold = 22,
+	// Spellbook actions
+	ToggleSpellBook = 23,
+	SetSpellBookPage = 24,
+	SelectSpellBookEntry = 25
 };
 
 void PushBridgeAction(D1BridgeActionType type, int arg1 = 0, int arg2 = 0, int arg3 = 0, int arg4 = 0);
@@ -424,15 +434,51 @@ struct D1MenuItemInfo {
 	std::string text;
 	bool enabled = true;
 	bool selectable = true;
+	int price = 0;
 };
 std::vector<D1MenuItemInfo> GetCurrentMenuItems();
 int GetCurrentModalSelectionIndex();
+int GetBridgeStoreGold();
 void ActivateModalItem(int index);
 void SelectModalItem(int index);
 bool IsQTextActive();
 std::vector<std::string> GetQTextLines();
 std::string GetQTextTitle();
 void DismissQText();
+
+// Native Godot Modern Stash Bridge
+struct D1StashInfo {
+	int page = 0;
+	int totalPages = 100;
+	int gold = 0;
+};
+bool IsBridgeStashOpen();
+void CloseBridgeStash();
+D1StashInfo GetStashInfo();
+std::vector<D1InvItemData> GetStashItems();
+void StashChangePage(int delta);
+void StashSetPage(int page);
+void ClickStashSlot(int cellIdx, bool isShift = false, bool isCtrl = false);
+void StashWithdrawGold(int amount);
+
+// Native Godot Modern SpellBook Bridge
+struct D1SpellBookEntry {
+	int spellId = 0;
+	int spellType = 0; // 0: Spell, 1: Skill, 2: Charges
+	std::string name;
+	std::string typeText;
+	int level = 0;
+	int mana = 0;
+	std::string detail;
+	bool isEquipped = false;
+	bool canCast = true;
+};
+bool IsSpellBookOpen();
+void ToggleSpellBook();
+int GetSpellBookPage();
+void SetSpellBookPage(int page);
+std::vector<D1SpellBookEntry> GetSpellBookEntries();
+void SelectSpellBookEntry(int spellId, int spellType);
 
 struct D1AutomapRgba {
 	int width = 0;
@@ -452,6 +498,7 @@ struct D1ItemInfo {
 	char name[64];
 	int width;
 	int height;
+	int animFrame;
 };
 
 struct D1ItemSpriteRgba {
@@ -462,6 +509,7 @@ struct D1ItemSpriteRgba {
 
 std::vector<D1ItemInfo> GetActiveItemsList();
 D1ItemSpriteRgba GetGroundItemSpriteRgba(int itemId);
+bool IsItemLabelHighlightEnabled();
 
 // Native Godot 2.5D Corpses & Fallen Monsters
 struct D1CorpseInfo {

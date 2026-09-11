@@ -41,6 +41,8 @@ const SpellID SpellPages[SpellBookPages][SpellBookPageEntries] = {
 	{ SpellID::Invalid, SpellID::Invalid, SpellID::Invalid, SpellID::Invalid, SpellID::Invalid, SpellID::Invalid, SpellID::Invalid }
 };
 
+} // namespace
+
 SpellID GetSpellFromSpellPage(size_t page, size_t entry)
 {
 	assert(page <= SpellBookPages && entry <= SpellBookPageEntries);
@@ -61,18 +63,6 @@ SpellID GetSpellFromSpellPage(size_t page, size_t entry)
 		}
 	}
 	return SpellPages[page][entry];
-}
-
-constexpr Size SpellBookDescription { 250, 43 };
-constexpr int SpellBookDescriptionPaddingHorizontal = 2;
-
-void PrintSBookStr(const Surface &out, Point position, string_view text, UiFlags flags = UiFlags::None)
-{
-	DrawString(out, text,
-	    Rectangle(GetPanelPosition(UiPanels::Spell, position + Displacement { SPLICONLENGTH, 0 }),
-	        SpellBookDescription)
-	        .inset({ SpellBookDescriptionPaddingHorizontal, 0 }),
-	    { UiFlags::ColorWhite | flags });
 }
 
 SpellType GetSBookTrans(SpellID ii, bool townok)
@@ -100,6 +90,20 @@ SpellType GetSBookTrans(SpellID ii, bool townok)
 	}
 
 	return st;
+}
+
+namespace {
+
+constexpr Size SpellBookDescription { 250, 43 };
+constexpr int SpellBookDescriptionPaddingHorizontal = 2;
+
+void PrintSBookStr(const Surface &out, Point position, string_view text, UiFlags flags = UiFlags::None)
+{
+	DrawString(out, text,
+	    Rectangle(GetPanelPosition(UiPanels::Spell, position + Displacement { SPLICONLENGTH, 0 }),
+	        SpellBookDescription)
+	        .inset({ SpellBookDescriptionPaddingHorizontal, 0 }),
+	    { UiFlags::ColorWhite | flags });
 }
 
 } // namespace

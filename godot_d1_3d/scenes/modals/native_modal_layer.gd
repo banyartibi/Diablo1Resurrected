@@ -18,6 +18,7 @@ var last_qtext_line_count := -1
 
 var _panel: PanelContainer
 var _title_label: Label
+var _gold_label: Label
 var _rows_container: VBoxContainer
 var _qtext_container: VBoxContainer
 var _qtext_label: Label
@@ -87,6 +88,17 @@ func _ready() -> void:
 	_title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_title_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(_title_label)
+
+	_gold_label = Label.new()
+	_gold_label.name = "GoldLabel"
+	_gold_label.custom_minimum_size = Vector2(400, 24)
+	_gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_gold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_gold_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	_gold_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.25, 1.0))
+	_gold_label.add_theme_font_size_override("font_size", 15)
+	_gold_label.visible = false
+	vbox.add_child(_gold_label)
 
 	# Container for standard menu / store items
 	_rows_container = VBoxContainer.new()
@@ -482,6 +494,7 @@ func _build_rows(_mtype_arg: int, items: Array, sel: int) -> void:
 	row_controls.clear()
 
 	var visible_idx := 0
+	var is_first_row := true
 	for d in items:
 		var item_idx = visible_idx
 		visible_idx += 1
@@ -489,8 +502,15 @@ func _build_rows(_mtype_arg: int, items: Array, sel: int) -> void:
 		var text = str(d.get("text", ""))
 		var enabled = bool(d.get("enabled", true))
 		var selectable = bool(d.get("selectable", true))
+		var price = int(d.get("price", 0))
 
 		if not selectable:
+			# If the first non-selectable item is identical to the title label, skip repeating it
+			if is_first_row and text.strip_edges() == _title_label.text.strip_edges():
+				is_first_row = false
+				continue
+			is_first_row = false
+
 			# Non-selectable header or prompt (e.g. "The Town Elder", "Would you like to:")
 			var lbl := Label.new()
 			lbl.name = "HeaderLabel"
@@ -501,11 +521,11 @@ func _build_rows(_mtype_arg: int, items: Array, sel: int) -> void:
 			_rows_container.add_child(lbl)
 			row_controls.append(lbl)
 		else:
+			is_first_row = false
 			# Interactive menu option button
 			var btn := Button.new()
 			btn.name = "MenuItem_%d" % item_idx
-			btn.text = text
-			btn.custom_minimum_size = Vector2(380, 42)
+			btn.custom_minimum_size = Vector2(460, 42)
 			btn.mouse_filter = Control.MOUSE_FILTER_STOP
 			btn.focus_mode = Control.FOCUS_NONE
 
@@ -535,8 +555,57 @@ func _build_rows(_mtype_arg: int, items: Array, sel: int) -> void:
 					btn.pressed.connect(_on_item_pressed.bind(item_idx))
 				btn.mouse_entered.connect(_on_item_hovered.bind(item_idx))
 
+			if price > 0:
+				btn.text = ""
+				var hbox := HBoxContainer.new()
+				hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+				hbox.offset_left = 16
+				hbox.offset_right = -16
+				hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+				var name_lbl := Label.new()
+				name_lbl.text = text
+				name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				name_lbl.add_theme_font_size_override("font_size", 15)
+				if not enabled:
+					name_lbl.add_theme_color_override("font_color", Color(0.42, 0.42, 0.45, 1.0))
+				elif item_idx == sel:
+					name_lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.45, 1.0))
+				else:
+					name_lbl.add_theme_color_override("font_color", Color(0.92, 0.88, 0.80, 1.0))
+				hbox.add_child(name_lbl)
+
+				var price_lbl := Label.new()
+				price_lbl.text = "%s Gold" % _format_number(price)
+				price_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+				price_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				price_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				price_lbl.add_theme_font_size_override("font_size", 15)
+				if not enabled:
+					price_lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.3, 1.0))
+				else:
+					price_lbl.add_theme_color_override("font_color", Color(1.0, 0.84, 0.25, 1.0))
+				hbox.add_child(price_lbl)
+
+				btn.add_child(hbox)
+			else:
+				btn.text = text
+
 			_rows_container.add_child(btn)
 			row_controls.append(btn)
+
+func _format_number(n: int) -> String:
+	var s := str(n)
+	var res := ""
+	var cnt := 0
+	for i in range(s.length() - 1, -1, -1):
+		res = s[i] + res
+		cnt += 1
+		if cnt % 3 == 0 and i > 0:
+			res = "," + res
+	return res
 
 func _button_normal_box() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -618,6 +687,8 @@ func _process(_delta: float) -> void:
 		visible = true
 		_rows_container.visible = false
 		_qtext_container.visible = true
+		if _gold_label != null:
+			_gold_label.visible = false
 
 		var qlines: Array = diablo_bridge.get_qtext_lines() if diablo_bridge.has_method("get_qtext_lines") else []
 		if not last_qtext_active or qlines.size() != last_qtext_line_count:
@@ -666,6 +737,15 @@ func _process(_delta: float) -> void:
 		return
 
 	visible = true
+
+	var store_gold := -1
+	if diablo_bridge and diablo_bridge.has_method("get_store_gold"):
+		store_gold = diablo_bridge.get_store_gold()
+	if store_gold >= 0:
+		_gold_label.visible = true
+		_gold_label.text = "Your Gold: %s" % _format_number(store_gold)
+	else:
+		_gold_label.visible = false
 
 	var sel := -1
 	if diablo_bridge.has_method("get_modal_selection_index"):

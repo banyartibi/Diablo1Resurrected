@@ -732,15 +732,20 @@ func handle_input(event: InputEvent) -> bool:
 				var dtx = target_tx - p_tx
 				var dty = target_ty - p_ty
 
-				# Diablo screen projection conversion
-				var screen_dx = (dtx - dty) * 32.0
-				var screen_dy = (dtx + dty) * 16.0
-
-				var d1_w = diablo_bridge.get_frame_width() if diablo_bridge.has_method("get_frame_width") else 2560
-				var d1_h = diablo_bridge.get_frame_height() if diablo_bridge.has_method("get_frame_height") else 1440
-
-				var screen_x = int(d1_w * 0.5 + screen_dx)
-				var screen_y = int(d1_h * 0.5 + screen_dy)
+				var screen_x: int = 0
+				var screen_y: int = 0
+				if diablo_bridge.has_method("map_world_to_screen"):
+					var target_world = Vector2(float(target_tx - target_ty) * 32.0, float(target_tx + target_ty) * 16.0)
+					var screen_pos = diablo_bridge.map_world_to_screen(target_world)
+					screen_x = screen_pos.x
+					screen_y = screen_pos.y
+				else:
+					var screen_dx = (dtx - dty) * 32.0
+					var screen_dy = (dtx + dty) * 16.0
+					var d1_w = diablo_bridge.get_frame_width() if diablo_bridge.has_method("get_frame_width") else 2560
+					var d1_h = diablo_bridge.get_frame_height() if diablo_bridge.has_method("get_frame_height") else 1440
+					screen_x = int(d1_w * 0.5 + screen_dx)
+					screen_y = int(d1_h * 0.5 + screen_dy)
 
 				var btn = 1 if event.button_index == MOUSE_BUTTON_LEFT else 3
 				var state = 1 if event.pressed else 0

@@ -51,6 +51,7 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_modal_type"), &DiabloBridge::get_modal_type);
 	ClassDB::bind_method(D_METHOD("get_current_menu_items"), &DiabloBridge::get_current_menu_items);
 	ClassDB::bind_method(D_METHOD("get_modal_selection_index"), &DiabloBridge::get_modal_selection_index);
+	ClassDB::bind_method(D_METHOD("get_store_gold"), &DiabloBridge::get_store_gold);
 	ClassDB::bind_method(D_METHOD("activate_modal_item", "index"), &DiabloBridge::activate_modal_item);
 	ClassDB::bind_method(D_METHOD("select_modal_item", "index"), &DiabloBridge::select_modal_item);
 	ClassDB::bind_method(D_METHOD("is_qtext_active"), &DiabloBridge::is_qtext_active);
@@ -98,6 +99,24 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("click_inventory_slot", "slot_type", "slot_idx", "is_shift", "is_ctrl"), &DiabloBridge::click_inventory_slot, DEFVAL(false), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("use_inventory_slot", "slot_type", "slot_idx"), &DiabloBridge::use_inventory_slot);
 
+	// Native Godot Diablo IV Stash
+	ClassDB::bind_method(D_METHOD("is_stash_open"), &DiabloBridge::is_stash_open);
+	ClassDB::bind_method(D_METHOD("close_stash"), &DiabloBridge::close_stash);
+	ClassDB::bind_method(D_METHOD("get_stash_info"), &DiabloBridge::get_stash_info);
+	ClassDB::bind_method(D_METHOD("get_stash_items"), &DiabloBridge::get_stash_items);
+	ClassDB::bind_method(D_METHOD("stash_change_page", "delta"), &DiabloBridge::stash_change_page);
+	ClassDB::bind_method(D_METHOD("stash_set_page", "page"), &DiabloBridge::stash_set_page);
+	ClassDB::bind_method(D_METHOD("click_stash_slot", "cell_idx", "is_shift", "is_ctrl"), &DiabloBridge::click_stash_slot, DEFVAL(false), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("stash_withdraw_gold", "amount"), &DiabloBridge::stash_withdraw_gold);
+
+	// Native Godot Diablo IV SpellBook
+	ClassDB::bind_method(D_METHOD("is_spell_book_open"), &DiabloBridge::is_spell_book_open);
+	ClassDB::bind_method(D_METHOD("toggle_spell_book"), &DiabloBridge::toggle_spell_book);
+	ClassDB::bind_method(D_METHOD("get_spell_book_page"), &DiabloBridge::get_spell_book_page);
+	ClassDB::bind_method(D_METHOD("set_spell_book_page", "page"), &DiabloBridge::set_spell_book_page);
+	ClassDB::bind_method(D_METHOD("get_spell_book_entries"), &DiabloBridge::get_spell_book_entries);
+	ClassDB::bind_method(D_METHOD("select_spell_book_entry", "spell_id", "spell_type"), &DiabloBridge::select_spell_book_entry);
+
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
 	ClassDB::bind_method(D_METHOD("get_dungeon_tile", "x", "y"), &DiabloBridge::get_dungeon_tile);
@@ -120,6 +139,7 @@ void DiabloBridge::_bind_methods() {
 	// Native Godot 2.5D Ground Items & Loot
 	ClassDB::bind_method(D_METHOD("get_active_items"), &DiabloBridge::get_active_items);
 	ClassDB::bind_method(D_METHOD("get_ground_item_sprite_data", "item_id"), &DiabloBridge::get_ground_item_sprite_data);
+	ClassDB::bind_method(D_METHOD("is_item_label_highlight_enabled"), &DiabloBridge::is_item_label_highlight_enabled);
 
 	// Native Godot 2.5D Corpses & Fallen Monsters
 	ClassDB::bind_method(D_METHOD("get_active_corpses"), &DiabloBridge::get_active_corpses);
@@ -356,6 +376,7 @@ Array DiabloBridge::get_current_menu_items() const {
 		d["text"] = String::utf8(it.text.c_str());
 		d["enabled"] = it.enabled;
 		d["selectable"] = it.selectable;
+		d["price"] = it.price;
 		arr.push_back(d);
 	}
 	return arr;
@@ -364,6 +385,10 @@ Array DiabloBridge::get_current_menu_items() const {
 int DiabloBridge::get_modal_selection_index() const {
 	if (!devilution::IsModalActiveLive()) return -1;
 	return devilution::GetCurrentModalSelectionIndex();
+}
+
+int DiabloBridge::get_store_gold() const {
+	return devilution::GetBridgeStoreGold();
 }
 
 void DiabloBridge::activate_modal_item(int index) {
@@ -1149,6 +1174,7 @@ Array DiabloBridge::get_active_items() const {
 		d["name"] = String::utf8(item.name);
 		d["width"] = item.width;
 		d["height"] = item.height;
+		d["anim_frame"] = item.animFrame;
 		arr.push_back(d);
 	}
 	return arr;
@@ -1166,6 +1192,10 @@ Dictionary DiabloBridge::get_ground_item_sprite_data(int item_id) const {
 	}
 	d["rgba"] = pba;
 	return d;
+}
+
+bool DiabloBridge::is_item_label_highlight_enabled() const {
+	return devilution::IsItemLabelHighlightEnabled();
 }
 
 Array DiabloBridge::get_active_corpses() const {
@@ -1239,5 +1269,89 @@ Dictionary DiabloBridge::get_missile_sprite_data(int missile_id) const {
 	d["rgba"] = pba;
 	return d;
 }
+
+// Native Godot Diablo IV Stash
+bool DiabloBridge::is_stash_open() const {
+	return devilution::IsBridgeStashOpen();
+}
+
+void DiabloBridge::close_stash() {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::CloseStash);
+}
+
+Dictionary DiabloBridge::get_stash_info() const {
+	Dictionary d;
+	auto info = devilution::GetStashInfo();
+	d["page"] = info.page;
+	d["total_pages"] = info.totalPages;
+	d["gold"] = info.gold;
+	return d;
+}
+
+Array DiabloBridge::get_stash_items() const {
+	Array arr;
+	auto items = devilution::GetStashItems();
+	for (const auto &item : items) {
+		arr.push_back(InvDataToDict(item));
+	}
+	return arr;
+}
+
+void DiabloBridge::stash_change_page(int delta) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::StashChangePage, delta);
+}
+
+void DiabloBridge::stash_set_page(int page) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::StashSetPage, page);
+}
+
+void DiabloBridge::click_stash_slot(int cell_idx, bool is_shift, bool is_ctrl) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::ClickStashSlot, cell_idx, is_shift ? 1 : 0, is_ctrl ? 1 : 0);
+}
+
+void DiabloBridge::stash_withdraw_gold(int amount) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::StashWithdrawGold, amount);
+}
+
+// Native Godot Diablo IV SpellBook
+bool DiabloBridge::is_spell_book_open() const {
+	return devilution::IsSpellBookOpen();
+}
+
+void DiabloBridge::toggle_spell_book() {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::ToggleSpellBook);
+}
+
+int DiabloBridge::get_spell_book_page() const {
+	return devilution::GetSpellBookPage();
+}
+
+void DiabloBridge::set_spell_book_page(int page) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetSpellBookPage, page);
+}
+
+Array DiabloBridge::get_spell_book_entries() const {
+	Array arr;
+	auto entries = devilution::GetSpellBookEntries();
+	for (const auto &e : entries) {
+		Dictionary d;
+		d["spell_id"] = e.spellId;
+		d["spell_type"] = e.spellType;
+		d["name"] = String::utf8(e.name.c_str());
+		d["type_text"] = String::utf8(e.typeText.c_str());
+		d["level"] = e.level;
+		d["mana"] = e.mana;
+		d["detail"] = String::utf8(e.detail.c_str());
+		d["is_equipped"] = e.isEquipped;
+		d["can_cast"] = e.canCast;
+		arr.push_back(d);
+	}
+	return arr;
+}
+
+void DiabloBridge::select_spell_book_entry(int spell_id, int spell_type) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SelectSpellBookEntry, spell_id, spell_type);
+}
+
 
 

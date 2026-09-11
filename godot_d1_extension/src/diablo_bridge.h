@@ -74,8 +74,9 @@ public:
 	bool is_modal_active() const;
 	int get_modal_type() const;
 	// Native modal overlay data for pause/gamemenu and dialog/store menus.
-	Array get_current_menu_items() const; // [{"text", "enabled", "selectable"}] for the active menu
+	Array get_current_menu_items() const; // [{"text", "enabled", "selectable", "price"}] for the active menu
 	int get_modal_selection_index() const; // visible selected row index (-1 none)
+	int get_store_gold() const; // Player's gold amount in store (-1 if not rendering gold)
 	void activate_modal_item(int index);
 	void select_modal_item(int index);
 	bool is_qtext_active() const;
@@ -126,6 +127,24 @@ public:
 	void click_inventory_slot(int slot_type, int slot_idx, bool is_shift = false, bool is_ctrl = false);
 	void use_inventory_slot(int slot_type, int slot_idx);
 
+	// Native Godot Diablo IV Stash
+	bool is_stash_open() const;
+	void close_stash();
+	Dictionary get_stash_info() const;
+	Array get_stash_items() const;
+	void stash_change_page(int delta);
+	void stash_set_page(int page);
+	void click_stash_slot(int cell_idx, bool is_shift = false, bool is_ctrl = false);
+	void stash_withdraw_gold(int amount);
+
+	// Native Godot Diablo IV SpellBook
+	bool is_spell_book_open() const;
+	void toggle_spell_book();
+	int get_spell_book_page() const;
+	void set_spell_book_page(int page);
+	Array get_spell_book_entries() const;
+	void select_spell_book_entry(int spell_id, int spell_type);
+
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap
 	PackedInt32Array get_dungeon_grid() const;
 	int get_dungeon_tile(int x, int y) const;
@@ -154,6 +173,7 @@ public:
 	// Native Godot 2.5D Ground Items & Loot
 	Array get_active_items() const;
 	Dictionary get_ground_item_sprite_data(int item_id) const;
+	bool is_item_label_highlight_enabled() const;
 
 	// Native Godot 2.5D Corpses & Fallen Monsters
 	Array get_active_corpses() const;

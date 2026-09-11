@@ -47,13 +47,17 @@ const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 @onready var skill_selector: PanelContainer = $SkillSelector
 @onready var skill_list: HBoxContainer = $SkillSelector/Margin/SkillList
 
-# Character Panel, Quest Log & Inventory Frame
+# Character Panel, Quest Log, Inventory, Stash & SpellBook Frames
 const CHAR_PANEL_SCENE = preload("res://scenes/hud/diablo4_character_panel.tscn")
 const QUEST_LOG_SCENE = preload("res://scenes/hud/diablo4_quest_log.tscn")
 const INV_FRAME_SCENE = preload("res://scenes/hud/diablo4_inventory.tscn")
+const STASH_FRAME_SCENE = preload("res://scenes/hud/diablo4_stash.tscn")
+const SPELLBOOK_FRAME_SCENE = preload("res://scenes/hud/diablo4_spellbook.tscn")
 var char_panel: Control = null
 var quest_log: Control = null
 var inv_frame: Control = null
+var stash_frame: Control = null
+var spellbook_frame: Control = null
 
 @onready var level_up_btn: Button = $Root/LevelUpBtn
 
@@ -180,9 +184,17 @@ func _ready():
 	quest_log.visible = false
 	add_child(quest_log)
 
+	stash_frame = STASH_FRAME_SCENE.instantiate()
+	stash_frame.visible = false
+	add_child(stash_frame)
+
 	inv_frame = INV_FRAME_SCENE.instantiate()
 	inv_frame.visible = false
 	add_child(inv_frame)
+
+	spellbook_frame = SPELLBOOK_FRAME_SCENE.instantiate()
+	spellbook_frame.visible = false
+	add_child(spellbook_frame)
 
 	# Disable all keyboard focus grabbing on HUD elements so TAB key always toggles automap!
 	_disable_focus_recursive(self)
@@ -201,8 +213,12 @@ func set_bridge(bridge):
 		char_panel.set_bridge(bridge)
 	if quest_log and quest_log.has_method("set_bridge"):
 		quest_log.set_bridge(bridge)
+	if stash_frame and stash_frame.has_method("set_bridge"):
+		stash_frame.set_bridge(bridge)
 	if inv_frame and inv_frame.has_method("set_bridge"):
 		inv_frame.set_bridge(bridge)
+	if spellbook_frame and spellbook_frame.has_method("set_bridge"):
+		spellbook_frame.set_bridge(bridge)
 
 func setup_button_events():
 	# Potion 1-8 clicks
@@ -224,11 +240,11 @@ func setup_button_events():
 						use_belt_slot(idx + 1)
 		)
 
-	# RMB secondary slot click (opens native skill selector)
+	# RMB secondary slot click (opens native skill selector on LMB click only)
 	if secondary_slot:
 		secondary_slot.mouse_filter = Control.MOUSE_FILTER_STOP
 		secondary_slot.gui_input.connect(func(event: InputEvent):
-			if event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 				toggle_speedbook()
 		)
 
@@ -246,6 +262,7 @@ func setup_button_events():
 	# Quick utility buttons
 	var btn_char = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnChar
 	var btn_inv = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnInv
+	var btn_spells = $Root/HBox/CenterPanel/VBox/UtilityButtons.get_node_or_null("BtnSpells")
 	var btn_quest = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnQuest
 	var btn_map = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnMap
 	var btn_menu = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnMenu
@@ -262,7 +279,18 @@ func setup_button_events():
 	if btn_inv:
 		btn_inv.focus_mode = Control.FOCUS_NONE
 		btn_inv.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn_inv.pressed.connect(func(): send_key(KEY_I))
+		btn_inv.pressed.connect(func():
+			if diablo_bridge and diablo_bridge.has_method("toggle_inventory"):
+				diablo_bridge.toggle_inventory()
+			else:
+				send_key(KEY_I)
+		)
+	if btn_spells:
+		btn_spells.focus_mode = Control.FOCUS_NONE
+		btn_spells.mouse_filter = Control.MOUSE_FILTER_STOP
+		btn_spells.pressed.connect(func():
+			toggle_spell_book()
+		)
 	if btn_quest:
 		btn_quest.focus_mode = Control.FOCUS_NONE
 		btn_quest.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -295,14 +323,31 @@ func _input(event: InputEvent):
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
-		# Spells / Speedbook window (hotkey B)
-		if event.keycode == KEY_B:
+		# Speedbook ribbon / select spell (hotkey S)
+		if event.keycode == KEY_S:
 			toggle_speedbook()
+			get_viewport().set_input_as_handled()
+			return
+		# SpellBook grimoire window (hotkey B)
+		elif event.keycode == KEY_B:
+			toggle_spell_book()
 			get_viewport().set_input_as_handled()
 			return
 		elif event.keycode == KEY_ESCAPE:
 			if is_speedbook_showing:
 				close_speedbook()
+				get_viewport().set_input_as_handled()
+				return
+			if stash_frame and stash_frame.visible:
+				if diablo_bridge and diablo_bridge.has_method("close_stash"):
+					diablo_bridge.close_stash()
+				stash_frame.visible = false
+				get_viewport().set_input_as_handled()
+				return
+			if spellbook_frame and spellbook_frame.visible:
+				if diablo_bridge and diablo_bridge.has_method("toggle_spell_book"):
+					diablo_bridge.toggle_spell_book()
+				spellbook_frame.visible = false
 				get_viewport().set_input_as_handled()
 				return
 			if char_panel and char_panel.visible:
@@ -329,6 +374,12 @@ func _input(event: InputEvent):
 			if not skill_selector.get_global_rect().has_point(event.position):
 				if not secondary_slot.get_global_rect().has_point(event.position):
 					close_speedbook()
+
+func toggle_spell_book():
+	if diablo_bridge and diablo_bridge.has_method("toggle_spell_book"):
+		diablo_bridge.toggle_spell_book()
+	else:
+		send_key(KEY_B)
 
 func get_cached_spell_icon(spell_id: int, spell_type: int) -> Texture2D:
 	var key = "%d_%d" % [spell_id, spell_type]
@@ -562,7 +613,7 @@ func update_secondary_spell():
 			secondary_icon.texture = null
 			secondary_icon.visible = false
 		if secondary_slot:
-			secondary_slot.tooltip_text = "Select Skill / Spell [B]\nClick or press 'B' to open Speedbook."
+			secondary_slot.tooltip_text = "Select Skill / Spell [S]\nClick or press 'S' to open Speedbook."
 		return
 
 	# If spell changed OR if secondary_icon doesn't have a valid texture yet:
@@ -579,7 +630,7 @@ func update_secondary_spell():
 			var type_name = SPELL_TYPE_NAMES.get(spell_type, "Skill")
 
 			if secondary_slot:
-				secondary_slot.tooltip_text = "%s (%s) [RMB]\nClick or press 'B' to change active spell." % [spell_name, type_name]
+				secondary_slot.tooltip_text = "%s (%s) [RMB]\nLeft-click or press 'S' to change active spell." % [spell_name, type_name]
 		else:
 			# Palette not ready yet: do not show a black box!
 			if secondary_icon and current_spell_id <= 0:
@@ -780,10 +831,11 @@ func update_item_tooltip():
 		target_pos.y = 28.0
 	else:
 		# Ground / Belt hover: next to mouse cursor
-		target_pos.x = float(mouse_pos.x) * scale_x + 18.0
-		target_pos.y = float(mouse_pos.y) * scale_y + 12.0
+		var cur_mouse = get_viewport().get_mouse_position()
+		target_pos.x = cur_mouse.x + 18.0
+		target_pos.y = cur_mouse.y + 12.0
 		if target_pos.x + tooltip_w > vp_size.x - 10.0:
-			target_pos.x = float(mouse_pos.x) * scale_x - tooltip_w - 14.0
+			target_pos.x = cur_mouse.x - tooltip_w - 14.0
 		if target_pos.y + tooltip_h > vp_size.y - 10.0:
 			target_pos.y = vp_size.y - tooltip_h - 10.0
 		if target_pos.x < 10.0: target_pos.x = 10.0
@@ -814,7 +866,9 @@ func update_panels():
 	if not is_modern:
 		if char_panel: char_panel.visible = false
 		if quest_log: quest_log.visible = false
+		if stash_frame: stash_frame.visible = false
 		if inv_frame: inv_frame.visible = false
+		if spellbook_frame: spellbook_frame.visible = false
 		if level_up_btn: level_up_btn.visible = false
 		return
 
@@ -845,7 +899,12 @@ func update_panels():
 		quest_log.size = Vector2(size_w, size_h)
 		quest_log.custom_minimum_size = Vector2(size_w, size_h)
 
-	# Right Panel (Native Inventory) geometry - symmetrical with left panel
+	if stash_frame:
+		stash_frame.position = Vector2(pos_x, pos_y)
+		stash_frame.size = Vector2(size_w, size_h)
+		stash_frame.custom_minimum_size = Vector2(size_w, size_h)
+
+	# Right Panel (Native Inventory & SpellBook) geometry - symmetrical with left panel
 	var rpos_x = vp_size.x - size_w - pos_x
 	var rpos_y = pos_y
 	var rsize_w = size_w
@@ -855,6 +914,11 @@ func update_panels():
 		inv_frame.position = Vector2(rpos_x, rpos_y)
 		inv_frame.size = Vector2(rsize_w, rsize_h)
 		inv_frame.custom_minimum_size = Vector2(rsize_w, rsize_h)
+
+	if spellbook_frame:
+		spellbook_frame.position = Vector2(rpos_x, rpos_y)
+		spellbook_frame.size = Vector2(rsize_w, rsize_h)
+		spellbook_frame.custom_minimum_size = Vector2(rsize_w, rsize_h)
 
 	# Character Panel sync
 	if char_panel:
@@ -872,6 +936,16 @@ func update_panels():
 		if quest_open:
 			quest_log.update_quests()
 
+	# Stash sync
+	if stash_frame:
+		var stash_open = diablo_bridge.is_stash_open() if diablo_bridge.has_method("is_stash_open") else false
+		if stash_frame.visible != stash_open:
+			stash_frame.visible = stash_open
+			if stash_open and stash_frame.has_method("update_stash"):
+				stash_frame.update_stash()
+		elif stash_open and stash_frame.has_method("check_and_update"):
+			stash_frame.check_and_update()
+
 	# Inventory sync
 	if inv_frame:
 		var inv_open = diablo_bridge.is_inventory_open() if diablo_bridge.has_method("is_inventory_open") else false
@@ -881,6 +955,16 @@ func update_panels():
 				inv_frame.update_inventory()
 		elif inv_open and inv_frame.has_method("check_and_update"):
 			inv_frame.check_and_update()
+
+	# SpellBook sync
+	if spellbook_frame:
+		var sb_open = diablo_bridge.is_spell_book_open() if diablo_bridge.has_method("is_spell_book_open") else false
+		if spellbook_frame.visible != sb_open:
+			spellbook_frame.visible = sb_open
+			if sb_open and spellbook_frame.has_method("update_spellbook"):
+				spellbook_frame.update_spellbook()
+		elif sb_open and spellbook_frame.has_method("check_and_update"):
+			spellbook_frame.check_and_update()
 
 	# Level-up indicator on HUD & BtnChar
 	var stat_pts = 0

@@ -188,7 +188,7 @@ std::vector<D1StoreLineInfo> GetStoreDialogLines()
 		if (!line.hasText())
 			continue;
 		bool sel = line.isSelectable() || (stextscrl && i == BackButtonLine());
-		lines.push_back(D1StoreLineInfo{ line.text, sel });
+		lines.push_back(D1StoreLineInfo{ line.text, sel, line._sval });
 	}
 	return lines;
 }
@@ -208,6 +208,18 @@ int GetCurrentStextSel()
 		++visible;
 	}
 	return -1;
+}
+
+bool IsRenderGold()
+{
+	return RenderGold;
+}
+
+uint32_t TotalPlayerGold();
+
+uint32_t GetStoreGold()
+{
+	return TotalPlayerGold();
 }
 
 void ActivateStextItem(int index)
@@ -257,6 +269,12 @@ std::string GetActiveTalkerName()
 	if (t >= 0 && t < 9) {
 		if (TownerNames[t] != nullptr && TownerNames[t][0] != '\0')
 			return std::string(_(TownerNames[t]));
+	}
+	if (t >= 9 && t < NUM_TOWNER_TYPES) {
+		Towner *towner = GetTowner(static_cast<_talker_id>(t));
+		if (towner != nullptr && !towner->name.empty()) {
+			return std::string(_(towner->name.data()));
+		}
 	}
 	return "Dialogue";
 }
@@ -2391,6 +2409,46 @@ void ClearSText(int s, int e)
 
 void StartStore(TalkID s)
 {
+	switch (s) {
+	case TalkID::Smith:
+	case TalkID::SmithBuy:
+	case TalkID::SmithSell:
+	case TalkID::SmithRepair:
+	case TalkID::SmithPremiumBuy:
+		talker = TOWN_SMITH;
+		break;
+	case TalkID::Witch:
+	case TalkID::WitchBuy:
+	case TalkID::WitchSell:
+	case TalkID::WitchRecharge:
+		talker = TOWN_WITCH;
+		break;
+	case TalkID::Boy:
+	case TalkID::BoyBuy:
+		talker = TOWN_PEGBOY;
+		break;
+	case TalkID::Healer:
+	case TalkID::HealerBuy:
+		talker = TOWN_HEALER;
+		break;
+	case TalkID::Storyteller:
+	case TalkID::StorytellerIdentify:
+	case TalkID::StorytellerIdentifyShow:
+		talker = TOWN_STORY;
+		break;
+	case TalkID::Tavern:
+		talker = TOWN_TAVERN;
+		break;
+	case TalkID::Drunk:
+		talker = TOWN_DRUNK;
+		break;
+	case TalkID::Barmaid:
+		talker = TOWN_BMAID;
+		break;
+	default:
+		break;
+	}
+
 	if (*sgOptions.Gameplay.showItemGraphicsInStores) {
 		CreateHalfSizeItemSprites();
 	}

@@ -243,8 +243,8 @@ func _process(delta: float):
 	update_monsters(delta)
 	update_torches()
 	update_objects()
-	update_ground_items()
 	update_corpses()
+	update_ground_items()
 	update_missiles()
 	update_lighting_and_transparency()
 
@@ -351,7 +351,7 @@ func rebuild_dungeon_tiles():
 					spr.self_modulate = Color(0.0, 0.0, 0.0)
 					spr.visible = false
 					if h <= 32:
-						spr.z_index = -1
+						spr.z_index = -2
 					else:
 						spr.z_index = 0
 					world_root.add_child(spr)
@@ -440,10 +440,14 @@ func update_lighting_and_transparency():
 				tile_mod = Color(0.55, 0.58, 0.65).lerp(Color(1.0, 1.0, 1.0), bright)
 			else:
 				# Dungeon / Catacombs / Caves / Hell: 5-tap spatial filter to eliminate blocky tiles
-				if raw_l >= 15.0:
+				var min_front_l = 15.0
+				if tx < 111: min_front_l = min(min_front_l, float(light_grid[idx + 1]))
+				if ty < 111: min_front_l = min(min_front_l, float(light_grid[idx + 112]))
+				if raw_l >= 15.0 and min_front_l >= 15.0:
 					tile_mod = Color(0.02, 0.02, 0.04)
 				else:
-					var sum_l = raw_l * 2.0
+					var effective_l = min(raw_l, min_front_l) if raw_l >= 15.0 else raw_l
+					var sum_l = effective_l * 2.0
 					var count_l = 2.0
 					if tx > 0:
 						var ln = float(light_grid[idx - 1])
@@ -673,7 +677,7 @@ func get_or_create_monster_node(m_id: int) -> Node2D:
 	shadow.texture = get_or_create_shadow_texture()
 	shadow.centered = true
 	shadow.position = Vector2(0, 8)
-	shadow.z_index = 0
+	shadow.z_index = -1
 	m_root.add_child(shadow)
 
 	var spr = Sprite2D.new()
@@ -754,9 +758,9 @@ func update_objects():
 
 		spr.visible = true
 		# Y-sort depth key = object's bottom vertex (position.y), matching vanilla D1's depth ordering
-		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0 + (18.0 if not pre_flag else 16.0))
+		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0 + (19.0 if not pre_flag else 16.0))
 		spr.position = tile_pos
-		spr.z_index = -1 if pre_flag else 0
+		spr.z_index = 0
 
 		# Texture caching by (type, anim_frame)
 		var cache_key = "%d_%d" % [o_type, anim_frame]
@@ -788,9 +792,14 @@ func update_objects():
 			spr.visible = true
 		elif has_light:
 			var light_val = light_grid[tile_idx]
+			if light_val >= 15:
+				if tx < 111 and light_grid[tile_idx + 1] < 15:
+					light_val = light_grid[tile_idx + 1]
+				elif ty < 111 and light_grid[tile_idx + 112] < 15:
+					light_val = light_grid[tile_idx + 112]
 			if light_val >= 15 and not is_torch:
-				spr.visible = false
-				continue
+				spr.self_modulate = Color(0.04, 0.04, 0.06)
+				spr.visible = true
 			else:
 				var o_norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
 				var o_factor = pow(o_norm, 1.8)
@@ -831,7 +840,7 @@ func update_ground_items():
 		if node == null:
 			node = Node2D.new()
 			node.name = "GroundItem_%d" % i_id
-			node.z_index = -1 # Ground level
+			node.z_index = 0 # Y-sorted dungeon entity
 			world_root.add_child(node)
 
 			var spr = Sprite2D.new()
@@ -845,6 +854,8 @@ func update_ground_items():
 			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			lbl.add_theme_font_size_override("font_size", 11)
+			lbl.z_as_relative = false
+			lbl.z_index = 20
 
 			var style = StyleBoxFlat.new()
 			style.bg_color = Color(0.0, 0.0, 0.0, 0.75)
@@ -862,12 +873,17 @@ func update_ground_items():
 			item_nodes[i_id] = node
 
 		node.visible = true
-		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0)
+		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0 + 16.0)
 		node.position = tile_pos
 
 		var spr = node.get_node_or_null("Sprite") as Sprite2D
-		var tex: ImageTexture = item_textures.get(i_id, null)
-		if tex == null and diablo_bridge.has_method("get_ground_item_sprite_data"):
+		var curs_id = item.get("curs_id", 0)
+		var anim_frame = item.get("anim_frame", 0)
+		var cache_key = "%d_%d" % [curs_id, anim_frame]
+		var tex: ImageTexture = item_textures.get(cache_key, null)
+		if tex == null:
+			tex = item_textures.get(curs_id, null)
+		if (tex == null or anim_frame > 0) and diablo_bridge.has_method("get_ground_item_sprite_data"):
 			var s_data = diablo_bridge.get_ground_item_sprite_data(i_id)
 			var sw = s_data.get("width", 0)
 			var sh = s_data.get("height", 0)
@@ -875,11 +891,12 @@ func update_ground_items():
 			if sw > 0 and sh > 0 and rgba.size() == sw * sh * 4:
 				var img = Image.create_from_data(sw, sh, false, Image.FORMAT_RGBA8, rgba)
 				tex = ImageTexture.create_from_image(img)
-				item_textures[i_id] = tex
+				item_textures[cache_key] = tex
+				item_textures[curs_id] = tex
 
 		if tex and spr:
 			spr.texture = tex
-			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, -float(tex.get_height()))
 
 		# Lighting & Fog of War
 		var tile_idx = clamp(ty, 0, 111) * 112 + clamp(tx, 0, 111)
@@ -893,11 +910,11 @@ func update_ground_items():
 			elif has_light:
 				var light_val = light_grid[tile_idx]
 				if light_val >= 15:
-					node.visible = false
-					continue
+					spr.self_modulate = Color(0.04, 0.04, 0.06)
+				else:
+					var brightness = pow(clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0), 1.8)
+					spr.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), max(0.12, brightness))
 				node.visible = true
-				var brightness = pow(clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0), 1.8)
-				spr.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), max(0.12, brightness))
 			else:
 				node.visible = true
 
@@ -914,13 +931,12 @@ func update_ground_items():
 			lbl.reset_size()
 			var sz = lbl.get_combined_minimum_size()
 
-			# Anchor the label to the sprite's REAL drawn rect (get_rect already accounts for
-			# the sprite offset + centered pivot) so the name sits a few px directly above the
-			# drop position instead of floating far away on a fixed tile-grid formula.
-			var icon_rect: Rect2 = spr.get_rect() if (spr and tex) else Rect2(Vector2(0.0, 16.0), Vector2.ZERO)
-
-			# center.x = position.x + size.x*0.5 ; top edge = position.y (valid Rect2 props in every Godot 4 build)
-			lbl.position = Vector2(icon_rect.position.x + icon_rect.size.x * 0.5 - sz.x * 0.5, icon_rect.position.y - sz.y - 4.0)
+			# Anchor the label directly above the floor diamond and ground item sprite (matching DevilutionX Mode 0)
+			lbl.position = Vector2(-sz.x * 0.5, -32.0 - sz.y)
+			lbl.z_as_relative = false
+			lbl.z_index = 20
+			var show_labels = diablo_bridge.is_item_label_highlight_enabled() if diablo_bridge.has_method("is_item_label_highlight_enabled") else true
+			lbl.visible = show_labels
 
 	for i_id in item_nodes:
 		if not seen_ids.has(i_id):
@@ -953,7 +969,7 @@ func update_corpses():
 			spr = Sprite2D.new()
 			spr.name = "Corpse_%d_%d" % [tx, ty]
 			spr.centered = false
-			spr.z_index = -1 # Floor level
+			spr.z_index = -1
 			world_root.add_child(spr)
 			corpse_sprites[pos_key] = spr
 
@@ -976,7 +992,7 @@ func update_corpses():
 				spr.visible = true
 		else:
 			spr.visible = true
-		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0)
+		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0 + 16.0)
 		spr.position = tile_pos
 
 		var cache_key = "%d_%d" % [corpse_idx, dir]
@@ -993,7 +1009,7 @@ func update_corpses():
 
 		if tex:
 			spr.texture = tex
-			spr.offset = Vector2(-float(tex.get_width()) * 0.5, 16.0 - float(tex.get_height()))
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, -float(tex.get_height()))
 
 	for k in corpse_sprites:
 		if not seen_keys.has(k):
@@ -1085,6 +1101,12 @@ func update_missiles():
 		if not seen_ids.has(m_id):
 			missile_nodes[m_id].visible = false
 
+func get_world_mouse_position(screen_pos: Vector2) -> Vector2:
+	var vp_size = get_viewport().get_visible_rect().size
+	var cam_pos = camera.position if camera else Vector2.ZERO
+	var cam_z = camera.zoom.x if camera else 1.0
+	return (screen_pos - vp_size * 0.5) / cam_z + cam_pos
+
 func handle_input(event: InputEvent) -> bool:
 	if not is_active:
 		return false
@@ -1115,15 +1137,18 @@ func handle_input(event: InputEvent) -> bool:
 
 	# Mouse Click & Motion Conversion
 	if event is InputEventMouseButton:
-		var d1_w = diablo_bridge.get_frame_width() if (diablo_bridge and diablo_bridge.has_method("get_frame_width")) else 640
-		var d1_h = diablo_bridge.get_frame_height() if (diablo_bridge and diablo_bridge.has_method("get_frame_height")) else 480
-		# Mirror the legacy blit mouse mapping exactly: scale the cursor's screen position
-		# into frame coordinates. CheckCursMove then converts frame -> tile identically to mode 0.
-		var vp_size = get_viewport().get_visible_rect().size
-		var norm_x = event.position.x / float(vp_size.x)
-		var norm_y = event.position.y / float(vp_size.y)
-		var d1_x = clampi(int(norm_x * float(d1_w)), 0, d1_w - 1)
-		var d1_y = clampi(int(norm_y * float(d1_h)), 0, d1_h - 1)
+		var d1_pos = Vector2i.ZERO
+		if diablo_bridge and diablo_bridge.has_method("map_world_to_screen"):
+			var mouse_world = get_world_mouse_position(event.position)
+			d1_pos = diablo_bridge.map_world_to_screen(mouse_world)
+		else:
+			var d1_w = diablo_bridge.get_frame_width() if (diablo_bridge and diablo_bridge.has_method("get_frame_width")) else 640
+			var d1_h = diablo_bridge.get_frame_height() if (diablo_bridge and diablo_bridge.has_method("get_frame_height")) else 480
+			var vp_size = get_viewport().get_visible_rect().size
+			var norm_x = event.position.x / float(vp_size.x)
+			var norm_y = event.position.y / float(vp_size.y)
+			d1_pos = Vector2i(clampi(int(norm_x * float(d1_w)), 0, d1_w - 1), clampi(int(norm_y * float(d1_h)), 0, d1_h - 1))
+
 		var btn = 1
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			btn = 3
@@ -1132,20 +1157,24 @@ func handle_input(event: InputEvent) -> bool:
 		var state = 1 if event.pressed else 0
 
 		if diablo_bridge and diablo_bridge.has_method("send_input"):
-			diablo_bridge.send_input(2, btn, state, d1_x, d1_y)
+			diablo_bridge.send_input(2, btn, state, d1_pos.x, d1_pos.y)
 		return true
 
 	elif event is InputEventMouseMotion:
-		var d1_w = diablo_bridge.get_frame_width() if (diablo_bridge and diablo_bridge.has_method("get_frame_width")) else 640
-		var d1_h = diablo_bridge.get_frame_height() if (diablo_bridge and diablo_bridge.has_method("get_frame_height")) else 480
-		# Same screen -> frame mapping as the click handler above.
-		var vp_size = get_viewport().get_visible_rect().size
-		var norm_x = event.position.x / float(vp_size.x)
-		var norm_y = event.position.y / float(vp_size.y)
-		var d1_x = clampi(int(norm_x * float(d1_w)), 0, d1_w - 1)
-		var d1_y = clampi(int(norm_y * float(d1_h)), 0, d1_h - 1)
+		var d1_pos = Vector2i.ZERO
+		if diablo_bridge and diablo_bridge.has_method("map_world_to_screen"):
+			var mouse_world = get_world_mouse_position(event.position)
+			d1_pos = diablo_bridge.map_world_to_screen(mouse_world)
+		else:
+			var d1_w = diablo_bridge.get_frame_width() if (diablo_bridge and diablo_bridge.has_method("get_frame_width")) else 640
+			var d1_h = diablo_bridge.get_frame_height() if (diablo_bridge and diablo_bridge.has_method("get_frame_height")) else 480
+			var vp_size = get_viewport().get_visible_rect().size
+			var norm_x = event.position.x / float(vp_size.x)
+			var norm_y = event.position.y / float(vp_size.y)
+			d1_pos = Vector2i(clampi(int(norm_x * float(d1_w)), 0, d1_w - 1), clampi(int(norm_y * float(d1_h)), 0, d1_h - 1))
+
 		if diablo_bridge and diablo_bridge.has_method("send_input"):
-			diablo_bridge.send_input(1, 0, 0, d1_x, d1_y)
+			diablo_bridge.send_input(1, 0, 0, d1_pos.x, d1_pos.y)
 		return true
 
 	return false

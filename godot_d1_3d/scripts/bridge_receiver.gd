@@ -520,7 +520,12 @@ func _process(delta: float):
 		osd_timer -= delta
 		if osd_timer <= 0.0 and osd_label:
 			osd_label.text = ""
-			
+
+	if game_view:
+		var root_vp_size = Vector2i(get_viewport().get_visible_rect().size)
+		if root_vp_size.x > 0 and root_vp_size.y > 0 and game_view.size != root_vp_size:
+			game_view.size = root_vp_size
+
 	if use_gdextension and diablo_bridge != null:
 		var quit_req = diablo_bridge.is_quit_requested()
 		var eng_run = diablo_bridge.is_engine_running()

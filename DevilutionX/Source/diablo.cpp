@@ -1666,6 +1666,22 @@ void DisplaySpellsKeyPressed()
 	LastMouseButtonAction = MouseActionType::None;
 }
 
+bool IsPlayerDead()
+{
+	return MyPlayer->_pmode == PM_DEATH || MyPlayerIsDead;
+}
+
+bool IsGameRunning()
+{
+	return PauseMode != 2;
+}
+
+bool CanPlayerTakeAction()
+{
+	return !IsPlayerDead() && IsGameRunning();
+}
+} // namespace
+
 void SpellBookKeyPressed()
 {
 	if (stextflag != TalkID::None)
@@ -1684,22 +1700,6 @@ void SpellBookKeyPressed()
 	}
 	CloseInventory();
 }
-
-bool IsPlayerDead()
-{
-	return MyPlayer->_pmode == PM_DEATH || MyPlayerIsDead;
-}
-
-bool IsGameRunning()
-{
-	return PauseMode != 2;
-}
-
-bool CanPlayerTakeAction()
-{
-	return !IsPlayerDead() && IsGameRunning();
-}
-} // namespace
 
 void InitKeymapActions()
 {

@@ -297,6 +297,7 @@ void TownerTalk(_speech_id message)
 
 void TalkToBarOwner(Player &player, Towner &barOwner)
 {
+	talker = TOWN_TAVERN;
 	if (!player._pLvlVisited[0]) {
 		InitQTextMsg(TEXT_INTRO);
 		return;
@@ -358,6 +359,7 @@ void TalkToBarOwner(Player &player, Towner &barOwner)
 
 void TalkToDeadguy(Player &player, Towner & /*deadguy*/)
 {
+	talker = TOWN_DEADGUY;
 	auto &quest = Quests[Q_BUTCHER];
 	if (quest._qactive == QUEST_DONE)
 		return;
@@ -377,6 +379,7 @@ void TalkToDeadguy(Player &player, Towner & /*deadguy*/)
 
 void TalkToBlackSmith(Player &player, Towner &blackSmith)
 {
+	talker = TOWN_SMITH;
 	if (Quests[Q_ROCK]._qactive != QUEST_NOTAVAIL) {
 		if ((player._pLvlVisited[4] || player._pLvlVisited[5]) && Quests[Q_ROCK]._qactive != QUEST_DONE) {
 			if (Quests[Q_ROCK]._qvar2 == 0) {
@@ -426,6 +429,7 @@ void TalkToBlackSmith(Player &player, Towner &blackSmith)
 
 void TalkToWitch(Player &player, Towner & /*witch*/)
 {
+	talker = TOWN_WITCH;
 	if (Quests[Q_MUSHROOM]._qactive != QUEST_NOTAVAIL) {
 		if (Quests[Q_MUSHROOM]._qactive == QUEST_INIT && RemoveInventoryItemById(player, IDI_FUNGALTM)) {
 			Quests[Q_MUSHROOM]._qactive = QUEST_ACTIVE;
@@ -476,6 +480,7 @@ void TalkToWitch(Player &player, Towner & /*witch*/)
 
 void TalkToBarmaid(Player &player, Towner & /*barmaid*/)
 {
+	talker = TOWN_BMAID;
 	if (!player._pLvlVisited[21] && HasInventoryItemWithId(player, IDI_MAPOFDOOM) && Quests[Q_GRAVE]._qmsg != TEXT_GRAVE8) {
 		Quests[Q_GRAVE]._qactive = QUEST_ACTIVE;
 		Quests[Q_GRAVE]._qlog = true;
@@ -491,12 +496,14 @@ void TalkToBarmaid(Player &player, Towner & /*barmaid*/)
 
 void TalkToDrunk(Player & /*player*/, Towner & /*drunk*/)
 {
+	talker = TOWN_DRUNK;
 	TownerTalk(TEXT_FARNHAM1);
 	StartStore(TalkID::Drunk);
 }
 
 void TalkToHealer(Player &player, Towner &healer)
 {
+	talker = TOWN_HEALER;
 	Quest &poisonWater = Quests[Q_PWATER];
 	if (poisonWater._qactive != QUEST_NOTAVAIL) {
 		if ((poisonWater._qactive == QUEST_INIT && (player._pLvlVisited[1] || player._pLvlVisited[5])) || (poisonWater._qactive == QUEST_ACTIVE && !poisonWater._qlog)) {
@@ -535,12 +542,14 @@ void TalkToHealer(Player &player, Towner &healer)
 
 void TalkToBoy(Player & /*player*/, Towner & /*boy*/)
 {
+	talker = TOWN_PEGBOY;
 	TownerTalk(TEXT_WIRT1);
 	StartStore(TalkID::Boy);
 }
 
 void TalkToStoryteller(Player &player, Towner & /*storyteller*/)
 {
+	talker = TOWN_STORY;
 	auto &betrayerQuest = Quests[Q_BETRAYER];
 	if (!UseMultiplayerQuests()) {
 		if (betrayerQuest._qactive == QUEST_INIT && RemoveInventoryItemById(player, IDI_LAZSTAFF)) {
@@ -577,6 +586,7 @@ void TalkToStoryteller(Player &player, Towner & /*storyteller*/)
 
 void TalkToCow(Player &player, Towner &cow)
 {
+	talker = TOWN_COW;
 	if (CowPlaying != SFX_NONE && effect_is_playing(CowPlaying))
 		return;
 
@@ -607,6 +617,7 @@ void TalkToCow(Player &player, Towner &cow)
 
 void TalkToFarmer(Player &player, Towner &farmer)
 {
+	talker = TOWN_FARMER;
 	auto &quest = Quests[Q_FARMER];
 	switch (quest._qactive) {
 	case QUEST_NOTAVAIL:
@@ -663,6 +674,7 @@ void TalkToFarmer(Player &player, Towner &farmer)
 
 void TalkToCowFarmer(Player &player, Towner &cowFarmer)
 {
+	talker = TOWN_COWFARM;
 	if (RemoveInventoryItemById(player, IDI_GREYSUIT)) {
 		InitQTextMsg(TEXT_JERSEY7);
 		return;
@@ -747,6 +759,7 @@ void TalkToCowFarmer(Player &player, Towner &cowFarmer)
 
 void TalkToGirl(Player &player, Towner &girl)
 {
+	talker = TOWN_GIRL;
 	auto &quest = Quests[Q_GIRL];
 
 	if (quest._qactive != QUEST_DONE && RemoveInventoryItemById(player, IDI_THEODORE)) {
@@ -913,6 +926,7 @@ void TalkToTowner(Player &player, int t)
 		return;
 	}
 
+	talker = towner._ttype;
 	towner.talk(player, towner);
 }
 
@@ -951,6 +965,7 @@ bool DebugTalkToTowner(std::string targetName)
 		fakeTowner.position = myPlayer.position.tile;
 		const std::string npcName = AsciiStrToLower(fakeTowner.name);
 		if (npcName.find(targetName) != std::string::npos) {
+			talker = townerData.type;
 			townerData.talk(myPlayer, fakeTowner);
 			return true;
 		}

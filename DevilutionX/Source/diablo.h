@@ -103,6 +103,7 @@ void PrintScreen(SDL_Keycode vkey);
  */
 bool game_loop(bool bStartup);
 void diablo_color_cyc_logic();
+void SpellBookKeyPressed();
 
 /* rdata */
 
