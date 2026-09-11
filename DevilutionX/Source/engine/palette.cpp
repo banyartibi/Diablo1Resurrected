@@ -34,10 +34,9 @@ uint8_t paletteTransparencyLookup[256][256];
 uint16_t paletteTransparencyLookupBlack16[65536];
 #endif
 
-namespace {
+std::atomic<bool> sgbFadedIn{true};
 
-/** Specifies whether the palette has max brightness. */
-bool sgbFadedIn = true;
+namespace {
 
 void LoadGamma()
 {
@@ -296,6 +295,7 @@ void BlackPalette()
 	// since everything is black. The caller should update the cursor
 	// when needed instead.
 	SetFadeLevel(0, /*updateHardwareCursor=*/false);
+	sgbFadedIn = false;
 }
 
 void PaletteFadeIn(int fr)
@@ -304,6 +304,8 @@ void PaletteFadeIn(int fr)
 		return;
 	if (demo::IsRunning())
 		fr = 0;
+
+	sgbFadedIn = false;
 
 	ApplyGamma(logical_palette, orig_palette, 256);
 
@@ -339,6 +341,8 @@ void PaletteFadeOut(int fr)
 	if (demo::IsRunning())
 		fr = 0;
 
+	sgbFadedIn = false;
+
 	if (fr > 0) {
 		const uint32_t tc = SDL_GetTicks();
 		fr *= 3;
@@ -357,8 +361,6 @@ void PaletteFadeOut(int fr)
 		BltFast(nullptr, nullptr);
 		RenderPresent();
 	}
-
-	sgbFadedIn = false;
 }
 
 void palette_update_caves()

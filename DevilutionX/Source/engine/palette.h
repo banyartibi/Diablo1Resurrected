@@ -6,6 +6,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 
 #include "levels/gendung.h"
@@ -35,6 +36,7 @@ namespace devilution {
 extern std::array<SDL_Color, 256> logical_palette;
 extern std::array<SDL_Color, 256> system_palette;
 extern std::array<SDL_Color, 256> orig_palette;
+extern std::atomic<bool> sgbFadedIn;
 
 /**
  * @brief Lookup table for the average of two colors in `logical_palette`.

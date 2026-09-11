@@ -68,7 +68,7 @@ D1EngineData g_D1EngineData;
 
 bool IsBridgeSafeToRead()
 {
-	return gbRunGame && !g_D1LevelTransitioning.load() && MyPlayer != nullptr && MyPlayer->_pmode != PM_NEWLVL && !MyPlayer->_pLvlChanging;
+	return gbRunGame && !g_D1LevelTransitioning.load() && sgbFadedIn.load() && MyPlayer != nullptr && MyPlayer->_pmode != PM_NEWLVL && !MyPlayer->_pLvlChanging;
 }
 
 void SetVanillaHUDHidden(bool hidden)

@@ -171,7 +171,8 @@ func activate():
 	set_process(true)
 	if camera:
 		camera.make_current()
-	rebuild_dungeon_tiles()
+	if tile_sprites.is_empty():
+		pending_dungeon_rebuild = true
 	print("[Native 2.5D View] Activated (144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)")
 
 func deactivate():
@@ -211,6 +212,9 @@ func _process(delta: float):
 			item_textures.clear()
 			corpse_textures.clear()
 			missile_textures.clear()
+
+	if tile_sprites.is_empty():
+		pending_dungeon_rebuild = true
 
 	# During level transitions, DevilutionX is tearing down and rebuilding memory.
 	# Freeze rendering updates until the new level is 100% ready to eliminate race conditions.
@@ -298,6 +302,21 @@ func rebuild_dungeon_tiles():
 			node.queue_free()
 	missile_nodes.clear()
 	missile_textures.clear()
+
+	# Clear previous monsters / NPCs
+	for m_id in monster_nodes:
+		var node = monster_nodes[m_id]
+		if is_instance_valid(node):
+			node.queue_free()
+	monster_nodes.clear()
+	monster_textures.clear()
+	monster_last_frame.clear()
+	monster_last_dir.clear()
+
+	player_texture = null
+	last_player_frame = -999
+	last_player_dir = -999
+	last_player_mode = -999
 
 	var special_grid = PackedInt32Array()
 	if diablo_bridge.has_method("get_dungeon_special_grid"):
@@ -573,7 +592,7 @@ func update_monsters(delta: float):
 		var anim_frame = m.get("anim_frame", -1)
 
 		# Y-sort depth key = monster's feet (position.y), matching vanilla D1's depth ordering
-		var target_pos = Vector2(float(mx - my) * 32.0, float(mx + my) * 16.0 + 16.0)
+		var target_pos = Vector2(float(mx - my) * 32.0, float(mx + my) * 16.0 + 20.0)
 		if is_new or node.position == Vector2.ZERO or node.position.distance_to(target_pos) > 200.0:
 			node.position = target_pos
 		else:
@@ -653,7 +672,7 @@ func get_or_create_monster_node(m_id: int) -> Node2D:
 	shadow.name = "Shadow"
 	shadow.texture = get_or_create_shadow_texture()
 	shadow.centered = true
-	shadow.position = Vector2(0, 12)
+	shadow.position = Vector2(0, 8)
 	shadow.z_index = 0
 	m_root.add_child(shadow)
 
@@ -735,7 +754,7 @@ func update_objects():
 
 		spr.visible = true
 		# Y-sort depth key = object's bottom vertex (position.y), matching vanilla D1's depth ordering
-		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0 + 16.0)
+		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0 + (18.0 if not pre_flag else 16.0))
 		spr.position = tile_pos
 		spr.z_index = -1 if pre_flag else 0
 
@@ -754,7 +773,7 @@ func update_objects():
 
 		if tex:
 			spr.texture = tex
-			spr.offset = Vector2(-float(tex.get_width()) * 0.5, -float(tex.get_height()))
+			spr.offset = Vector2(-float(tex.get_width()) * 0.5, -float(tex.get_height()) - (2.0 if not pre_flag else 0.0))
 
 		# Authentic per-tile lighting (Objects in Diablo 1 are NEVER transparent!)
 		spr.modulate.a = 1.0

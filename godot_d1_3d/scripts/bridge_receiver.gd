@@ -572,6 +572,9 @@ func _process(delta: float):
 				last_is_ingame = is_ingame
 				update_shader_params()
 				if ingame_changed:
+					if is_ingame and diablo_bridge and diablo_bridge.has_method("get_gamma") and diablo_bridge.has_method("set_gamma"):
+						var cur_g = diablo_bridge.get_gamma()
+						diablo_bridge.set_gamma(cur_g)
 					apply_display_mode()
 			if diablo_bridge.has_method("get_zoom_mode"):
 				var cur_zoom = diablo_bridge.get_zoom_mode()
