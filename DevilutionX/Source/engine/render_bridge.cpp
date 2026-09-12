@@ -2246,9 +2246,9 @@ std::vector<D1ItemInfo> GetActiveItemsList()
 				std::string goldStr = fmt::format(fmt::runtime(_("{:s} gold")), FormatInteger(item._ivalue));
 				strncpy(info.name, goldStr.c_str(), sizeof(info.name) - 1);
 			} else {
-				string_view nameView = item.getName().str();
-				size_t copyLen = std::min(nameView.size(), sizeof(info.name) - 1);
-				std::memcpy(info.name, nameView.data(), copyLen);
+				std::string cleanName = SanitizeUtf8(item.getName());
+				size_t copyLen = std::min(cleanName.size(), sizeof(info.name) - 1);
+				std::memcpy(info.name, cleanName.data(), copyLen);
 				info.name[copyLen] = '\0';
 			}
 			info.name[sizeof(info.name) - 1] = '\0';

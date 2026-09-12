@@ -13,6 +13,7 @@
 #include "engine/render/clx_render.hpp"
 #include "engine/render/primitive_render.hpp"
 #include "engine/render/scrollrt.h"
+#include "engine/render_bridge.hpp"
 #include "gmenu.h"
 #include "inv.h"
 #include "options.h"
@@ -122,22 +123,42 @@ void AddItemToLabelQueue(int id, Point position)
 		labelCenterOffsets[index].emplace((itemBounds.first + itemBounds.second) / 2);
 	}
 
-	position.x += *labelCenterOffsets[index];
-	position.y -= TILE_HEIGHT;
-	if (CurrentZoomMode == ZoomMode::Zoomed_2x) {
-		position *= 2;
-	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
-		position.x = (position.x * 3) / 2;
-		position.y = (position.y * 3) / 2;
-	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
-		position.x = (position.x * 5) / 2;
-		position.y = (position.y * 5) / 2;
-	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
-		position *= 3;
+	int viewportOffsetX = 0;
+	if (CanPanelsCoverView() && IsLeftPanelOpen()) {
+		viewportOffsetX = SidePanelSize.width;
 	}
-	position.x -= nameWidth / 2;
-	position.y -= LabelHeight();
-	labelQueue.push_back(ItemLabel { id, nameWidth, position, std::move(textOnGround) });
+
+	int centerX = position.x + *labelCenterOffsets[index];
+	int bottomY = position.y;
+	int spriteHeight = (*item.AnimInfo.sprites)[item.AnimInfo.currentFrame].height();
+	if (spriteHeight <= 0)
+		spriteHeight = 14;
+
+	int multiplier = 1;
+	int divisor = 1;
+
+	if (CurrentZoomMode == ZoomMode::Zoomed_2x) {
+		multiplier = 2;
+		divisor = 1;
+	} else if (CurrentZoomMode == ZoomMode::Balanced_1_5x) {
+		multiplier = 3;
+		divisor = 2;
+	} else if (CurrentZoomMode == ZoomMode::UltraClose_2_5x) {
+		multiplier = 5;
+		divisor = 2;
+	} else if (CurrentZoomMode == ZoomMode::MacroClose_3x) {
+		multiplier = 3;
+		divisor = 1;
+	}
+
+	int screenX = (centerX * multiplier) / divisor + viewportOffsetX;
+	int screenY = (bottomY * multiplier) / divisor;
+
+	Point labelPos;
+	labelPos.x = screenX - nameWidth / 2;
+	labelPos.y = screenY - (spriteHeight * multiplier) / divisor - LabelHeight() - 4;
+
+	labelQueue.push_back(ItemLabel { id, nameWidth, labelPos, std::move(textOnGround) });
 }
 
 bool IsMouseOverGameArea()
@@ -146,8 +167,13 @@ bool IsMouseOverGameArea()
 		return false;
 	if ((IsLeftPanelOpen()) && GetLeftPanel().contains(MousePosition))
 		return false;
-	if (GetMainPanel().contains(MousePosition))
-		return false;
+	if (gbHideVanillaHUD) {
+		if (MousePosition.y >= gnScreenHeight - 142 && std::abs(MousePosition.x - gnScreenWidth / 2) <= 450)
+			return false;
+	} else {
+		if (GetMainPanel().contains(MousePosition))
+			return false;
+	}
 
 	return true;
 }
@@ -195,6 +221,11 @@ void DrawItemNameLabels(const Surface &out)
 
 	for (const ItemLabel &label : labelQueue) {
 		Item &item = Items[label.id];
+
+		if (gbHideVanillaHUD) {
+			if (label.pos.y + labelHeight >= out.h() - 142 && std::abs((label.pos.x + label.width / 2) - out.w() / 2) <= 450)
+				continue;
+		}
 
 		if (MousePosition.x >= label.pos.x && MousePosition.x < label.pos.x + label.width
 		    && MousePosition.y >= label.pos.y && MousePosition.y < label.pos.y + labelHeight) {

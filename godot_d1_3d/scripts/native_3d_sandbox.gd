@@ -140,7 +140,12 @@ func setup_dungeon_multimeshes():
 	floor_mat.metallic = 0.08
 	floor_mat.normal_enabled = true
 	floor_mat.normal_scale = 0.75
-	floor_mat.normal_texture = floor_tex
+	var pbr_floor_norm = "res://assets/dungeon_pbr/normal/piece_0_n.png"
+	if FileAccess.file_exists(pbr_floor_norm):
+		var fn_img = Image.load_from_file(ProjectSettings.globalize_path(pbr_floor_norm))
+		floor_mat.normal_texture = ImageTexture.create_from_image(fn_img)
+	else:
+		floor_mat.normal_texture = floor_tex
 	floor_box.material = floor_mat
 	floor_mm.mesh = floor_box
 	floor_mmi.multimesh = floor_mm
@@ -170,7 +175,12 @@ func setup_dungeon_multimeshes():
 	wall_mat.metallic = 0.02
 	wall_mat.normal_enabled = true
 	wall_mat.normal_scale = 1.0
-	wall_mat.normal_texture = wall_tex
+	var pbr_wall_norm = "res://assets/dungeon_pbr/normal/piece_1_n.png"
+	if FileAccess.file_exists(pbr_wall_norm):
+		var wn_img = Image.load_from_file(ProjectSettings.globalize_path(pbr_wall_norm))
+		wall_mat.normal_texture = ImageTexture.create_from_image(wn_img)
+	else:
+		wall_mat.normal_texture = wall_tex
 	wall_box.material = wall_mat
 	wall_mm.mesh = wall_box
 	wall_mmi.multimesh = wall_mm

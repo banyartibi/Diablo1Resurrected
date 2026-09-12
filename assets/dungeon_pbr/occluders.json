@@ -1,0 +1,2036 @@
+{
+  "piece_130": {
+    "type": "none"
+  },
+  "piece_260": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_137": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_35": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_307": {
+    "type": "none"
+  },
+  "piece_113": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_45": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_1": {
+    "type": "none"
+  },
+  "piece_324": {
+    "type": "none"
+  },
+  "piece_3": {
+    "type": "none"
+  },
+  "piece_318": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_24": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_225": {
+    "type": "none"
+  },
+  "piece_107": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_269": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_350": {
+    "type": "none"
+  },
+  "piece_304": {
+    "type": "none"
+  },
+  "piece_218": {
+    "type": "none"
+  },
+  "piece_106": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_323": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_0": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_6": {
+    "type": "none"
+  },
+  "piece_197": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "special_7": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_4": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_37": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_215": {
+    "type": "none"
+  },
+  "piece_261": {
+    "type": "none"
+  },
+  "piece_138": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_125": {
+    "type": "none"
+  },
+  "piece_444": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_327": {
+    "type": "none"
+  },
+  "piece_25": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_305": {
+    "type": "none"
+  },
+  "piece_124": {
+    "type": "none"
+  },
+  "piece_232": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_196": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_275": {
+    "type": "none"
+  },
+  "piece_121": {
+    "type": "none"
+  },
+  "piece_120": {
+    "type": "none"
+  },
+  "piece_258": {
+    "type": "none"
+  },
+  "piece_217": {
+    "type": "none"
+  },
+  "piece_139": {
+    "type": "none"
+  },
+  "piece_48": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_316": {
+    "type": "none"
+  },
+  "piece_282": {
+    "type": "none"
+  },
+  "piece_110": {
+    "type": "none"
+  },
+  "piece_226": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_136": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_57": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_227": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_31": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_320": {
+    "type": "none"
+  },
+  "piece_29": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_394": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_236": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_447": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_135": {
+    "type": "none"
+  },
+  "piece_292": {
+    "type": "none"
+  },
+  "piece_198": {
+    "type": "none"
+  },
+  "piece_142": {
+    "type": "none"
+  },
+  "piece_119": {
+    "type": "none"
+  },
+  "piece_16": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_255": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_131": {
+    "type": "none"
+  },
+  "piece_240": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_61": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_115": {
+    "type": "none"
+  },
+  "piece_313": {
+    "type": "none"
+  },
+  "piece_229": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_322": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_27": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_321": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_200": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "special_8": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_202": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_239": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_445": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_17": {
+    "type": "none"
+  },
+  "piece_46": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_243": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_34": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_122": {
+    "type": "none"
+  },
+  "piece_40": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_257": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_41": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_8": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_62": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_19": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_314": {
+    "type": "none"
+  },
+  "piece_242": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_289": {
+    "type": "none"
+  },
+  "piece_237": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_346": {
+    "type": "none"
+  },
+  "piece_47": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_351": {
+    "type": "none"
+  },
+  "piece_284": {
+    "type": "none"
+  },
+  "piece_228": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_345": {
+    "type": "none"
+  },
+  "piece_312": {
+    "type": "none"
+  },
+  "piece_26": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_231": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_134": {
+    "type": "none"
+  },
+  "piece_391": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_108": {
+    "type": "none"
+  },
+  "piece_127": {
+    "type": "none"
+  },
+  "piece_132": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_273": {
+    "type": "none"
+  },
+  "piece_14": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_30": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_12": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_246": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_301": {
+    "type": "none"
+  },
+  "piece_43": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_281": {
+    "type": "none"
+  },
+  "piece_286": {
+    "type": "none"
+  },
+  "piece_315": {
+    "type": "none"
+  },
+  "piece_349": {
+    "type": "none"
+  },
+  "piece_2": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_439": {
+    "type": "none"
+  },
+  "piece_7": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_297": {
+    "type": "none"
+  },
+  "piece_33": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_201": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_311": {
+    "type": "none"
+  },
+  "piece_23": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_230": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_303": {
+    "type": "none"
+  },
+  "piece_256": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_272": {
+    "type": "none"
+  },
+  "piece_18": {
+    "type": "none"
+  },
+  "piece_114": {
+    "type": "none"
+  },
+  "piece_128": {
+    "type": "none"
+  },
+  "special_1": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_9": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_109": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_5": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_271": {
+    "type": "none"
+  },
+  "piece_117": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_290": {
+    "type": "none"
+  },
+  "piece_287": {
+    "type": "none"
+  },
+  "piece_288": {
+    "type": "none"
+  },
+  "piece_448": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_10": {
+    "type": "none"
+  },
+  "piece_238": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_220": {
+    "type": "none"
+  },
+  "special_5": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_296": {
+    "type": "none"
+  },
+  "piece_221": {
+    "type": "none"
+  },
+  "special_2": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_224": {
+    "type": "none"
+  },
+  "piece_310": {
+    "type": "none"
+  },
+  "piece_299": {
+    "type": "none"
+  },
+  "piece_235": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_328": {
+    "type": "none"
+  },
+  "piece_63": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_111": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_126": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_141": {
+    "type": "none"
+  },
+  "piece_28": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_295": {
+    "type": "none"
+  },
+  "piece_241": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_203": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_309": {
+    "type": "none"
+  },
+  "piece_199": {
+    "type": "none"
+  },
+  "piece_440": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_270": {
+    "type": "none"
+  },
+  "piece_11": {
+    "type": "none"
+  },
+  "piece_21": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_116": {
+    "type": "none"
+  },
+  "piece_112": {
+    "type": "none"
+  },
+  "piece_319": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_118": {
+    "type": "none"
+  },
+  "piece_308": {
+    "type": "none"
+  },
+  "piece_219": {
+    "type": "none"
+  },
+  "piece_442": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_438": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_436": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_264": {
+    "type": "none"
+  },
+  "piece_13": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_42": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_276": {
+    "type": "none"
+  },
+  "piece_274": {
+    "type": "none"
+  },
+  "piece_298": {
+    "type": "none"
+  },
+  "piece_283": {
+    "type": "none"
+  },
+  "piece_348": {
+    "type": "none"
+  },
+  "piece_44": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_317": {
+    "type": "none"
+  },
+  "piece_129": {
+    "type": "none"
+  },
+  "piece_326": {
+    "type": "none"
+  },
+  "piece_140": {
+    "type": "none"
+  },
+  "piece_441": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_262": {
+    "type": "none"
+  },
+  "piece_325": {
+    "type": "none"
+  },
+  "piece_329": {
+    "type": "none"
+  },
+  "piece_133": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_233": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_437": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  },
+  "piece_223": {
+    "type": "none"
+  },
+  "piece_293": {
+    "type": "none"
+  },
+  "piece_347": {
+    "type": "none"
+  },
+  "piece_105": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_259": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_392": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_302": {
+    "type": "none"
+  },
+  "piece_294": {
+    "type": "none"
+  },
+  "piece_20": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_22": {
+    "type": "none"
+  },
+  "piece_123": {
+    "type": "none"
+  },
+  "piece_64": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_15": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_263": {
+    "type": "none"
+  },
+  "piece_36": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_300": {
+    "type": "none"
+  },
+  "piece_222": {
+    "type": "none"
+  },
+  "piece_39": {
+    "type": "pillar",
+    "points": [
+      [
+        -12,
+        -6
+      ],
+      [
+        0,
+        -12
+      ],
+      [
+        12,
+        -6
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "piece_38": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_285": {
+    "type": "none"
+  },
+  "piece_306": {
+    "type": "none"
+  },
+  "piece_291": {
+    "type": "none"
+  },
+  "piece_234": {
+    "type": "wall_left",
+    "points": [
+      [
+        -32,
+        0
+      ],
+      [
+        0,
+        -16
+      ]
+    ]
+  },
+  "piece_352": {
+    "type": "none"
+  },
+  "piece_216": {
+    "type": "none"
+  },
+  "piece_393": {
+    "type": "wall_right",
+    "points": [
+      [
+        0,
+        -16
+      ],
+      [
+        32,
+        0
+      ]
+    ]
+  }
+}

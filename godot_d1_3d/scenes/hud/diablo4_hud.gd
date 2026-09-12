@@ -196,6 +196,13 @@ func _ready():
 	spellbook_frame.visible = false
 	add_child(spellbook_frame)
 
+	# Ensure HUD root and popups start hidden until player is actually in-game
+	$Root.visible = false
+	if item_tooltip:
+		item_tooltip.visible = false
+	if skill_selector:
+		skill_selector.visible = false
+
 	# Disable all keyboard focus grabbing on HUD elements so TAB key always toggles automap!
 	_disable_focus_recursive(self)
 
@@ -770,8 +777,16 @@ func update_item_tooltip():
 
 	var info = diablo_bridge.get_hover_item_info()
 	var is_inv: bool = info.get("is_inventory", false)
+	var is_monster: bool = info.get("is_monster", false)
 	var item_name: String = info.get("name", "")
 	if item_name.strip_edges() == "":
+		if item_tooltip and item_tooltip.visible:
+			item_tooltip.visible = false
+		return
+
+	# If mouse cursor is hovering over the modernized HUD container itself, don't show ground item tooltips for items behind the HUD
+	var cur_mouse = get_viewport().get_mouse_position()
+	if not is_inv and not is_monster and $Root.visible and $Root.get_global_rect().has_point(cur_mouse):
 		if item_tooltip and item_tooltip.visible:
 			item_tooltip.visible = false
 		return
@@ -787,8 +802,6 @@ func update_item_tooltip():
 	item_stats_label.visible = has_stats
 	if item_divider:
 		item_divider.visible = has_stats
-
-	var is_monster: bool = info.get("is_monster", false)
 
 	var title_col = QUALITY_TITLE_COLORS.get(quality, QUALITY_TITLE_COLORS[0])
 	var border_col = QUALITY_BORDER_COLORS.get(quality, QUALITY_BORDER_COLORS[0])
@@ -831,7 +844,6 @@ func update_item_tooltip():
 		target_pos.y = 28.0
 	else:
 		# Ground / Belt hover: next to mouse cursor
-		var cur_mouse = get_viewport().get_mouse_position()
 		target_pos.x = cur_mouse.x + 18.0
 		target_pos.y = cur_mouse.y + 12.0
 		if target_pos.x + tooltip_w > vp_size.x - 10.0:

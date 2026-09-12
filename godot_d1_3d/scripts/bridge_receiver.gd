@@ -227,8 +227,7 @@ func _ready():
 	# Initialize Diablo IV Native CanvasLayer Modern HUD
 	modern_hud = modern_hud_scene.instantiate()
 	add_child(modern_hud)
-	modern_hud.visible = modern_hud_enabled
-	if diablo_bridge:
+	if diablo_bridge and modern_hud and modern_hud.has_method("set_bridge"):
 		modern_hud.set_bridge(diablo_bridge)
 
 	# Initialize Native Godot 2.5D View (Mode 1)
@@ -546,7 +545,7 @@ func _process(delta: float):
 			if not had_connected:
 				had_connected = true
 				print("[Godot-D1 Bridge] In-Process Engine Connected! Streaming live frames to 3D Viewport.")
-				if modern_hud:
+				if modern_hud and modern_hud.has_method("set_bridge"):
 					modern_hud.set_bridge(diablo_bridge)
 				if modern_hud_enabled:
 					diablo_bridge.set_vanilla_hud_hidden(true)

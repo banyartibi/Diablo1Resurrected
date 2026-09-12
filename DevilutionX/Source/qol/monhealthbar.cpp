@@ -15,6 +15,7 @@
 #include "engine/load_clx.hpp"
 #include "engine/render/clx_render.hpp"
 #include "engine/render/primitive_render.hpp"
+#include "engine/render_bridge.hpp"
 #include "options.h"
 #include "utils/language.h"
 #include "utils/str_cat.hpp"
@@ -59,7 +60,7 @@ void FreeMonsterHealthBar()
 
 void DrawMonsterHealthBar(const Surface &out)
 {
-	if (!*sgOptions.Gameplay.enemyHealthBar)
+	if (gbHideVanillaHUD || !*sgOptions.Gameplay.enemyHealthBar)
 		return;
 
 	if (leveltype == DTYPE_TOWN)
