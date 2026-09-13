@@ -166,7 +166,9 @@ enum class D1BridgeActionType : int {
 	// Spellbook actions
 	ToggleSpellBook = 23,
 	SetSpellBookPage = 24,
-	SelectSpellBookEntry = 25
+	SelectSpellBookEntry = 25,
+	// Zoom-scaled vision radius
+	SetZoomVisionRadius = 26
 };
 
 void PushBridgeAction(D1BridgeActionType type, int arg1 = 0, int arg2 = 0, int arg3 = 0, int arg4 = 0);
@@ -397,6 +399,7 @@ void CopyD1SpecialGrid(int32_t *dest, size_t maxTiles);
 
 // Per-Tile Lighting & Transparency (Fog of War & Room Transparency)
 void CopyD1LightGrid(uint8_t *dest, size_t maxTiles);
+void CopyD1FlagsGrid(uint8_t *dest, size_t maxTiles);
 void CopyD1TransGrid(uint8_t *dest, size_t maxTiles);
 void CopyD1TransparencyMask(uint8_t *dest, size_t maxTiles);
 std::vector<uint8_t> GetTransList();

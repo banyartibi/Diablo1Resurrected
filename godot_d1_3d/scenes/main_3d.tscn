@@ -48,8 +48,20 @@ scale_min = 0.5
 scale_max = 1.2
 color = Color(1, 0.65, 0.25, 0.85)
 
-[sub_resource type="BoxMesh" id="BoxMesh_ember"]
-size = Vector3(0.05, 0.05, 0.05)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ember"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 0.65, 0.25, 0.85)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_ember"]
+material = SubResource("StandardMaterial3D_ember")
+size = Vector2(0.04, 0.04)
 
 [node name="Main3D" type="Node3D" node_paths=PackedStringArray("mesh_instance", "hero_light", "camera", "world_env")]
 script = ExtResource("1_recv")
@@ -103,5 +115,5 @@ amount = 64
 lifetime = 3.5
 preprocess = 1.0
 process_material = SubResource("ParticleProcessMaterial_embers")
-draw_pass_1 = SubResource("BoxMesh_ember")
+draw_pass_1 = SubResource("QuadMesh_ember")
 

@@ -128,9 +128,11 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_special_cel_data", "special_id"), &DiabloBridge::get_special_cel_data);
 	ClassDB::bind_method(D_METHOD("get_special_cel_texture", "special_id"), &DiabloBridge::get_special_cel_texture);
 	ClassDB::bind_method(D_METHOD("get_dungeon_light_grid"), &DiabloBridge::get_dungeon_light_grid);
+	ClassDB::bind_method(D_METHOD("get_dungeon_flags_grid"), &DiabloBridge::get_dungeon_flags_grid);
 	ClassDB::bind_method(D_METHOD("get_dungeon_trans_grid"), &DiabloBridge::get_dungeon_trans_grid);
 	ClassDB::bind_method(D_METHOD("get_dungeon_trans_mask"), &DiabloBridge::get_dungeon_trans_mask);
 	ClassDB::bind_method(D_METHOD("get_trans_list"), &DiabloBridge::get_trans_list);
+	ClassDB::bind_method(D_METHOD("set_zoom_vision_radius", "radius"), &DiabloBridge::set_zoom_vision_radius);
 
 	// Native Godot 2.5D Dungeon Objects (Torches, Barrels, Chests, Shrines)
 	ClassDB::bind_method(D_METHOD("get_active_objects"), &DiabloBridge::get_active_objects);
@@ -678,6 +680,18 @@ PackedByteArray DiabloBridge::get_dungeon_light_grid() const {
 	uint8_t *w = arr.ptrw();
 	devilution::CopyD1LightGrid(w, 112 * 112);
 	return arr;
+}
+
+PackedByteArray DiabloBridge::get_dungeon_flags_grid() const {
+	PackedByteArray arr;
+	arr.resize(112 * 112);
+	uint8_t *w = arr.ptrw();
+	devilution::CopyD1FlagsGrid(w, 112 * 112);
+	return arr;
+}
+
+void DiabloBridge::set_zoom_vision_radius(int radius) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetZoomVisionRadius, radius);
 }
 
 PackedByteArray DiabloBridge::get_dungeon_trans_grid() const {

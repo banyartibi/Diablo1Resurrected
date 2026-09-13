@@ -19,10 +19,15 @@ var canvas_modulate: CanvasModulate = null
 var shared_radial_light_texture: GradientTexture2D = null
 
 # State tracking
+var hd_graphics_enabled: bool = true
 var last_level_idx: int = -999
 var pending_dungeon_rebuild: bool = false
+var level_stabilize_frames: int = 0
+var pending_secondary_rebuild: bool = false
+var secondary_rebuild_countdown: int = 0
 var last_gamma_value: int = -1  # bridge gamma; on change -> invalidate all palette-baked textures
-var tile_sprites: Dictionary = {} # Vector2i -> Sprite2D
+var tile_sprites: Dictionary = {} # Vector2i -> Sprite2D (Floor diamonds, z_index = -2)
+var wall_sprites: Dictionary = {} # Vector2i -> Sprite2D (Upper Wall & Scenery, z_index = 0)
 var special_sprites: Dictionary = {} # Vector2i -> Sprite2D (Arches, Doorways, Column Tops)
 var last_visible_tiles: Dictionary = {} # Vector2i -> bool (track visible tiles for efficient culling)
 var last_player_frame: int = -999
@@ -57,6 +62,10 @@ var torch_lights: Array = []
 
 # Realistic 2.5D Shadows & Lighting
 var realistic_shadow_shader = preload("res://shaders/realistic_25d_shadow.gdshader")
+var entity_hd_shader = preload("res://shaders/entity_hd_upscaler.gdshader")
+var entity_hd_material: ShaderMaterial = null
+var player_hd_material: ShaderMaterial = null
+var monster_hd_material: ShaderMaterial = null
 var player_shadow_material: ShaderMaterial = null
 var current_player_shadow_skew: Vector2 = Vector2(0.28, 0.42)
 var current_player_shadow_length: float = 0.9
@@ -93,11 +102,11 @@ func _ready():
 	setup_scene_hierarchy()
 
 func setup_scene_hierarchy():
-	# 2D World Root with Y-sorting and pixel-perfect nearest-neighbor filtering
+	# 2D World Root with Y-sorting and adaptive texture filtering (HD: Linear with Mipmaps, 1996: Nearest)
 	world_root = Node2D.new()
 	world_root.name = "WorldRoot"
 	world_root.y_sort_enabled = true
-	world_root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_apply_texture_filtering()
 	add_child(world_root)
 	load_pbr_occluders()
 
@@ -123,9 +132,50 @@ func setup_scene_hierarchy():
 	var z = zoom_levels[current_zoom_idx]
 	camera.zoom = Vector2(z, z)
 	add_child(camera)
+	_apply_zoom_vision(z)
+
+	# Entity Neural Super-Resolution & CAS Shader Material
+	entity_hd_material = ShaderMaterial.new()
+	entity_hd_material.shader = entity_hd_shader
+	entity_hd_material.set_shader_parameter("hd_enabled", hd_graphics_enabled)
+	entity_hd_material.set_shader_parameter("gamma", 1.55)
+	entity_hd_material.set_shader_parameter("brightness", 1.45)
+	player_hd_material = entity_hd_material
+	monster_hd_material = entity_hd_material
 
 	# Player Entity (participates in Y-sorting under world_root)
 	setup_player_node()
+
+func get_hd_graphics_enabled() -> bool:
+	return hd_graphics_enabled
+
+func set_hd_graphics_enabled(enabled: bool) -> void:
+	if hd_graphics_enabled == enabled:
+		return
+	hd_graphics_enabled = enabled
+	pbr_texture_cache.clear()
+	pbr_special_cache.clear()
+	player_texture = null
+	last_player_frame = -999
+	last_player_dir = -999
+	last_player_mode = -999
+	monster_textures.clear()
+	monster_last_frame.clear()
+	monster_last_dir.clear()
+	object_textures.clear()
+	item_textures.clear()
+	corpse_textures.clear()
+	missile_textures.clear()
+	if entity_hd_material:
+		entity_hd_material.set_shader_parameter("hd_enabled", enabled)
+	_apply_texture_filtering()
+	rebuild_dungeon_tiles()
+	update_lighting_and_transparency()
+	print("[Native 2.5D View] HD Graphics switched to: %s" % ("Resurrected 4x HD" if enabled else "Authentic 1996"))
+
+func _apply_texture_filtering() -> void:
+	if world_root:
+		world_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if hd_graphics_enabled else CanvasItem.TEXTURE_FILTER_NEAREST
 
 func get_or_create_shadow_texture() -> ImageTexture:
 	if shadow_texture != null:
@@ -173,10 +223,11 @@ func setup_player_node():
 	player_shadow.visible = false
 	player_node.add_child(player_shadow)
 
-	# Hero Sprite2D (authentic animated Diablo 1 pixel art)
+	# Hero Sprite2D (authentic animated Diablo 1 & Hellfire character with Neural Super-Resolution)
 	player_sprite = Sprite2D.new()
 	player_sprite.name = "PlayerSprite"
 	player_sprite.centered = true
+	player_sprite.material = entity_hd_material
 	player_node.add_child(player_sprite)
 
 	# Hero Torch Light with PCF13 Soft Penumbra Shadows
@@ -235,6 +286,8 @@ func _process(delta: float):
 		if cur_lvl != last_level_idx:
 			last_level_idx = cur_lvl
 			pending_dungeon_rebuild = true
+			level_stabilize_frames = 6
+			pending_secondary_rebuild = false
 
 	# Gamma changed (options slider) -> palette-baked textures are stale. Invalidate all of them so the
 	# whole scene re-renders with the new palette, matching legacy behaviour where gamma affects the entire
@@ -244,6 +297,12 @@ func _process(delta: float):
 		var cur_gamma = diablo_bridge.get_gamma()
 		if cur_gamma != last_gamma_value:
 			last_gamma_value = cur_gamma
+			# Synchronize gamma with entity upscaler shader
+			var g_curve = remap(clampf(float(cur_gamma), 30.0, 100.0), 30.0, 100.0, 1.40, 2.40)
+			var b_curve = remap(clampf(float(cur_gamma), 30.0, 100.0), 30.0, 100.0, 1.35, 1.85)
+			if entity_hd_material:
+				entity_hd_material.set_shader_parameter("gamma", g_curve)
+				entity_hd_material.set_shader_parameter("brightness", b_curve)
 			pending_dungeon_rebuild = true
 			player_texture = null
 			last_player_frame = -999
@@ -265,6 +324,13 @@ func _process(delta: float):
 	if diablo_bridge.has_method("is_level_loading") and diablo_bridge.is_level_loading():
 		return
 
+	if diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
+		return
+
+	if level_stabilize_frames > 0:
+		level_stabilize_frames -= 1
+		return
+
 	if pending_dungeon_rebuild:
 		var grid = diablo_bridge.get_dungeon_grid() if diablo_bridge.has_method("get_dungeon_grid") else PackedInt32Array()
 		if grid.size() >= 112 * 112:
@@ -276,10 +342,29 @@ func _process(delta: float):
 						can_fetch = true
 						break
 			if can_fetch:
+				var p_pos = diablo_bridge.get_player_continuous_pos() if diablo_bridge.has_method("get_player_continuous_pos") else {}
+				var px = float(p_pos.get("pos_x", 0.0))
+				var py = float(p_pos.get("pos_y", 0.0))
+				if last_level_idx > 0 and (px <= 0.0 or py <= 0.0):
+					# Player position not yet initialized in engine, wait another frame
+					return
+
 				if diablo_bridge.has_method("clear_dungeon_piece_cache"):
 					diablo_bridge.clear_dungeon_piece_cache()
 				rebuild_dungeon_tiles()
+				update_lighting_and_transparency()
 				pending_dungeon_rebuild = false
+				pending_secondary_rebuild = true
+				secondary_rebuild_countdown = 8
+
+	if pending_secondary_rebuild:
+		if secondary_rebuild_countdown > 0:
+			secondary_rebuild_countdown -= 1
+		else:
+			pending_secondary_rebuild = false
+			rebuild_dungeon_tiles()
+			update_lighting_and_transparency()
+			print("[Native 2.5D View] Post-load stabilization rebuild completed (100% assets verified)")
 
 	time_accum += delta
 
@@ -306,13 +391,31 @@ func load_pbr_occluders():
 				pbr_occluders_cache = json.data
 				print("[Native 2.5D View] Loaded %d PBR linear wall occluders" % pbr_occluders_cache.size())
 
+func is_cathedral_level() -> bool:
+	return last_level_idx >= 1 and last_level_idx <= 4
+
 func get_pbr_or_base_texture(piece_id: int) -> Texture2D:
 	if pbr_texture_cache.has(piece_id):
 		return pbr_texture_cache[piece_id]
 
-	var alb_path = "res://assets/dungeon_pbr/albedo/piece_%d.png" % piece_id
-	var norm_path = "res://assets/dungeon_pbr/normal/piece_%d_n.png" % piece_id
-	var spec_path = "res://assets/dungeon_pbr/specular/piece_%d_s.png" % piece_id
+	# Town (Level 0) and non-Cathedral levels must ALWAYS use authentic engine textures!
+	if not is_cathedral_level():
+		if diablo_bridge and diablo_bridge.has_method("get_dungeon_piece_texture"):
+			var base_tex = diablo_bridge.get_dungeon_piece_texture(piece_id)
+			if base_tex:
+				pbr_texture_cache[piece_id] = base_tex
+			return base_tex
+		return null
+
+	var base_folder = "res://assets/dungeon_pbr_4x" if hd_graphics_enabled else "res://assets/dungeon_pbr"
+	var alb_path = "%s/albedo/piece_%d.png" % [base_folder, piece_id]
+	var norm_path = "%s/normal/piece_%d_n.png" % [base_folder, piece_id]
+	var spec_path = "%s/specular/piece_%d_s.png" % [base_folder, piece_id]
+
+	if not FileAccess.file_exists(alb_path) and hd_graphics_enabled:
+		alb_path = "res://assets/dungeon_pbr/albedo/piece_%d.png" % piece_id
+		norm_path = "res://assets/dungeon_pbr/normal/piece_%d_n.png" % piece_id
+		spec_path = "res://assets/dungeon_pbr/specular/piece_%d_s.png" % piece_id
 
 	if FileAccess.file_exists(alb_path) and FileAccess.file_exists(norm_path):
 		var alb_img = Image.load_from_file(ProjectSettings.globalize_path(alb_path))
@@ -327,15 +430,15 @@ func get_pbr_or_base_texture(piece_id: int) -> Texture2D:
 					ct.specular_texture = ImageTexture.create_from_image(spec_img)
 					ct.specular_shininess = 0.35
 					ct.specular_color = Color(0.75, 0.65, 0.50)
-			ct.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			ct.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if hd_graphics_enabled else CanvasItem.TEXTURE_FILTER_NEAREST
 			pbr_texture_cache[piece_id] = ct
 			return ct
 
 	# Fallback to vanilla engine texture
 	if diablo_bridge and diablo_bridge.has_method("get_dungeon_piece_texture"):
 		var base_tex = diablo_bridge.get_dungeon_piece_texture(piece_id)
-		if base_tex == null and last_level_idx == 0 and piece_id == 0:
-			base_tex = diablo_bridge.get_dungeon_piece_texture(426)
+		if base_tex:
+			pbr_texture_cache[piece_id] = base_tex
 		return base_tex
 	return null
 
@@ -343,9 +446,24 @@ func get_pbr_or_base_special_texture(special_id: int) -> Texture2D:
 	if pbr_special_cache.has(special_id):
 		return pbr_special_cache[special_id]
 
-	var alb_path = "res://assets/dungeon_pbr/albedo/special_%d.png" % special_id
-	var norm_path = "res://assets/dungeon_pbr/normal/special_%d_n.png" % special_id
-	var spec_path = "res://assets/dungeon_pbr/specular/special_%d_s.png" % special_id
+	# Town (Level 0) and non-Cathedral levels must ALWAYS use authentic engine special CELs!
+	if not is_cathedral_level():
+		if diablo_bridge and diablo_bridge.has_method("get_special_cel_texture"):
+			var base_tex = diablo_bridge.get_special_cel_texture(special_id)
+			if base_tex:
+				pbr_special_cache[special_id] = base_tex
+			return base_tex
+		return null
+
+	var base_folder = "res://assets/dungeon_pbr_4x" if hd_graphics_enabled else "res://assets/dungeon_pbr"
+	var alb_path = "%s/albedo/special_%d.png" % [base_folder, special_id]
+	var norm_path = "%s/normal/special_%d_n.png" % [base_folder, special_id]
+	var spec_path = "%s/specular/special_%d_s.png" % [base_folder, special_id]
+
+	if not FileAccess.file_exists(alb_path) and hd_graphics_enabled:
+		alb_path = "res://assets/dungeon_pbr/albedo/special_%d.png" % special_id
+		norm_path = "res://assets/dungeon_pbr/normal/special_%d_n.png" % special_id
+		spec_path = "res://assets/dungeon_pbr/specular/special_%d_s.png" % special_id
 
 	if FileAccess.file_exists(alb_path) and FileAccess.file_exists(norm_path):
 		var alb_img = Image.load_from_file(ProjectSettings.globalize_path(alb_path))
@@ -360,12 +478,15 @@ func get_pbr_or_base_special_texture(special_id: int) -> Texture2D:
 					ct.specular_texture = ImageTexture.create_from_image(spec_img)
 					ct.specular_shininess = 0.35
 					ct.specular_color = Color(0.75, 0.65, 0.50)
-			ct.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			ct.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if hd_graphics_enabled else CanvasItem.TEXTURE_FILTER_NEAREST
 			pbr_special_cache[special_id] = ct
 			return ct
 
 	if diablo_bridge and diablo_bridge.has_method("get_special_cel_texture"):
-		return diablo_bridge.get_special_cel_texture(special_id)
+		var base_tex = diablo_bridge.get_special_cel_texture(special_id)
+		if base_tex:
+			pbr_special_cache[special_id] = base_tex
+		return base_tex
 	return null
 
 func ensure_pbr_assets_for_level(grid: PackedInt32Array, special_grid: PackedInt32Array):
@@ -431,6 +552,13 @@ func rebuild_dungeon_tiles():
 		if is_instance_valid(spr):
 			spr.queue_free()
 	tile_sprites.clear()
+
+	# Clear previous upper wall and scenery sprites
+	for pos_key in wall_sprites:
+		var spr = wall_sprites[pos_key]
+		if is_instance_valid(spr):
+			spr.queue_free()
+	wall_sprites.clear()
 	last_visible_tiles.clear()
 	pbr_texture_cache.clear()
 	pbr_special_cache.clear()
@@ -504,7 +632,8 @@ func rebuild_dungeon_tiles():
 	if diablo_bridge.has_method("get_dungeon_solidity_grid"):
 		solidity_grid = diablo_bridge.get_dungeon_solidity_grid()
 
-	ensure_pbr_assets_for_level(grid, special_grid)
+	if is_cathedral_level():
+		ensure_pbr_assets_for_level(grid, special_grid)
 
 	var count = 0
 	var special_count = 0
@@ -518,38 +647,71 @@ func rebuild_dungeon_tiles():
 			var tile_pos = Vector2(float(x - y) * 32.0, float(x + y) * 16.0 + 16.0)
 
 			# 1. Base Dungeon Piece (Floor & Walls) - PBR Normal Mapped & Delighted
-			if piece_id >= 0:
+			var is_valid_piece = (piece_id >= 0)
+			if is_valid_piece and solidity_grid.size() >= 112 * 112 and last_level_idx != 0:
+				if solidity_grid[idx] == 0:
+					is_valid_piece = false
+
+			if is_valid_piece:
 				var tex: Texture2D = get_pbr_or_base_texture(piece_id)
 				if tex != null:
+					var tw = tex.get_width()
+					var th = tex.get_height()
+					var scale_factor = 64.0 / float(tw)
+					var floor_h = int(round(float(tw) * 0.5)) # 32 for 64w, 128 for 256w
+					var has_upper = (th > floor_h)
+
+					# 1. Floor Sprite (Bottom 32 world pixels): ALWAYS z_index = -2 so ground NEVER covers trees, hero, or monsters!
 					var spr = Sprite2D.new()
 					spr.texture = tex
 					spr.material = dungeon_tile_material
 					spr.centered = false
-					var h = tex.get_height()
+					spr.scale = Vector2(scale_factor, scale_factor)
 					spr.position = tile_pos
-					spr.offset = Vector2(-32.0, -float(h))
-					# Initialize hidden in deep gothic darkness / fog of war
+					if has_upper:
+						spr.region_enabled = true
+						spr.region_rect = Rect2(0, th - floor_h, tw, floor_h)
+						spr.offset = Vector2(-float(tw) * 0.5, -float(floor_h))
+					else:
+						spr.offset = Vector2(-float(tw) * 0.5, -float(th))
 					spr.self_modulate = Color(1.0, 1.0, 1.0)
 					spr.visible = false
-					if h <= 32:
-						spr.z_index = -2
-					else:
-						spr.z_index = 0
+					spr.z_index = -2
 					world_root.add_child(spr)
 					tile_sprites[Vector2i(x, y)] = spr
 					count += 1
 
+					# 2. Upper Wall / Scenery Sprite (Everything above bottom 32 world pixels): z_index = 0, Y-sorted with entities and trees!
+					if has_upper:
+						var wall_spr = Sprite2D.new()
+						wall_spr.texture = tex
+						wall_spr.material = dungeon_tile_material
+						wall_spr.centered = false
+						wall_spr.scale = Vector2(scale_factor, scale_factor)
+						wall_spr.position = tile_pos
+						wall_spr.region_enabled = true
+						wall_spr.region_rect = Rect2(0, 0, tw, th - floor_h)
+						wall_spr.offset = Vector2(-float(tw) * 0.5, -float(th))
+						wall_spr.self_modulate = Color(1.0, 1.0, 1.0)
+						wall_spr.visible = false
+						wall_spr.z_index = 0
+						world_root.add_child(wall_spr)
+						wall_sprites[Vector2i(x, y)] = wall_spr
+
 			# 2. Milestone 1: Special CELs (Archways, Column Tops, Doorways) - PBR
-			if special_id > 0:
+			if special_id > 0 and (last_level_idx == 0 or solidity_grid.size() < 112 * 112 or solidity_grid[idx] != 0):
 				var arch_tex: Texture2D = get_pbr_or_base_special_texture(special_id)
 				if arch_tex != null:
 					var arch_spr = Sprite2D.new()
 					arch_spr.texture = arch_tex
 					arch_spr.material = dungeon_tile_material
 					arch_spr.centered = false
-					var ah = arch_tex.get_height()
+					var atw = arch_tex.get_width()
+					var ath = arch_tex.get_height()
+					var a_scale = 64.0 / float(atw)
+					arch_spr.scale = Vector2(a_scale, a_scale)
 					arch_spr.position = tile_pos
-					arch_spr.offset = Vector2(-32.0, -float(ah))
+					arch_spr.offset = Vector2(-float(atw) * 0.5, -float(ath))
 					# Initialize hidden in deep gothic darkness / fog of war
 					arch_spr.self_modulate = Color(1.0, 1.0, 1.0)
 					arch_spr.visible = false
@@ -580,6 +742,15 @@ func rebuild_dungeon_tiles():
 
 	print("[Native 2.5D View] Rebuilt %d dungeon tiles and %d special archways/column tops" % [count, special_count])
 
+func _apply_zoom_vision(z: float) -> void:
+	var zoom_boost = clampf(1.5 / z, 1.0, 2.2)
+	var d1_rad = int(clampf(10.0 * zoom_boost, 10.0, 15.0))
+	if diablo_bridge and diablo_bridge.has_method("set_zoom_vision_radius"):
+		diablo_bridge.set_zoom_vision_radius(d1_rad)
+	if player_light:
+		player_light.texture_scale = 2.4 * zoom_boost
+		player_light.energy = 1.05 * clampf(zoom_boost, 1.0, 1.35)
+
 func update_lighting_and_transparency():
 	if not diablo_bridge:
 		return
@@ -587,6 +758,14 @@ func update_lighting_and_transparency():
 	var light_grid: PackedByteArray = PackedByteArray()
 	if diablo_bridge.has_method("get_dungeon_light_grid"):
 		light_grid = diablo_bridge.get_dungeon_light_grid()
+
+	var flags_grid: PackedByteArray = PackedByteArray()
+	if diablo_bridge.has_method("get_dungeon_flags_grid"):
+		flags_grid = diablo_bridge.get_dungeon_flags_grid()
+
+	var solidity_grid: PackedByteArray = PackedByteArray()
+	if diablo_bridge.has_method("get_dungeon_solidity_grid"):
+		solidity_grid = diablo_bridge.get_dungeon_solidity_grid()
 
 	var trans_grid: PackedByteArray = PackedByteArray()
 	if diablo_bridge.has_method("get_dungeon_trans_grid"):
@@ -605,6 +784,8 @@ func update_lighting_and_transparency():
 		special_grid = diablo_bridge.get_dungeon_special_grid()
 
 	var has_light = (light_grid.size() >= 112 * 112)
+	var has_flags = (flags_grid.size() >= 112 * 112)
+	var has_solidity = (solidity_grid.size() >= 112 * 112)
 	var has_trans = (trans_grid.size() >= 112 * 112 and trans_list.size() >= 256)
 	var has_trans_mask = (trans_mask.size() >= 112 * 112)
 
@@ -613,6 +794,7 @@ func update_lighting_and_transparency():
 	var p_ty = int(p_pos.get("pos_y", 25.0))
 
 	var z = camera.zoom.x if camera else 1.0
+	var zoom_boost = clampf(1.5 / z, 1.0, 2.2)
 	var rad_x = int(clamp(60.0 / z, 44.0, 80.0))
 	var rad_y = int(clamp(50.0 / z, 36.0, 70.0))
 	var min_x = max(0, p_tx - rad_x)
@@ -627,16 +809,50 @@ func update_lighting_and_transparency():
 		dungeon_tile_material.set_shader_parameter("is_town", is_town)
 
 	# Milestone 2: Continuous GPU Bilinear Lightmap Update (0.01ms update, silky-smooth pixel lighting)
+	var light_bytes = PackedByteArray()
 	if has_light and light_image and light_map_texture:
-		var light_bytes = PackedByteArray()
 		light_bytes.resize(112 * 112)
-		for i in range(112 * 112):
-			var l_val = light_grid[i]
-			if l_val >= 15:
-				light_bytes[i] = 0
-			else:
-				var factor = clampf((15.0 - float(l_val)) / 15.0, 0.0, 1.0)
-				light_bytes[i] = int(factor * 255.0)
+		for ty in range(112):
+			for tx in range(112):
+				var i = ty * 112 + tx
+				var solid = solidity_grid[i] if has_solidity else 1
+
+				# 0 = Empty void / uncarved rock outside dungeon: ALWAYS pitch black
+				if solid == 0 and not is_town:
+					light_bytes[i] = 0
+					continue
+
+				var l_val = light_grid[i]
+				var factor = 0.0
+				if l_val < 15:
+					factor = clampf((15.0 - float(l_val)) / 15.0, 0.0, 1.0)
+				elif solid == 2 or (i < special_grid.size() and special_grid[i] > 0):
+					# Solid wall or archway: inherit light from adjacent tiles in front of the wall
+					var best_l = 15
+					if tx + 1 < 112: best_l = mini(best_l, light_grid[i + 1])
+					if ty + 1 < 112: best_l = mini(best_l, light_grid[i + 112])
+					if tx + 1 < 112 and ty + 1 < 112: best_l = mini(best_l, light_grid[i + 113])
+					if best_l < 15:
+						factor = clampf((15.0 - float(best_l)) / 15.0, 0.0, 1.0)
+
+				# Dynamic zoom-scaled sight radius for dungeon
+				if not is_town and zoom_boost > 1.0 and solid > 0:
+					# Only expand vision on tiles where raycasting light has already reached (prevent wall penetration)
+					if l_val < 15 and factor > 0.0:
+						var p_dist = sqrt(pow(float(tx - p_tx), 2) + pow(float(ty - p_ty), 2))
+						var max_reach = 10.0 * zoom_boost
+						if p_dist < max_reach:
+							var falloff = clampf(1.0 - (p_dist / max_reach), 0.0, 1.0)
+							var boost_factor = falloff * falloff * 0.75
+							factor = maxf(factor, boost_factor)
+
+				if is_town:
+					light_bytes[i] = int(clampf((15.0 - float(l_val)) / 15.0, 0.0, 1.0) * 255.0)
+				else:
+					# Ambient baseline for all dungeon tiles (14 = 97.2% darkness / 2.8% visibility)
+					# Keeps every tile minimally visible in deep shadow without harsh black cutoffs
+					var byte_val = int(lerpf(14.0, 255.0, factor))
+					light_bytes[i] = clampi(byte_val, 14, 255)
 		light_image.set_data(112, 112, false, Image.FORMAT_R8, light_bytes)
 		light_map_texture.update(light_image)
 
@@ -644,63 +860,61 @@ func update_lighting_and_transparency():
 		for tx in range(min_x, max_x + 1):
 			var pos_key = Vector2i(tx, ty)
 			var spr = tile_sprites.get(pos_key, null)
+			var wall_spr = wall_sprites.get(pos_key, null)
 			var arch_spr = special_sprites.get(pos_key, null)
-			if spr == null and arch_spr == null:
+			if spr == null and wall_spr == null and arch_spr == null:
 				continue
 
 			var idx = ty * 112 + tx
 			new_active_keys[pos_key] = true
 
-			var raw_l = float(light_grid[idx]) if has_light else 0.0
-			var min_front_l = 15.0
-			if tx < 111: min_front_l = min(min_front_l, float(light_grid[idx + 1]))
-			if ty < 111: min_front_l = min(min_front_l, float(light_grid[idx + 112]))
-
-			# Milestone 3: Authentic Front-Wall Transparency (TransList + TileProperties::Transparent)
-			# Only tiles that have the Diablo 1 Transparent flag (front walls/doors) become transparent!
-			# Sarcophagi, statues, back walls, altars and floors (height <= 32) remain 100% solid!
-			var alpha_val = 1.0
-			if has_trans:
-				var t_id = trans_grid[idx]
-				if t_id > 0 and t_id < trans_list.size() and trans_list[t_id] == 1:
-					alpha_val = 0.38 # Transparent front wall!
-
-			var is_wall = (spr and spr.texture and spr.texture.get_height() > 32)
-			var can_be_trans = has_trans_mask and (trans_mask[idx] == 1)
-			var is_lit = (raw_l < 14.5 or min_front_l < 14.5 or is_town)
+			var tile_light_byte = light_bytes[idx] if (has_light and light_bytes.size() > idx) else (0 if not is_town else 255)
+			var is_tile_visible = is_town or (tile_light_byte > 0)
 
 			if spr:
 				spr.visible = true
 				spr.self_modulate = Color(1.0, 1.0, 1.0)
-				# Front walls only fade when in player vision/lit; in the dark, walls stay solid!
-				if is_wall and can_be_trans and is_lit and alpha_val < 1.0:
-					spr.modulate.a = alpha_val
-				else:
-					spr.modulate.a = 1.0
+				spr.modulate.a = 1.0 # Floor diamond is ALWAYS 100% solid opaque!
+
+			var wall_alpha = 1.0
+			if wall_spr:
+				wall_spr.visible = true
+				wall_spr.self_modulate = Color(1.0, 1.0, 1.0)
+				if has_trans and has_trans_mask and trans_mask[idx] != 0:
+					var trans_val = trans_grid[idx]
+					if trans_val > 0 and trans_val < trans_list.size() and trans_list[trans_val] != 0:
+						var depth_diff = float((tx + ty) - (p_tx + p_ty))
+						var horiz_diff = abs(float((tx - ty) - (p_tx - p_ty)))
+						var is_occluding = (depth_diff >= 0.5 and depth_diff <= 4.5 and horiz_diff <= 2.0)
+						if is_occluding:
+							wall_alpha = 0.68 # Soft natural stone translucency
+				wall_spr.modulate.a = wall_alpha
 
 			if arch_spr:
-				var sid = special_grid[idx] if idx < special_grid.size() else 0
 				arch_spr.visible = true
 				arch_spr.self_modulate = Color(1.0, 1.0, 1.0)
-				var can_arch_be_trans = (has_trans_mask and trans_mask[idx] == 1) or (sid == 7 or sid == 8)
-				if can_arch_be_trans and is_lit and alpha_val < 1.0:
-					arch_spr.modulate.a = alpha_val
-				else:
-					arch_spr.modulate.a = 1.0
+				arch_spr.modulate.a = wall_alpha
 
 			if enable_wall_occluders:
 				var occ = tile_occluders.get(pos_key, null)
 				if occ:
-					# Deactivate occluder when front wall is faded transparently so hero has no ghost shadow
-					occ.visible = (alpha_val > 0.8)
+					occ.visible = true
 
 	# Hide tiles that moved outside viewport or active range
 	for prev_key in last_visible_tiles:
 		if not new_active_keys.has(prev_key):
 			var old_spr = tile_sprites.get(prev_key, null)
-			if old_spr: old_spr.visible = false
+			if old_spr:
+				old_spr.visible = false
+				old_spr.modulate.a = 1.0
+			var old_wall = wall_sprites.get(prev_key, null)
+			if old_wall:
+				old_wall.visible = false
+				old_wall.modulate.a = 1.0
 			var old_arch = special_sprites.get(prev_key, null)
-			if old_arch: old_arch.visible = false
+			if old_arch:
+				old_arch.visible = false
+				old_arch.modulate.a = 1.0
 			if enable_wall_occluders:
 				var old_occ = tile_occluders.get(prev_key, null)
 				if old_occ: old_occ.visible = false
@@ -773,7 +987,7 @@ func update_player(delta: float):
 	# Target position in isometric coordinates
 	# Y-sort depth key = hero's feet (position.y), matching vanilla D1's depth ordering:
 	# the sprite is sorted by its feet position, not its origin.
-	player_target_pos = Vector2(float(px - py) * 32.0, float(px + py) * 16.0 + 20.0)
+	player_target_pos = Vector2(float(px - py) * 32.0, float(px + py) * 16.0 + 16.0)
 	if player_node.position == Vector2.ZERO or player_node.position.distance_to(player_target_pos) > 200.0:
 		player_node.position = player_target_pos
 	else:
@@ -783,7 +997,7 @@ func update_player(delta: float):
 	if camera:
 		camera.position = camera.position.lerp(player_node.position, delta * 20.0).round()
 
-	# Update animated player sprite (updates on frame, dir, or mode changes like attack/cast)
+	# Update animated player sprite (supports all Diablo 1 & Hellfire classes: Monk, Bard, Barbarian, Sorcerer, Rogue, Warrior)
 	if diablo_bridge.has_method("get_player_sprite_data"):
 		if anim_frame != last_player_frame or dir != last_player_dir or mode != last_player_mode or player_texture == null:
 			last_player_frame = anim_frame
@@ -795,19 +1009,20 @@ func update_player(delta: float):
 			var rgba: PackedByteArray = s_data.get("rgba", PackedByteArray())
 			if sw > 0 and sh > 0 and rgba.size() == sw * sh * 4:
 				var img = Image.create_from_data(sw, sh, false, Image.FORMAT_RGBA8, rgba)
+				if hd_graphics_enabled:
+					img.generate_mipmaps()
 				if player_texture == null or player_texture.get_width() != sw or player_texture.get_height() != sh:
 					player_texture = ImageTexture.create_from_image(img)
 					player_sprite.texture = player_texture
 				else:
 					player_texture.update(img)
-				# Sprite center sits at position.y (feet); offset keeps visual position identical to before
+				player_sprite.scale = Vector2(1.0, 1.0)
+				# Sprite center sits at position.y (feet); exact foot baseline prevents floating
 				player_sprite.offset = Vector2(0, -float(sh) * 0.5)
 
-	# Dynamic 2.5D Directional Silhouette Shadow & Torch Lighting
-	if player_texture and player_shadow:
-		player_shadow.texture = player_texture
-		player_shadow.offset = player_sprite.offset
-		player_shadow.visible = true
+	# Disable artificial secondary shadow so authentic Diablo 1 grounded foot shadow renders cleanly
+	if player_shadow:
+		player_shadow.visible = false
 
 	var s_info = calculate_shadow_skew_for_position(player_node.position)
 	current_player_shadow_skew = current_player_shadow_skew.lerp(s_info["skew"], delta * 12.0)
@@ -818,23 +1033,31 @@ func update_player(delta: float):
 		player_shadow_material.set_shader_parameter("shadow_skew", current_player_shadow_skew * current_player_shadow_length)
 		player_shadow_material.set_shader_parameter("shadow_color", Color(0.0, 0.0, 0.0, current_player_shadow_opacity))
 
-	if player_light and player_light.enabled:
-		var p_flicker = 1.0 + 0.05 * sin(time_accum * 11.7) * cos(time_accum * 6.3)
-		player_light.energy = 0.35 * p_flicker
+	var is_town = (last_level_idx == 0)
+
+	if player_light:
+		if is_town:
+			player_light.enabled = false
+		else:
+			player_light.enabled = true
+			var p_flicker = 1.0 + 0.05 * sin(time_accum * 11.7) * cos(time_accum * 6.3)
+			var z = camera.zoom.x if camera else 1.0
+			var zoom_boost = clampf(1.5 / z, 1.0, 2.2)
+			player_light.energy = 1.15 * p_flicker
+			player_light.texture_scale = 2.4 * zoom_boost
+			player_light.color = Color(1.0, 0.90, 0.78)
 
 	# Authentic per-tile lighting on player
 	var p_light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
 	var p_tile_idx = clamp(int(py), 0, 111) * 112 + clamp(int(px), 0, 111)
-	var is_town = (last_level_idx == 0)
 	if is_town:
-		var p_light = p_light_grid[p_tile_idx] if p_light_grid.size() >= 112 * 112 else 0
-		var bright = clamp(1.0 - float(p_light) / 15.0, 0.0, 1.0)
-		player_sprite.self_modulate = Color(0.55, 0.58, 0.65).lerp(Color(1.0, 1.0, 1.0), bright)
+		# In Town, the hero is full bright and vibrant (matches authentic Diablo 1 Mode 0 reference!)
+		player_sprite.self_modulate = Color(1.0, 1.0, 1.0)
 	elif p_light_grid.size() >= 112 * 112:
 		var p_light = p_light_grid[p_tile_idx]
 		var p_norm = clamp(1.0 - float(p_light) / 14.5, 0.0, 1.0)
-		var p_bright = pow(p_norm, 1.8)
-		player_sprite.self_modulate = Color(1.0, 0.96, 0.92) * max(0.12, p_bright)
+		var p_bright = clampf(lerpf(0.85, 1.20, p_norm), 0.85, 1.20)
+		player_sprite.self_modulate = Color(1.0, 0.98, 0.95) * p_bright
 
 func update_monsters(delta: float):
 	if not diablo_bridge or not diablo_bridge.has_method("get_active_monsters_data"):
@@ -884,6 +1107,8 @@ func update_monsters(delta: float):
 				var m_rgba: PackedByteArray = ms_data.get("rgba", PackedByteArray())
 				if mw > 0 and mh > 0 and m_rgba.size() == mw * mh * 4:
 					var m_img = Image.create_from_data(mw, mh, false, Image.FORMAT_RGBA8, m_rgba)
+					if hd_graphics_enabled:
+						m_img.generate_mipmaps()
 					if cur_tex == null or cur_tex.get_width() != mw or cur_tex.get_height() != mh:
 						cur_tex = ImageTexture.create_from_image(m_img)
 						monster_textures[m_id] = cur_tex
@@ -892,6 +1117,7 @@ func update_monsters(delta: float):
 					else:
 						cur_tex.update(m_img)
 					if m_sprite:
+						m_sprite.scale = Vector2(1.0, 1.0)
 						m_sprite.offset = Vector2(0, -float(mh) * 0.5)
 
 		# Milestone 2: Per-Tile Authentic Lighting on Monsters, Ground Shadows & Fog of War
@@ -901,30 +1127,8 @@ func update_monsters(delta: float):
 		var m_idx = m_ty * 112 + m_tx
 		var is_town = (last_level_idx == 0)
 		var m_shadow = node.get_node_or_null("Shadow") as Sprite2D
-		if m_shadow and cur_tex:
-			m_shadow.texture = cur_tex
-			if m_sprite:
-				m_shadow.offset = m_sprite.offset
-			m_shadow.position = Vector2.ZERO
-			m_shadow.z_index = -1
-			m_shadow.visible = node.visible
-
-			var m_mat: ShaderMaterial = monster_shadow_materials.get(m_id, null)
-			if m_mat == null:
-				m_mat = ShaderMaterial.new()
-				m_mat.shader = realistic_shadow_shader
-				m_mat.set_shader_parameter("shadow_blur", 2.0)
-				m_mat.set_shader_parameter("contact_fade", 0.35)
-				monster_shadow_materials[m_id] = m_mat
-				m_shadow.material = m_mat
-
-			var ms_info = calculate_shadow_skew_for_position(node.position)
-			var m_bright = 1.0
-			if not is_town and light_grid.size() >= 112 * 112:
-				var m_norm = clamp(1.0 - float(light_grid[m_idx]) / 14.5, 0.0, 1.0)
-				m_bright = pow(m_norm, 1.8)
-			m_mat.set_shader_parameter("shadow_skew", ms_info["skew"] * ms_info["length"])
-			m_mat.set_shader_parameter("shadow_color", Color(0.0, 0.0, 0.0, ms_info["opacity"] * clampf(m_bright * 1.2, 0.2, 0.85)))
+		if m_shadow:
+			m_shadow.visible = false
 
 		if is_town:
 			var m_light = light_grid[m_idx] if light_grid.size() >= 112 * 112 else 0
@@ -938,9 +1142,9 @@ func update_monsters(delta: float):
 				node.visible = false
 				continue
 			var m_norm = clamp(1.0 - float(m_light) / 14.5, 0.0, 1.0)
-			var m_bright = pow(m_norm, 1.8)
+			var m_bright = clampf(lerpf(0.25, 1.0, m_norm), 0.25, 1.0)
 			if m_sprite:
-				m_sprite.self_modulate = Color(1.0, 0.96, 0.92) * max(0.12, m_bright)
+				m_sprite.self_modulate = Color(1.0, 0.98, 0.95) * m_bright
 			node.visible = true
 		else:
 			node.visible = true
@@ -971,6 +1175,8 @@ func get_or_create_monster_node(m_id: int) -> Node2D:
 	var spr = Sprite2D.new()
 	spr.name = "Sprite"
 	spr.centered = true
+	if entity_hd_material:
+		spr.material = entity_hd_material
 	m_root.add_child(spr)
 
 	monster_nodes[m_id] = m_root
@@ -1094,6 +1300,7 @@ func update_objects():
 			spr = Sprite2D.new()
 			spr.name = "Object_%d" % o_id
 			spr.centered = false
+			spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			world_root.add_child(spr)
 			object_sprites[o_id] = spr
 
@@ -1131,7 +1338,10 @@ func update_objects():
 		if is_town:
 			var light_val = light_grid[tile_idx] if has_light else 0
 			var bright = clamp(1.0 - float(light_val) / 15.0, 0.0, 1.0)
-			spr.self_modulate = Color(0.70, 0.72, 0.78).lerp(Color(1.0, 0.96, 0.90), bright * 0.55)
+			if is_flame:
+				spr.self_modulate = Color(1.0, 1.0, 1.0)
+			else:
+				spr.self_modulate = Color(0.82, 0.84, 0.88).lerp(Color(1.0, 0.98, 0.95), bright * 0.65)
 			spr.visible = true
 		elif has_light:
 			var light_val = light_grid[tile_idx]
@@ -1150,15 +1360,12 @@ func update_objects():
 				if ty > 0 and light_grid[tile_idx - 112] < light_val:
 					light_val = light_grid[tile_idx - 112]
 
-			if light_val >= 15 and not is_flame:
-				spr.visible = false
-			else:
-				var o_norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
-				var o_factor = pow(o_norm, 1.8)
-				if is_flame:
-					o_factor = max(0.85, o_factor)
-				spr.self_modulate = Color(0.040, 0.042, 0.055).lerp(Color(1.0, 0.96, 0.92), max(0.08, o_factor))
-				spr.visible = true
+			var o_norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+			var o_factor = pow(o_norm, 1.8)
+			if is_flame:
+				o_factor = max(0.85, o_factor)
+			spr.self_modulate = Color(0.040, 0.042, 0.055).lerp(Color(1.0, 0.96, 0.92), max(0.0, o_factor))
+			spr.visible = true
 		else:
 			spr.visible = true
 
@@ -1198,6 +1405,7 @@ func update_ground_items():
 			var spr = Sprite2D.new()
 			spr.name = "Sprite"
 			spr.centered = false
+			spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			node.add_child(spr)
 
 			# Authentic Diablo loot name label
@@ -1266,12 +1474,9 @@ func update_ground_items():
 				node.visible = true
 			elif has_light:
 				var light_val = light_grid[tile_idx]
-				if light_val >= 15:
-					node.visible = false
-				else:
-					var brightness = pow(clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0), 1.8)
-					spr.self_modulate = Color(0.040, 0.042, 0.055).lerp(Color(1.0, 0.96, 0.92), max(0.12, brightness))
-					node.visible = true
+				var brightness = pow(clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0), 1.8)
+				spr.self_modulate = Color(0.040, 0.042, 0.055).lerp(Color(1.0, 0.96, 0.92), max(0.0, brightness))
+				node.visible = true
 			else:
 				node.visible = true
 
@@ -1326,6 +1531,7 @@ func update_corpses():
 			spr = Sprite2D.new()
 			spr.name = "Corpse_%d_%d" % [tx, ty]
 			spr.centered = false
+			spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			spr.z_index = -1
 			world_root.add_child(spr)
 			corpse_sprites[pos_key] = spr
@@ -1340,12 +1546,9 @@ func update_corpses():
 			spr.visible = true
 		elif has_light:
 			var light_val = light_grid[tile_idx]
-			if light_val >= 15:
-				spr.visible = false
-			else:
-				var brightness = pow(clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0), 1.8)
-				spr.self_modulate = Color(0.04, 0.07, 0.11).lerp(Color(1.0, 0.96, 0.92), max(0.12, brightness))
-				spr.visible = true
+			var brightness = pow(clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0), 1.8)
+			spr.self_modulate = Color(0.040, 0.042, 0.055).lerp(Color(1.0, 0.96, 0.92), max(0.0, brightness))
+			spr.visible = true
 		else:
 			spr.visible = true
 		var tile_pos = Vector2(float(tx - ty) * 32.0, float(tx + ty) * 16.0 + 16.0)
@@ -1409,6 +1612,7 @@ func update_missiles():
 			var spr = Sprite2D.new()
 			spr.name = "Sprite"
 			spr.centered = false
+			spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			node.add_child(spr)
 
 			missile_nodes[m_id] = node
@@ -1483,12 +1687,14 @@ func handle_input(event: InputEvent) -> bool:
 				current_zoom_idx += 1
 				var z = zoom_levels[current_zoom_idx]
 				camera.zoom = Vector2(z, z)
+				_apply_zoom_vision(z)
 			return true
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			if current_zoom_idx > 0:
 				current_zoom_idx -= 1
 				var z = zoom_levels[current_zoom_idx]
 				camera.zoom = Vector2(z, z)
+				_apply_zoom_vision(z)
 			return true
 
 	# Mouse Click & Motion Conversion

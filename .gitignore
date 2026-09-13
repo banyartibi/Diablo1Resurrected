@@ -27,3 +27,4 @@ godot_d1_extension/build/
 *.tmp
 *~
 run.log
+extracted_assets/

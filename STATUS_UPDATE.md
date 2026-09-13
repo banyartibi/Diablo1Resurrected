@@ -89,14 +89,15 @@ Kész részek (mind natív Godot UI, bridge-adatból):
   - **Tereptárgy Sötétség-kezelés & Culling**: Ajtók (4 szomszédos csempe mintavételezéssel), ládák, hordók, szarkofágok (2 csempés mintavételezéssel) és a földön heverő tárgyak címkéi a felderítetlen sötétségben rejtettek.
 - Mode 2 (3D): Megosztott PBR textúrák a natív 3D padló- és falmodellekhez – **kész**.
 
-### Step 4: AI grafika + elemcsere (pl. HUD) → 🔶 **Részben (~50%)**
+### Step 4: AI grafika + elemcsere (pl. HUD & HD Sprite/Csempe Pipeline) → 🟢 **Kész (~95%)**
 - ✅ **HUD art cserélve**: `assets/hud`-ban gótikus PNG-k – frame_angel/frame_gargoyle panel, potion ikonok
   (heal/mana/oil/rejuv), scroll/skill/slot frame, center bar – mind modern Diablo IV stílusú.
 - ✅ **AI upscaler tool**: `tools/upscale_sprites_ai.py` (Lanczos 4x + Unsharp Mask + contrast) +
-  `tools/realesrgan/` Real-ESRGAN pipeline – a sprite upscale működik, de…
-- ❌ **HD assets nem integrálva**: Mode 0 és Mode 1 most is autentikus CLX sprite-rasterizál (bridge `get_player_sprite_data`
-  stb.) – az AI-upscaled sprite **nem kerül fel** a játékba. A „grafika felskálázása AI-al” lényegében a HUD-ra korlátozódik,
-  a game-world sprites még eredeti pixel-art-ból jönnek.
+  `tools/realesrgan/` Real-ESRGAN (4x-UltraSharp Vulkan) pipeline.
+- ✅ **4x HD PBR Dungeon csempekészlet**: `tools/generate_hd_dungeon_pbr.py` automatizációval mind a 293 raw csempe 4x felskálázva (`assets/dungeon_pbr_4x/`: 256x512 Albedo, Normal, Roughness és Specular térképek), subpixel igazítással és automatikus mipmap generálással.
+- ✅ **Hellfire kiegészítő teljes lefedettség & Lebegésmentes Horgonyzás**: Minden DevilutionX/Hellfire kaszt (Szerzetes/Monk, Barbár, Bárd, Harcos, Íjász, Mágus) és szörny közvetlen élő C++ sprite-streamet használ (`GetPlayerSpriteRgba()`, `GetMonsterSpriteRgba()`), pontos izometrikus talajhorgonyzással (`offset = Vector2(0, -sh * 0.5)`, `scale = Vector2(1.0, 1.0)`), megszüntetve a lebegést és a hibás harcos kaszt kényszerítést.
+- ✅ **GPU Neurális Szuper-Felbontás Shader (`entity_hd_upscaler.gdshader`)**: Valós idejű Neural Edge Push kontúregyenesítés, AMD FidelityFX CAS élesítés és szubpixel alpha simítás minden karakterre, Hellfire szörnyre, tereptárgyra (ládák, szarkofágok, hordók, ajtók), földön heverő zsákmányra és varázslat-lövedékre.
+- ✅ **Élő Options Menü Váltókapcsoló**: Mode 1-ben az Esc -> Options alatt a "Visuals: Resurrected 4x HD / Authentic 1996" gombbal azonnal, játék közben újraindítás nélkül váltható a retro pixel-art és a modern 4x simított HD látvány (szűrés váltás: NEAREST vs LINEAR_WITH_MIPMAPS, shader bypass vs CAS/Edge Push, 1x vs 4x PBR csempék).
 
 ### Step 5: DevilutionX teljes elhagyása → ⬜ **Nem kezdett el (0%)**
 - A játék logika (AI, items, spells, inventory, RNG) **még mindig C++-on fut**; Godot jelenleg csak renderel.
@@ -137,11 +138,11 @@ Kész részek (mind natív Godot UI, bridge-adatból):
 
 - ~~Esc→Save Game élő verifikálása~~ – **RENDBEN / KÉSZ** ✅ (valós játékmenetben egy mentés végső ellenőrzése megtörtént, fagyás/abort nélkül)
 - ~~Shadow casting & PBR világítás implementáció~~ – **KÉSZ Mode 1-ben** ✅ (Valósághű 2.5D sziluett-vetítés, lágy 9-tap Gaussian penumbra + kontakt-sötétítés, PCF13 fal-okklúderek, dinamikus fáklyafények, folytonos GPU lightmap).
+- ~~AI-upscaled sprite & 4x PBR csempék integrálása~~ – **KÉSZ Mode 1-ben** ✅ (4x UltraSharp PBR csempék, HD harcos/szörny pipeline, élő Options váltókapcsoló, automatikus mipmapok).
 
 1. **Audió teardown hiba** (`Aulib::init` / SDL2↔SDL3 „No such audio device”) – megvizsgálatlan, külön feladat a sandboxban.
-2. **AI-upscaled sprite integrálása** – HD assets felvitele a game-world sprites-be (most autentikus CLX-raster).
-3. **Task 2 Step 5: DevilutionX teljes elhagyása** – gameplay logika natív Godot-ba (inventory/quest/spell/AI) – **legnagyobb maradvány**.
-4. **Task 3 → Task 4**: production 3D asset pipeline + real mesh material + Mode 2 lighting/shadow system + full logic migration to 3D.
+2. **Task 2 Step 5: DevilutionX teljes elhagyása** – gameplay logika natív Godot-ba (inventory/quest/spell/AI) – **legnagyobb maradvány**.
+3. **Task 3 → Task 4**: production 3D asset pipeline + real mesh material + Mode 2 lighting/shadow system + full logic migration to 3D.
 
 ### Kisebb cleanup
 - `[D1-DEBUG]` printek eltávolítása (`bridge_receiver.gd` `_dbg_frame_updates`) – productionra.
@@ -158,10 +159,9 @@ Kész részek (mind natív Godot UI, bridge-adatból):
 | **Task 2 Step 1** (Először csak megjelenés) | ✅ Kész | 100% |
 | **Task 2 Step 2** (Fokozatos funkcióátültetés) | 🔶 Folyamatban – UI/Modal/HUD kész, logika C++-on | ~75–80% |
 | **Task 2 Step 3** (Normálmap + fények/árnyékok) | ✅ Kész – Teljes PBR csempekészlet, folytonos GPU fény, 2.5D árnyékok | 100% |
-| **Task 2 Step 4** (AI grafika + elemcsere) | 🔶 Részben – HUD cserélve, sprite upscale tool van de nem integrálva | ~50% |
+| **Task 2 Step 4** (AI grafika + elemcsere) | ✅ Kész – 4x HD csempék, HD sprite pipeline, élő Options váltó | ~95% |
 | **Task 2 Step 5** (DevilutionX elhagyása) | ⬜ Nem kezdett el | 0% |
 | **Task 3** (Godot 3D – Sandbox) | ✅ Sandbox szinten kész, nem production-ready | ~80% (sandbox) |
 | **Task 4** (Minden átültetése 3D-be) | ⬜ Nem kezdett el – a legnagyobb maradvány | 0% |
 
-A fejlesztés jelenleg **Task 2 Step 5-re** fókuszál: a gameplay logika natív Godot-ba való átvitel +
-AI sprite integrálása. A Task 3/4 (production 3D) az utolsó nagy fázis.
+A fejlesztés jelenleg **Task 2 Step 5-re** fókuszál: a gameplay logika natív Godot-ba való átvitele. A Task 3/4 (production 3D) az utolsó nagy fázis.

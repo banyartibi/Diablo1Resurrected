@@ -162,9 +162,11 @@ public:
 
 	// Per-Tile Lighting & Transparency (Fog of War & Room Transparency)
 	PackedByteArray get_dungeon_light_grid() const;
+	PackedByteArray get_dungeon_flags_grid() const;
 	PackedByteArray get_dungeon_trans_grid() const;
 	PackedByteArray get_dungeon_trans_mask() const;
 	PackedByteArray get_trans_list() const;
+	void set_zoom_vision_radius(int radius);
 
 	// Native Godot 2.5D Dungeon Objects (Torches, Barrels, Chests, Shrines)
 	Array get_active_objects() const;

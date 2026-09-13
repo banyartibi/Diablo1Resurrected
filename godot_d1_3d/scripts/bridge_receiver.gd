@@ -29,6 +29,8 @@ var hero_light_enabled: bool = true     # Default: ENABLED [F6]
 @onready var torch_container: Node3D = get_node_or_null("GameView/TorchLightsContainer")
 @onready var shadow_container: Node3D = get_node_or_null("GameView/ShadowCastersContainer")
 @onready var effects_container: Node3D = get_node_or_null("GameView/EffectsContainer")
+@onready var directional_light: DirectionalLight3D = get_node_or_null("GameView/GothicAngledLight")
+@onready var dungeon_embers: GPUParticles3D = get_node_or_null("GameView/DungeonEmbers3D")
 
 # Godot-native global Brightness (SubViewport post-process). Independent of the C++/palette gamma pipeline.
 var current_brightness_pct := 100        # Default: 100% (neutral)
@@ -56,6 +58,7 @@ var modern_hud_scene = preload("res://scenes/hud/diablo4_hud.tscn")
 var modern_hud = null
 var modern_hud_enabled: bool = true     # Default: Modern Diablo IV Native CanvasLayer HUD
 var last_is_ingame: bool = false
+var last_level_idx: int = -999
 
 # 3-Mode Display Architecture:
 # Mode 0: Classic 2.5D Blit (Vanilla + 3D Relief Shader)
@@ -383,8 +386,8 @@ func _setup_game_view():
 	# Mirror the project rendering settings onto GameView (they only apply to the root window by default).
 	game_view.msaa_3d = 2
 	game_view.screen_space_aa = 1
-	game_view.snap_2d_transforms_to_pixel = true
-	game_view.snap_2d_vertices_to_pixel = true
+	game_view.snap_2d_transforms_to_pixel = false
+	game_view.snap_2d_vertices_to_pixel = false
 	# Positional audio inside the subviewport (required for AudioListener3D to work there).
 	game_view.audio_listener_enable_2d = true
 	game_view.audio_listener_enable_3d = true
@@ -399,7 +402,7 @@ func _setup_game_view():
 	composite_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	composite_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	composite_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	composite_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	composite_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	composite_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	brightness_material = ShaderMaterial.new()
@@ -423,6 +426,22 @@ func set_brightness(pct: int) -> void:
 func _apply_brightness():
 	if brightness_material:
 		brightness_material.set_shader_parameter("brightness", float(current_brightness_pct) / 100.0)
+
+var hd_graphics_enabled: bool = true
+
+func get_hd_graphics_enabled() -> bool:
+	if native_25d_instance and native_25d_instance.has_method("get_hd_graphics_enabled"):
+		return native_25d_instance.get_hd_graphics_enabled()
+	return hd_graphics_enabled
+
+func set_hd_graphics_enabled(enabled: bool) -> void:
+	hd_graphics_enabled = enabled
+	if native_25d_instance and native_25d_instance.has_method("set_hd_graphics_enabled"):
+		native_25d_instance.set_hd_graphics_enabled(enabled)
+
+func toggle_hd_graphics() -> bool:
+	set_hd_graphics_enabled(not get_hd_graphics_enabled())
+	return get_hd_graphics_enabled()
 
 func update_shader_params():
 	if shader_material:
@@ -503,7 +522,7 @@ func _process(delta: float):
 	if FileAccess.file_exists("/tmp/d1_dbg_shot_req"):
 		_dbg_capture()
 	
-	if hero_light and hero_light_enabled:
+	if hero_light and hero_light_enabled and current_display_mode == DisplayMode.ORIGINAL_25D:
 		# Organic soft torch breathing flicker
 		var flicker = 0.50 + 0.06 * sin(time_accum * 4.8) * cos(time_accum * 2.3)
 		hero_light.light_energy = flicker
@@ -555,19 +574,21 @@ func _process(delta: float):
 					sandbox_instance.diablo_bridge = diablo_bridge
 				if native_modal:
 					native_modal.call("set_bridge", diablo_bridge)
+
+			var is_ingame = diablo_bridge.is_game_running() if diablo_bridge.has_method("is_game_running") else false
 			var cur_frame_id = diablo_bridge.get_frame_id()
 			if cur_frame_id != last_frame_id:
 				last_frame_id = cur_frame_id
-				var pixel_bytes = diablo_bridge.get_frame_bytes()
-				d1_width = diablo_bridge.get_frame_width()
-				d1_height = diablo_bridge.get_frame_height()
-				if pixel_bytes.size() == d1_width * d1_height * 4:
-					update_frame_texture(d1_width, d1_height, pixel_bytes)
+				if not is_ingame or current_display_mode == DisplayMode.ORIGINAL_25D:
+					var pixel_bytes = diablo_bridge.get_frame_bytes()
+					d1_width = diablo_bridge.get_frame_width()
+					d1_height = diablo_bridge.get_frame_height()
+					if pixel_bytes.size() == d1_width * d1_height * 4:
+						update_frame_texture(d1_width, d1_height, pixel_bytes)
 					
 			var new_left = diablo_bridge.is_left_panel_open()
 			var new_right = diablo_bridge.is_right_panel_open()
 			var new_speedbook = diablo_bridge.is_speedbook_open() if diablo_bridge.has_method("is_speedbook_open") else false
-			var is_ingame = diablo_bridge.is_game_running() if diablo_bridge.has_method("is_game_running") else false
 			if new_left != left_panel_open or new_right != right_panel_open or new_speedbook != speedbook_open or is_ingame != last_is_ingame:
 				left_panel_open = new_left
 				right_panel_open = new_right
@@ -580,6 +601,14 @@ func _process(delta: float):
 						var cur_g = diablo_bridge.get_gamma()
 						diablo_bridge.set_gamma(cur_g)
 					apply_display_mode()
+			if diablo_bridge.has_method("get_current_level"):
+				var cur_lvl = diablo_bridge.get_current_level()
+				if cur_lvl != last_level_idx:
+					last_level_idx = cur_lvl
+					if dungeon_embers and current_display_mode == DisplayMode.ORIGINAL_25D:
+						var is_dungeon = (cur_lvl > 0 and is_ingame)
+						dungeon_embers.emitting = is_dungeon
+						dungeon_embers.visible = is_dungeon
 			if diablo_bridge.has_method("get_zoom_mode"):
 				var cur_zoom = diablo_bridge.get_zoom_mode()
 				if cur_zoom >= 0 and cur_zoom < zoom_step_names.size() and cur_zoom != current_zoom_step:
@@ -607,8 +636,8 @@ func _process(delta: float):
 				else:
 					automap_layer.visible = false
 
-			# Dynamic 3D Lights & Native Particles
-			if is_ingame:
+			# Dynamic 3D Lights & Native Particles (Mode 0 only)
+			if is_ingame and current_display_mode == DisplayMode.ORIGINAL_25D:
 				update_dynamic_lighting(delta)
 				process_visual_events()
 			else:
@@ -719,6 +748,14 @@ func apply_display_mode():
 			torch_container.visible = false
 		if effects_container:
 			effects_container.visible = false
+		if directional_light:
+			directional_light.visible = true
+		if dungeon_embers:
+			dungeon_embers.emitting = false
+			dungeon_embers.visible = false
+		if world_env and world_env.environment:
+			world_env.environment.volumetric_fog_enabled = false
+			world_env.environment.glow_enabled = false
 		if camera:
 			camera.make_current()
 		return
@@ -743,6 +780,15 @@ func apply_display_mode():
 			torch_container.visible = true
 		if effects_container:
 			effects_container.visible = true
+		if directional_light:
+			directional_light.visible = true
+		if dungeon_embers:
+			var is_town = (last_level_idx == 0) if last_level_idx != -999 else (diablo_bridge != null and diablo_bridge.has_method("get_current_level") and diablo_bridge.get_current_level() == 0)
+			dungeon_embers.emitting = not is_town and is_ingame
+			dungeon_embers.visible = not is_town and is_ingame
+		if world_env and world_env.environment:
+			world_env.environment.glow_enabled = true
+			update_fog_mode()
 		if camera:
 			camera.make_current()
 		show_osd("[F3] Display Mode 1/3: Classic 2.5D Blit (Vanilla + 3D Relief Shader)", 3.5)
@@ -757,6 +803,18 @@ func apply_display_mode():
 			torch_container.visible = false
 		if effects_container:
 			effects_container.visible = false
+			for child in effects_container.get_children():
+				child.queue_free()
+		for tl in pooled_torch_lights:
+			tl.visible = false
+		if directional_light:
+			directional_light.visible = false
+		if dungeon_embers:
+			dungeon_embers.emitting = false
+			dungeon_embers.visible = false
+		if world_env and world_env.environment:
+			world_env.environment.volumetric_fog_enabled = false
+			world_env.environment.glow_enabled = false
 		if modal_layer and diablo_bridge and diablo_bridge.has_method("is_modal_active"):
 			modal_layer.visible = diablo_bridge.is_modal_active()
 		if native_25d_instance:
@@ -773,6 +831,18 @@ func apply_display_mode():
 			torch_container.visible = false
 		if effects_container:
 			effects_container.visible = false
+			for child in effects_container.get_children():
+				child.queue_free()
+		for tl in pooled_torch_lights:
+			tl.visible = false
+		if directional_light:
+			directional_light.visible = false
+		if dungeon_embers:
+			dungeon_embers.emitting = false
+			dungeon_embers.visible = false
+		if world_env and world_env.environment:
+			world_env.environment.volumetric_fog_enabled = false
+			world_env.environment.glow_enabled = false
 		if modal_layer and diablo_bridge and diablo_bridge.has_method("is_modal_active"):
 			modal_layer.visible = diablo_bridge.is_modal_active()
 		if sandbox_instance:
@@ -795,6 +865,10 @@ func _unhandled_input(event: InputEvent):
 				diablo_bridge.set_vanilla_hud_hidden(modern_hud_enabled)
 			update_shader_params()
 			show_osd("[H] HUD Mode: " + ("Modern Diablo IV CanvasLayer (Forward+ Vulkan)" if modern_hud_enabled else "Classic 1996 Panel (Vanilla)"))
+			return
+		elif event.keycode == KEY_G:
+			var is_hd = toggle_hd_graphics()
+			show_osd("[G] Graphics Style: " + ("Resurrected 4x HD" if is_hd else "Authentic 1996 Pixel Art"))
 			return
 		elif event.keycode == KEY_F3:
 			var next_mode = (current_display_mode + 1) % 3

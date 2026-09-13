@@ -20,15 +20,22 @@ void vertex() {
 }
 
 void fragment() {
+	// In Diablo 1: Floor tiles have aspect ratio 2:1 (height / width = 0.5).
+	// In world space, the floor diamond exists within [v_foot_pos.y - 32.5, v_foot_pos.y].
+	// Walls and scenery sit strictly above the floor base (v_world_pos.y < v_foot_pos.y - 32.5).
+	bool is_floor = (v_world_pos.y >= (v_foot_pos.y - 32.5));
+
 	vec4 tex = texture(TEXTURE, UV);
-	if (tex.a <= 0.01) {
+	if (tex.a <= 0.05) {
 		discard;
 	}
 
-	// In Diablo 1: Floor height is 32. Walls have height > 32 (64, 96, 128).
-	// For floors (TEXTURE_PIXEL_SIZE.y >= 0.030): use per-pixel world_pos for continuous floor lighting.
-	// For walls: anchor lighting to the foot of the wall (v_foot_pos - (0, 16)) so walls are lit naturally from their center base.
-	vec2 sample_pos = (TEXTURE_PIXEL_SIZE.y >= 0.030) ? v_world_pos : (v_foot_pos - vec2(0.0, 16.0));
+	// Mathematically cancel out hardware bilinear black-fringe bleed on transparent edges:
+	vec3 rgb = tex.rgb / max(tex.a, 0.01);
+
+	// For floors: use per-pixel world_pos for seamless continuous lightmap interpolation.
+	// For walls: anchor lighting to the base tile center (v_foot_pos - (0, 16)).
+	vec2 sample_pos = is_floor ? v_world_pos : (v_foot_pos - vec2(0.0, 16.0));
 
 	// Convert isometric world coordinates (wx, wy) -> tile grid coordinates (tx, ty):
 	// wx = (tx - ty) * 32.0
@@ -40,49 +47,49 @@ void fragment() {
 
 	float l = texture(light_map, clamp(uv_light, vec2(0.0), vec2(1.0))).r;
 
-	// For tall walls (height > 32): bottom 32px is the floor diamond base.
-	// In Diablo 1, the floor base is ALWAYS 100% solid, only the upper wall becomes transparent!
+	// For tall walls: the bottom 32 world pixels is the floor diamond base.
+	// In Diablo 1, the floor base is ALWAYS 100% solid, only the upper wall itself becomes transparent!
+	// Using world space coordinates ensures resolution-independence (exact in both 1996 and 4X HD).
 	float effective_a = COLOR.a;
-	if (TEXTURE_PIXEL_SIZE.y < 0.030 && UV.y >= (1.0 - 32.0 * TEXTURE_PIXEL_SIZE.y)) {
+	if (v_world_pos.y >= (v_foot_pos.y - 32.0)) {
 		effective_a = 1.0;
 	}
 
+	// Floor tiles are ALWAYS 100% solid opaque (final_a = 1.0) to eliminate seam leaks.
+	// Walls preserve their natural texture alpha (tex.a) modulated by effective_a so there are NEVER square quad boxes:
+	float final_a = is_floor ? 1.0 : (tex.a * effective_a);
+
 	if (is_town) {
-		// Tristram daylight/moonlight: cool shadows, warm lit areas
-		vec3 town_color = mix(vec3(0.55, 0.58, 0.65), vec3(1.0, 1.0, 1.0), l);
-		COLOR = vec4(tex.rgb * town_color, tex.a * effective_a);
+		// Tristram authentic cool twilight ambient (warm lit areas blend in seamlessly)
+		vec3 town_color = mix(vec3(0.68, 0.70, 0.74), vec3(0.96, 0.96, 0.98), l);
+		COLOR = vec4(rgb * town_color, final_a);
 	} else {
-		// Dungeon: Modern Atmospheric Gothic Shading
-		// Deep midnight crypt ambient for shadow areas (faint, moody ~4% visibility so tiles connect seamlessly)
-		vec3 dungeon_ambient = vec3(0.040, 0.042, 0.055);
+		// Deep atmospheric crypt ambient: tiles in darkness are minimally visible at ~2.8% visibility (97.2% darkness)
+		// Allows the player to see tile layout and dungeon architecture in deep shadow without harsh black cutoffs
+		vec3 dungeon_ambient = vec3(0.026, 0.028, 0.036);
+		const float AMB_THRESH = 0.055; // Threshold where shadow ambient (14 / 255) starts blooming to torch light
 
-		// Continuous Hermite smoothstep curve for authentic gothic falloff
-		float factor = l * l * (3.0 - 2.0 * l);
+		vec3 lit_tint;
+		if (l <= AMB_THRESH) {
+			lit_tint = dungeon_ambient;
+		} else {
+			// Room interior: smoothly transition from deep shadow ambient to warm torch lighting
+			float torch_factor = clamp((l - AMB_THRESH) / (1.0 - AMB_THRESH), 0.0, 1.0);
+			float factor = torch_factor * torch_factor * (3.0 - 2.0 * torch_factor);
+			lit_tint = mix(dungeon_ambient, light_tint, factor);
+		}
 
-		// In deep shadow (factor < 0.05), keep walls solid to prevent ghost cutouts
-		float final_a = mix(1.0, effective_a, clamp(factor * 10.0, 0.0, 1.0));
-
-		vec3 lit_tint = mix(dungeon_ambient, light_tint, factor);
-		vec3 lit = tex.rgb * lit_tint;
-		COLOR = vec4(lit, tex.a * final_a);
+		vec3 lit = rgb * lit_tint;
+		COLOR = vec4(lit, final_a);
 	}
 }
 
 void light() {
 	float attenuation = LIGHT_COLOR.a;
-	if (COLOR.a > 0.01 && attenuation > 0.0001) {
-		vec3 n = NORMAL;
-		vec3 l = normalize(vec3(LIGHT_DIRECTION.xy, 0.5));
-		float diff = max(0.0, dot(n, l));
-
-		vec3 v = vec3(0.0, 0.0, 1.0);
-		vec3 h = normalize(l + v);
-		float spec = pow(max(0.0, dot(n, h)), 16.0) * specular_gloss;
-
+	if (COLOR.a > 0.01 && attenuation > 0.0001 && !is_town) {
 		vec3 light_color = LIGHT_COLOR.rgb * LIGHT_ENERGY;
-		// Subtle dynamic bump & specular highlight on top of the continuous ambient lightmap,
-		// smoothly attenuated by the radial falloff of the light texture (zero rectangular edges!)
-		LIGHT = vec4((COLOR.rgb * diff * 0.20 + light_color * spec) * light_color * attenuation, COLOR.a);
+		// Smooth dynamic point lighting without harsh normal-map seam discontinuities
+		LIGHT = vec4(COLOR.rgb * light_color * attenuation, COLOR.a);
 	} else {
 		LIGHT = vec4(0.0);
 	}

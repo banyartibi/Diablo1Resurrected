@@ -40,6 +40,7 @@ var _opt_sound_slider: HSlider
 var _opt_gamma_slider: HSlider
 var _opt_brightness_slider: HSlider
 var _opt_speed_slider: HSlider
+var _opt_hd_button: Button = null
 var brightness_host = null   # bridge_receiver (owns GameView + global brightness)
 var _opt_music_value: Label
 var _opt_sound_value: Label
@@ -241,6 +242,10 @@ func _ready() -> void:
 	_opt_speed_value = speed_row.get_node("ValueLabel")
 	_opt_speed_slider.value_changed.connect(_on_opt_speed_changed)
 
+	var hd_row := _add_option_button_row(opt_vbox, "Visuals", "Resurrected 4x HD")
+	_opt_hd_button = hd_row.get_node("Button")
+	_opt_hd_button.pressed.connect(_on_opt_hd_toggled)
+
 	var close_btn := Button.new()
 	close_btn.name = "CloseButton"
 	close_btn.text = "Close [Esc]"
@@ -410,7 +415,20 @@ func _refresh_option_values() -> void:
 		b = clampi(int(brightness_host.get_brightness()), OPT_BRIGHTNESS_MIN, OPT_BRIGHTNESS_MAX)
 	_opt_brightness_slider.value = float(b)
 	_opt_brightness_value.text = "%d%%" % b
+	if _opt_hd_button:
+		var is_hd := true
+		if brightness_host and brightness_host.has_method("get_hd_graphics_enabled"):
+			is_hd = brightness_host.get_hd_graphics_enabled()
+		_opt_hd_button.text = "Resurrected 4x HD" if is_hd else "Authentic 1996"
 	_options_refreshing = false
+
+func _on_opt_hd_toggled() -> void:
+	if _options_refreshing:
+		return
+	if brightness_host and brightness_host.has_method("toggle_hd_graphics"):
+		var is_hd: bool = brightness_host.toggle_hd_graphics()
+		if _opt_hd_button:
+			_opt_hd_button.text = "Resurrected 4x HD" if is_hd else "Authentic 1996"
 
 func _on_opt_music_changed(v: float) -> void:
 	if _options_refreshing:
@@ -451,6 +469,38 @@ func _on_opt_speed_changed(v: float) -> void:
 	_opt_speed_value.text = _speed_label(s)
 	if diablo_bridge and diablo_bridge.has_method("set_speed"):
 		diablo_bridge.set_speed(s)
+
+func _add_option_button_row(parent: Control, text: String, default_btn_text: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "OptionButtonRow"
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("h_separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var lbl := Label.new()
+	lbl.name = "Label"
+	lbl.text = text
+	lbl.custom_minimum_size = Vector2(130, 0)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
+
+	var btn := Button.new()
+	btn.name = "Button"
+	btn.text = default_btn_text
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.custom_minimum_size = Vector2(0, 32)
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.add_theme_stylebox_override("normal", _button_normal_box())
+	btn.add_theme_stylebox_override("hover", _button_hover_box())
+	btn.add_theme_stylebox_override("pressed", _button_hover_box())
+	btn.add_theme_color_override("font_color", Color(1.0, 0.92, 0.55, 1.0))
+	btn.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 0.70, 1.0))
+	btn.add_theme_font_size_override("font_size", 14)
+	row.add_child(btn)
+
+	parent.add_child(row)
+	return row
 
 func _add_option_row(parent: Control, text: String, min_v: float, max_v: float) -> HBoxContainer:
 	var row := HBoxContainer.new()

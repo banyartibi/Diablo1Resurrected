@@ -438,6 +438,14 @@ void PollGodotBridgeInput()
 		case D1BridgeActionType::ToggleSpellBook:     ToggleSpellBook(); break;
 		case D1BridgeActionType::SetSpellBookPage:    SetSpellBookPage(job.a); break;
 		case D1BridgeActionType::SelectSpellBookEntry: SelectSpellBookEntry(job.a, job.b); break;
+		case D1BridgeActionType::SetZoomVisionRadius: {
+			if (MyPlayer != nullptr && MyPlayer->lightId != NO_LIGHT) {
+				int rad = std::clamp(job.a, 10, 15);
+				ChangeLightRadius(MyPlayer->lightId, static_cast<uint8_t>(rad));
+				ChangeVisionRadius(MyPlayer->getId(), rad);
+			}
+			break;
+		}
 		default: break;
 	}
 	}
@@ -1805,6 +1813,12 @@ std::vector<uint8_t> GetDungeonSolidityGrid()
 	if (!IsBridgeSafeToRead())
 		return grid;
 
+	// In dungeons (currlevel != 0), the uncarved rock outside rooms is filled with the 4 filler microtiles at (0, 0)
+	uint16_t f1 = (currlevel != 0) ? dPiece[0][0] : 0xFFFF;
+	uint16_t f2 = (currlevel != 0) ? dPiece[1][0] : 0xFFFF;
+	uint16_t f3 = (currlevel != 0) ? dPiece[0][1] : 0xFFFF;
+	uint16_t f4 = (currlevel != 0) ? dPiece[1][1] : 0xFFFF;
+
 	for (int y = 0; y < MAXDUNY; ++y) {
 		for (int x = 0; x < MAXDUNX; ++x) {
 			uint16_t piece = dPiece[x][y];
@@ -1817,6 +1831,18 @@ std::vector<uint8_t> GetDungeonSolidityGrid()
 			if (piece == 0 && currlevel != 0 && !LevelCelBlock(DPieceMicros[0].mt[0]).hasValue()) {
 				grid[y * MAXDUNX + x] = 0; // Truly empty void
 				continue;
+			}
+
+			// In dungeons, tiles outside the generated bounds or matching the uncarved filler rock are TRULY EMPTY VOID
+			if (currlevel != 0) {
+				if (x < 16 || x >= 96 || y < 16 || y >= 96) {
+					grid[y * MAXDUNX + x] = 0;
+					continue;
+				}
+				if (piece == f1 || piece == f2 || piece == f3 || piece == f4) {
+					grid[y * MAXDUNX + x] = 0;
+					continue;
+				}
 			}
 
 			if (TileHasAny(piece, TileProperties::Solid)) {
@@ -2112,6 +2138,24 @@ void CopyD1LightGrid(uint8_t *dest, size_t maxTiles)
 			size_t idx = y * 112 + x;
 			if (idx < count) {
 				dest[idx] = dLight[x][y];
+			}
+		}
+	}
+}
+
+void CopyD1FlagsGrid(uint8_t *dest, size_t maxTiles)
+{
+	if (dest == nullptr) return;
+	size_t count = std::min<size_t>(maxTiles, 112 * 112);
+	if (!IsBridgeSafeToRead()) {
+		std::memset(dest, 0, count);
+		return;
+	}
+	for (size_t y = 0; y < 112; ++y) {
+		for (size_t x = 0; x < 112; ++x) {
+			size_t idx = y * 112 + x;
+			if (idx < count) {
+				dest[idx] = static_cast<uint8_t>(dFlags[x][y]);
 			}
 		}
 	}
