@@ -657,6 +657,10 @@ func handle_input(event: InputEvent) -> bool:
 	if diablo_bridge and diablo_bridge.has_method("is_modal_active") and diablo_bridge.is_modal_active():
 		return false
 
+	# When entering text (chat, naming, gold drop), pass input through to D1
+	if diablo_bridge and diablo_bridge.has_method("is_text_input_active") and diablo_bridge.is_text_input_active():
+		return false
+
 	# Camera Tilt / Pitch Controls (PageUp / PageDown)
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_PAGEUP:

@@ -1,5 +1,6 @@
 #include <cstdint>
 
+#include "engine/render_bridge.hpp"
 #include "DiabloUI/diabloui.h"
 #include "DiabloUI/selok.h"
 #include "control.h"
@@ -93,6 +94,10 @@ void mainmenu_restart_repintro()
 
 bool UiMainMenuDialog(const char *name, _mainmenu_selections *pdwResult, int attractTimeOut)
 {
+	if (gbGodotBridgeActive) {
+		return GodotBridgeMainMenuDialog(pdwResult);
+	}
+
 	MainMenuResult = MAINMENU_NONE;
 	while (MainMenuResult == MAINMENU_NONE) {
 		mainmenu_attract_time_out = attractTimeOut;

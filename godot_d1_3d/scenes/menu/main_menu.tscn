@@ -1,0 +1,111 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scenes/menu/main_menu.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/menu/campfire_scene.tscn" id="2_campfire"]
+[ext_resource type="PackedScene" path="res://scenes/menu/character_select.tscn" id="5_charsel"]
+[ext_resource type="PackedScene" path="res://scenes/menu/character_create.tscn" id="6_charcreate"]
+[ext_resource type="PackedScene" path="res://scenes/menu/settings_dialog.tscn" id="7_settings"]
+
+[node name="MainMenuManager" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="CampfireScene" parent="." instance=ExtResource("2_campfire")]
+unique_name_in_owner = true
+layout_mode = 1
+
+[node name="MainButtonsPanel" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="LogoTexture" type="TextureRect" parent="MainButtonsPanel"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -420.0
+offset_top = 20.0
+offset_right = 420.0
+offset_bottom = 450.0
+grow_horizontal = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ButtonsVBox" type="VBoxContainer" parent="MainButtonsPanel"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -230.0
+offset_top = -340.0
+offset_right = 230.0
+offset_bottom = -30.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="BtnSinglePlayer" type="Button" parent="MainButtonsPanel/ButtonsVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "EGYJÁTÉKOS MÓD"
+
+[node name="BtnMultiplayer" type="Button" parent="MainButtonsPanel/ButtonsVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "TÖBBJÁTÉKOS MÓD"
+
+[node name="BtnSettings" type="Button" parent="MainButtonsPanel/ButtonsVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "BEÁLLÍTÁSOK"
+
+[node name="BtnCredits" type="Button" parent="MainButtonsPanel/ButtonsVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "KÉSZÍTŐK"
+
+[node name="BtnExit" type="Button" parent="MainButtonsPanel/ButtonsVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "KILÉPÉS"
+
+[node name="CharacterSelect" parent="." instance=ExtResource("5_charsel")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="CharacterCreate" parent="." instance=ExtResource("6_charcreate")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="SettingsDialog" parent="." instance=ExtResource("7_settings")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1

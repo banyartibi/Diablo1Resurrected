@@ -104,14 +104,16 @@ bool HandleInputEvent(const SDL_Event &event, TextInputState &state,
 		}
 #else
 		if (gbGodotBridgeActive) {
-			if (!isCtrl && !isAlt && event.key.keysym.sym >= SDLK_SPACE && event.key.keysym.sym <= 126) {
-				char ch = static_cast<char>(event.key.keysym.sym);
-				if (isShift && ch >= 'a' && ch <= 'z') {
-					ch = static_cast<char>(ch - 'a' + 'A');
+			if (!isCtrl && !isAlt && event.key.keysym.sym >= SDLK_SPACE) {
+				std::string utf8;
+				AppendUtf8(static_cast<uint32_t>(event.key.keysym.sym), utf8);
+				if (!utf8.empty()) {
+					if (isShift && utf8.size() == 1 && utf8[0] >= 'a' && utf8[0] <= 'z') {
+						utf8[0] = static_cast<char>(utf8[0] - 'a' + 'A');
+					}
+					typeFn(utf8);
+					return true;
 				}
-				std::string utf8(1, ch);
-				typeFn(utf8);
-				return true;
 			}
 		}
 		// Mark events that will also trigger SDL_TEXTINPUT as handled.

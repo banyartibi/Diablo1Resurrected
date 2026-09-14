@@ -1,0 +1,361 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scenes/menu/character_select.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/hud/gothic_char_panel.png" id="2_panel_tex"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stat_panel"]
+bg_color = Color(0.05, 0.05, 0.07, 0.88)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.7, 0.55, 0.22, 0.9)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.8)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_play_btn"]
+bg_color = Color(0.25, 0.12, 0.04, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.82, 0.28, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0.8, 0.3, 0, 0.4)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sub_btn"]
+bg_color = Color(0.12, 0.1, 0.14, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.55, 0.45, 0.25, 0.8)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[node name="CharacterSelect" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="LeftPanel" type="Control" parent="."]
+custom_minimum_size = Vector2(570, 760)
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 32.0
+offset_top = -380.0
+offset_right = 602.0
+offset_bottom = 380.0
+grow_vertical = 2
+
+[node name="PanelBackground" type="TextureRect" parent="LeftPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_panel_tex")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ContentMargin" type="MarginContainer" parent="LeftPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 96
+theme_override_constants/margin_top = 118
+theme_override_constants/margin_right = 96
+theme_override_constants/margin_bottom = 68
+
+[node name="VBox" type="VBoxContainer" parent="LeftPanel/ContentMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="LeftPanel/ContentMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 20
+text = "SELECT HERO"
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="LeftPanel/ContentMargin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="HeroVBox" type="VBoxContainer" parent="LeftPanel/ContentMargin/VBox/Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="PlayButton" type="Button" parent="LeftPanel/ContentMargin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.6, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_play_btn")
+text = "⚔ ENTER SANCTUARY ⚔"
+
+[node name="ButtonsGrid" type="GridContainer" parent="LeftPanel/ContentMargin/VBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 6
+columns = 3
+
+[node name="CreateButton" type="Button" parent="LeftPanel/ContentMargin/VBox/ButtonsGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBoxFlat_sub_btn")
+text = "+ NEW HERO"
+
+[node name="DeleteButton" type="Button" parent="LeftPanel/ContentMargin/VBox/ButtonsGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBoxFlat_sub_btn")
+text = "DELETE"
+
+[node name="BackButton" type="Button" parent="LeftPanel/ContentMargin/VBox/ButtonsGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBoxFlat_sub_btn")
+text = "BACK"
+
+[node name="RightInfoPanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(350, 480)
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -398.0
+offset_top = -240.0
+offset_right = -48.0
+offset_bottom = 240.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_stat_panel")
+
+[node name="Margin" type="MarginContainer" parent="RightInfoPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="RightInfoPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SelectedHeroName" type="Label" parent="RightInfoPanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.35, 1)
+theme_override_font_sizes/font_size = 24
+text = "Hős Neve"
+
+[node name="SelectedHeroClassLevel" type="Label" parent="RightInfoPanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.85, 1)
+theme_override_font_sizes/font_size = 15
+text = "Szint 1 Harcos"
+
+[node name="HSeparator" type="HSeparator" parent="RightInfoPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="AttributesTitle" type="Label" parent="RightInfoPanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.35, 1)
+theme_override_font_sizes/font_size = 18
+text = "TULAJDONSÁGOK"
+horizontal_alignment = 1
+
+[node name="StrRow" type="VBoxContainer" parent="RightInfoPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="HeaderHBox" type="HBoxContainer" parent="RightInfoPanel/Margin/VBox/StrRow"]
+layout_mode = 2
+
+[node name="StrLabel" type="Label" parent="RightInfoPanel/Margin/VBox/StrRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.75, 0.75, 0.75, 1)
+text = "Erő:"
+
+[node name="StatStrVal" type="Label" parent="RightInfoPanel/Margin/VBox/StrRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.4, 1)
+text = "30"
+
+[node name="StatStrBar" type="ProgressBar" parent="RightInfoPanel/Margin/VBox/StrRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+max_value = 150.0
+value = 30.0
+show_percentage = false
+
+[node name="MagRow" type="VBoxContainer" parent="RightInfoPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="HeaderHBox" type="HBoxContainer" parent="RightInfoPanel/Margin/VBox/MagRow"]
+layout_mode = 2
+
+[node name="MagLabel" type="Label" parent="RightInfoPanel/Margin/VBox/MagRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.75, 0.75, 0.75, 1)
+text = "Mágia:"
+
+[node name="StatMagVal" type="Label" parent="RightInfoPanel/Margin/VBox/MagRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.7, 1, 1)
+text = "10"
+
+[node name="StatMagBar" type="ProgressBar" parent="RightInfoPanel/Margin/VBox/MagRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+max_value = 150.0
+value = 10.0
+show_percentage = false
+
+[node name="DexRow" type="VBoxContainer" parent="RightInfoPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="HeaderHBox" type="HBoxContainer" parent="RightInfoPanel/Margin/VBox/DexRow"]
+layout_mode = 2
+
+[node name="DexLabel" type="Label" parent="RightInfoPanel/Margin/VBox/DexRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.75, 0.75, 0.75, 1)
+text = "Ügyesség:"
+
+[node name="StatDexVal" type="Label" parent="RightInfoPanel/Margin/VBox/DexRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 1, 0.5, 1)
+text = "20"
+
+[node name="StatDexBar" type="ProgressBar" parent="RightInfoPanel/Margin/VBox/DexRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+max_value = 150.0
+value = 20.0
+show_percentage = false
+
+[node name="VitRow" type="VBoxContainer" parent="RightInfoPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="HeaderHBox" type="HBoxContainer" parent="RightInfoPanel/Margin/VBox/VitRow"]
+layout_mode = 2
+
+[node name="VitLabel" type="Label" parent="RightInfoPanel/Margin/VBox/VitRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.75, 0.75, 0.75, 1)
+text = "Vitalitás:"
+
+[node name="StatVitVal" type="Label" parent="RightInfoPanel/Margin/VBox/VitRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.4, 0.4, 1)
+text = "25"
+
+[node name="StatVitBar" type="ProgressBar" parent="RightInfoPanel/Margin/VBox/VitRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+max_value = 150.0
+value = 25.0
+show_percentage = false
+
+[node name="HSeparator2" type="HSeparator" parent="RightInfoPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="DifficultyTitle" type="Label" parent="RightInfoPanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.35, 1)
+theme_override_font_sizes/font_size = 16
+text = "NEHÉZSÉG"
+horizontal_alignment = 1
+
+[node name="DiffHBox" type="HBoxContainer" parent="RightInfoPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DiffNormalBtn" type="Button" parent="RightInfoPanel/Margin/VBox/DiffHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+button_pressed = true
+text = "Normál"
+
+[node name="DiffNightmareBtn" type="Button" parent="RightInfoPanel/Margin/VBox/DiffHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "Rémálom"
+
+[node name="DiffHellBtn" type="Button" parent="RightInfoPanel/Margin/VBox/DiffHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "Pokol"
+
+[node name="DeleteConfirmDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "Hős Törlése"
+initial_position = 2
+size = Vector2i(420, 160)
+ok_button_text = "Igen, Törlöm"
+cancel_button_text = "Mégsem"

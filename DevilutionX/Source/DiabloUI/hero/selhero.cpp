@@ -1,4 +1,5 @@
 #include "DiabloUI/hero/selhero.h"
+#include "engine/render_bridge.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -162,10 +163,10 @@ void SelheroListSelect(int value)
 		if (gbIsHellfire) {
 			vecSelHeroDlgItems.push_back(std::make_unique<UiListItem>(_("Monk"), static_cast<int>(HeroClass::Monk)));
 		}
-		if (gbBard || *sgOptions.Gameplay.testBard) {
+		if (gbIsHellfire && (gbBard || *sgOptions.Gameplay.testBard)) {
 			vecSelHeroDlgItems.push_back(std::make_unique<UiListItem>(_("Bard"), static_cast<int>(HeroClass::Bard)));
 		}
-		if (gbBarbarian || *sgOptions.Gameplay.testBarbarian) {
+		if (gbIsHellfire && (gbBarbarian || *sgOptions.Gameplay.testBarbarian)) {
 			vecSelHeroDlgItems.push_back(std::make_unique<UiListItem>(_("Barbarian"), static_cast<int>(HeroClass::Barbarian)));
 		}
 		if (vecSelHeroDlgItems.size() > 4)
@@ -612,6 +613,11 @@ void UiSelHeroSingDialog(
     uint32_t *saveNumber,
     _difficulty *difficulty)
 {
+	if (gbGodotBridgeActive) {
+		GodotBridgeSelHeroDialog(fninfo, fncreate, fnremove, fnstats, dlgresult, saveNumber, difficulty);
+		return;
+	}
+
 	selhero_isMultiPlayer = false;
 	UiSelHeroDialog(fninfo, fncreate, fnstats, fnremove, dlgresult, saveNumber);
 	*difficulty = nDifficulty;

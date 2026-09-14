@@ -1,0 +1,333 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scenes/menu/character_create.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.05, 0.05, 0.07, 0.88)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.7, 0.55, 0.22, 0.9)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.8)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_create_btn"]
+bg_color = Color(0.24, 0.12, 0.04, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.82, 0.28, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0.8, 0.3, 0, 0.4)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cancel_btn"]
+bg_color = Color(0.12, 0.1, 0.14, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.55, 0.45, 0.25, 0.8)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[node name="CharacterCreate" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="TitleLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -250.0
+offset_top = 36.0
+offset_right = 250.0
+offset_bottom = 76.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.35, 1)
+theme_override_font_sizes/font_size = 28
+text = "CREATE NEW HERO"
+horizontal_alignment = 1
+
+[node name="LeftLorePanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(380, 360)
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 48.0
+offset_top = -220.0
+offset_right = 428.0
+offset_bottom = 140.0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Margin" type="MarginContainer" parent="LeftLorePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="LeftLorePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ClassNameLabel" type="Label" parent="LeftLorePanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.35, 1)
+theme_override_font_sizes/font_size = 22
+text = "Harcos (Warrior)"
+
+[node name="ClassRoleLabel" type="Label" parent="LeftLorePanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.85, 1)
+theme_override_font_sizes/font_size = 14
+text = "Közelharcos"
+
+[node name="HSeparator" type="HSeparator" parent="LeftLorePanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="ClassLoreLabel" type="Label" parent="LeftLorePanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.85, 0.85, 0.88, 1)
+theme_override_font_sizes/font_size = 14
+text = "Történet..."
+autowrap_mode = 2
+
+[node name="ClassPerkLabel" type="Label" parent="LeftLorePanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.75, 0.25, 1)
+theme_override_font_sizes/font_size = 13
+text = "Egyedi képesség..."
+autowrap_mode = 2
+
+[node name="RightStatsPanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(340, 360)
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -388.0
+offset_top = -220.0
+offset_right = -48.0
+offset_bottom = 140.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Margin" type="MarginContainer" parent="RightStatsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="RightStatsPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="StatsTitle" type="Label" parent="RightStatsPanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.35, 1)
+theme_override_font_sizes/font_size = 20
+text = "TULAJDONSÁGOK"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="RightStatsPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="StrRow" type="VBoxContainer" parent="RightStatsPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HeaderHBox" type="HBoxContainer" parent="RightStatsPanel/Margin/VBox/StrRow"]
+layout_mode = 2
+
+[node name="StrHeaderLbl" type="Label" parent="RightStatsPanel/Margin/VBox/StrRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Erő"
+
+[node name="StatStrLbl" type="Label" parent="RightStatsPanel/Margin/VBox/StrRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.4, 1)
+text = "30"
+
+[node name="StatStrBar" type="ProgressBar" parent="RightStatsPanel/Margin/VBox/StrRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+max_value = 50.0
+value = 30.0
+show_percentage = false
+
+[node name="MagRow" type="VBoxContainer" parent="RightStatsPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HeaderHBox" type="HBoxContainer" parent="RightStatsPanel/Margin/VBox/MagRow"]
+layout_mode = 2
+
+[node name="MagHeaderLbl" type="Label" parent="RightStatsPanel/Margin/VBox/MagRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Mágia"
+
+[node name="StatMagLbl" type="Label" parent="RightStatsPanel/Margin/VBox/MagRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.7, 1, 1)
+text = "10"
+
+[node name="StatMagBar" type="ProgressBar" parent="RightStatsPanel/Margin/VBox/MagRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+max_value = 50.0
+value = 10.0
+show_percentage = false
+
+[node name="DexRow" type="VBoxContainer" parent="RightStatsPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HeaderHBox" type="HBoxContainer" parent="RightStatsPanel/Margin/VBox/DexRow"]
+layout_mode = 2
+
+[node name="DexHeaderLbl" type="Label" parent="RightStatsPanel/Margin/VBox/DexRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Ügyesség"
+
+[node name="StatDexLbl" type="Label" parent="RightStatsPanel/Margin/VBox/DexRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 1, 0.5, 1)
+text = "20"
+
+[node name="StatDexBar" type="ProgressBar" parent="RightStatsPanel/Margin/VBox/DexRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+max_value = 50.0
+value = 20.0
+show_percentage = false
+
+[node name="VitRow" type="VBoxContainer" parent="RightStatsPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HeaderHBox" type="HBoxContainer" parent="RightStatsPanel/Margin/VBox/VitRow"]
+layout_mode = 2
+
+[node name="VitHeaderLbl" type="Label" parent="RightStatsPanel/Margin/VBox/VitRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Vitalitás"
+
+[node name="StatVitLbl" type="Label" parent="RightStatsPanel/Margin/VBox/VitRow/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.4, 0.4, 1)
+text = "25"
+
+[node name="StatVitBar" type="ProgressBar" parent="RightStatsPanel/Margin/VBox/VitRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+max_value = 50.0
+value = 25.0
+show_percentage = false
+
+[node name="BottomSection" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -460.0
+offset_top = -180.0
+offset_right = 460.0
+offset_bottom = -28.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 12
+
+[node name="ClassButtonsContainer" type="HBoxContainer" parent="BottomSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="NameInputRow" type="HBoxContainer" parent="BottomSection"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="NameInput" type="LineEdit" parent="BottomSection/NameInputRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 42)
+layout_mode = 2
+placeholder_text = "Add meg a hős nevét..."
+max_length = 15
+
+[node name="RandomNameBtn" type="Button" parent="BottomSection/NameInputRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 42)
+layout_mode = 2
+text = "🎲 Véletlen"
+
+[node name="CreateBtn" type="Button" parent="BottomSection/NameInputRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 42)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.6, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_create_btn")
+text = "LÉTREHOZÁS"
+
+[node name="CancelBtn" type="Button" parent="BottomSection/NameInputRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 42)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_cancel_btn")
+text = "MÉGSEM"
+
+[node name="ErrorLabel" type="Label" parent="BottomSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1

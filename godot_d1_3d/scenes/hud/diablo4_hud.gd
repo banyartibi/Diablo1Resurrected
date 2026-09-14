@@ -328,6 +328,17 @@ func use_belt_slot(slot_idx: int):
 func _input(event: InputEvent):
 	if not visible:
 		return
+	var root_node = get_node_or_null("Root")
+	if root_node and not root_node.visible:
+		return
+
+	var is_ingame = diablo_bridge.is_game_running() if (diablo_bridge and diablo_bridge.has_method("is_game_running")) else false
+	if not is_ingame:
+		return
+
+	var is_text_active = diablo_bridge.is_text_input_active() if (diablo_bridge and diablo_bridge.has_method("is_text_input_active")) else false
+	if is_text_active:
+		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
 		# Speedbook ribbon / select spell (hotkey S)

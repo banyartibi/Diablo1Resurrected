@@ -87,12 +87,21 @@ void CalculatePreferredWindowSize(int &width, int &height)
 		ErrSdl();
 	}
 
+	if (mode.w <= 0 || mode.h <= 0) {
+		return;
+	}
+
 	if (mode.w < mode.h) {
 		std::swap(mode.w, mode.h);
 	}
 
+	if (width <= 0 || height <= 0) {
+		width = 640;
+		height = 480;
+	}
+
 	if (*sgOptions.Graphics.integerScaling) {
-		int factor = std::min(mode.w / width, mode.h / height);
+		int factor = std::max(1, std::min(mode.w / width, mode.h / height));
 		width = mode.w / factor;
 		height = mode.h / factor;
 		return;
