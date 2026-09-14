@@ -659,44 +659,24 @@ func rebuild_dungeon_tiles():
 					var th = tex.get_height()
 					var scale_factor = 64.0 / float(tw)
 					var floor_h = int(round(float(tw) * 0.5)) # 32 for 64w, 128 for 256w
-					var has_upper = (th > floor_h)
+					var is_wall = (th > floor_h)
 
-					# 1. Floor Sprite (Bottom 32 world pixels): ALWAYS z_index = -2 so ground NEVER covers trees, hero, or monsters!
 					var spr = Sprite2D.new()
 					spr.texture = tex
 					spr.material = dungeon_tile_material
 					spr.centered = false
 					spr.scale = Vector2(scale_factor, scale_factor)
 					spr.position = tile_pos
-					if has_upper:
-						spr.region_enabled = true
-						spr.region_rect = Rect2(0, th - floor_h, tw, floor_h)
-						spr.offset = Vector2(-float(tw) * 0.5, -float(floor_h))
-					else:
-						spr.offset = Vector2(-float(tw) * 0.5, -float(th))
+					spr.offset = Vector2(-float(tw) * 0.5, -float(th))
 					spr.self_modulate = Color(1.0, 1.0, 1.0)
 					spr.visible = false
-					spr.z_index = -2
+					spr.z_index = 0 if is_wall else -2
 					world_root.add_child(spr)
-					tile_sprites[Vector2i(x, y)] = spr
+					if is_wall:
+						wall_sprites[Vector2i(x, y)] = spr
+					else:
+						tile_sprites[Vector2i(x, y)] = spr
 					count += 1
-
-					# 2. Upper Wall / Scenery Sprite (Everything above bottom 32 world pixels): z_index = 0, Y-sorted with entities and trees!
-					if has_upper:
-						var wall_spr = Sprite2D.new()
-						wall_spr.texture = tex
-						wall_spr.material = dungeon_tile_material
-						wall_spr.centered = false
-						wall_spr.scale = Vector2(scale_factor, scale_factor)
-						wall_spr.position = tile_pos
-						wall_spr.region_enabled = true
-						wall_spr.region_rect = Rect2(0, 0, tw, th - floor_h)
-						wall_spr.offset = Vector2(-float(tw) * 0.5, -float(th))
-						wall_spr.self_modulate = Color(1.0, 1.0, 1.0)
-						wall_spr.visible = false
-						wall_spr.z_index = 0
-						world_root.add_child(wall_spr)
-						wall_sprites[Vector2i(x, y)] = wall_spr
 
 			# 2. Milestone 1: Special CELs (Archways, Column Tops, Doorways) - PBR
 			if special_id > 0 and (last_level_idx == 0 or solidity_grid.size() < 112 * 112 or solidity_grid[idx] != 0):
@@ -817,7 +797,7 @@ func update_lighting_and_transparency():
 				var i = ty * 112 + tx
 				var solid = solidity_grid[i] if has_solidity else 1
 
-				# 0 = Empty void / uncarved rock outside dungeon: ALWAYS pitch black
+				# 0 = Empty void / uncarved rock outside dungeon: pitch black
 				if solid == 0 and not is_town:
 					light_bytes[i] = 0
 					continue
@@ -826,33 +806,12 @@ func update_lighting_and_transparency():
 				var factor = 0.0
 				if l_val < 15:
 					factor = clampf((15.0 - float(l_val)) / 15.0, 0.0, 1.0)
-				elif solid == 2 or (i < special_grid.size() and special_grid[i] > 0):
-					# Solid wall or archway: inherit light from adjacent tiles in front of the wall
-					var best_l = 15
-					if tx + 1 < 112: best_l = mini(best_l, light_grid[i + 1])
-					if ty + 1 < 112: best_l = mini(best_l, light_grid[i + 112])
-					if tx + 1 < 112 and ty + 1 < 112: best_l = mini(best_l, light_grid[i + 113])
-					if best_l < 15:
-						factor = clampf((15.0 - float(best_l)) / 15.0, 0.0, 1.0)
-
-				# Dynamic zoom-scaled sight radius for dungeon
-				if not is_town and zoom_boost > 1.0 and solid > 0:
-					# Only expand vision on tiles where raycasting light has already reached (prevent wall penetration)
-					if l_val < 15 and factor > 0.0:
-						var p_dist = sqrt(pow(float(tx - p_tx), 2) + pow(float(ty - p_ty), 2))
-						var max_reach = 10.0 * zoom_boost
-						if p_dist < max_reach:
-							var falloff = clampf(1.0 - (p_dist / max_reach), 0.0, 1.0)
-							var boost_factor = falloff * falloff * 0.75
-							factor = maxf(factor, boost_factor)
+					factor = factor * factor * (3.0 - 2.0 * factor) # Smooth Hermite curve
 
 				if is_town:
 					light_bytes[i] = int(clampf((15.0 - float(l_val)) / 15.0, 0.0, 1.0) * 255.0)
 				else:
-					# Ambient baseline for all dungeon tiles (14 = 97.2% darkness / 2.8% visibility)
-					# Keeps every tile minimally visible in deep shadow without harsh black cutoffs
-					var byte_val = int(lerpf(14.0, 255.0, factor))
-					light_bytes[i] = clampi(byte_val, 14, 255)
+					light_bytes[i] = int(clampf(factor * 255.0, 0.0, 255.0))
 		light_image.set_data(112, 112, false, Image.FORMAT_R8, light_bytes)
 		light_map_texture.update(light_image)
 
@@ -868,26 +827,20 @@ func update_lighting_and_transparency():
 			var idx = ty * 112 + tx
 			new_active_keys[pos_key] = true
 
-			var tile_light_byte = light_bytes[idx] if (has_light and light_bytes.size() > idx) else (0 if not is_town else 255)
-			var is_tile_visible = is_town or (tile_light_byte > 0)
-
 			if spr:
 				spr.visible = true
 				spr.self_modulate = Color(1.0, 1.0, 1.0)
 				spr.modulate.a = 1.0 # Floor diamond is ALWAYS 100% solid opaque!
 
 			var wall_alpha = 1.0
+			if has_trans and has_trans_mask and trans_mask[idx] != 0:
+				var trans_val = trans_grid[idx]
+				if trans_val > 0 and trans_val < trans_list.size() and trans_list[trans_val] != 0:
+					wall_alpha = 0.65 # Soft natural stone translucency
+
 			if wall_spr:
 				wall_spr.visible = true
 				wall_spr.self_modulate = Color(1.0, 1.0, 1.0)
-				if has_trans and has_trans_mask and trans_mask[idx] != 0:
-					var trans_val = trans_grid[idx]
-					if trans_val > 0 and trans_val < trans_list.size() and trans_list[trans_val] != 0:
-						var depth_diff = float((tx + ty) - (p_tx + p_ty))
-						var horiz_diff = abs(float((tx - ty) - (p_tx - p_ty)))
-						var is_occluding = (depth_diff >= 0.5 and depth_diff <= 4.5 and horiz_diff <= 2.0)
-						if is_occluding:
-							wall_alpha = 0.68 # Soft natural stone translucency
 				wall_spr.modulate.a = wall_alpha
 
 			if arch_spr:
@@ -1678,6 +1631,10 @@ func handle_input(event: InputEvent) -> bool:
 
 	# When a modal menu, store, or dialog is active, pass input through to screen-space UI
 	if diablo_bridge and diablo_bridge.has_method("is_modal_active") and diablo_bridge.is_modal_active():
+		return false
+
+	# When entering text (chat, naming, gold drop), pass input through to D1
+	if diablo_bridge and diablo_bridge.has_method("is_text_input_active") and diablo_bridge.is_text_input_active():
 		return false
 
 	# Mouse Wheel Zoom

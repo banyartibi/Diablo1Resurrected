@@ -17,11 +17,13 @@
 #include <signal.h>
 #include <cstring>
 #include <mutex>
+#include <condition_variable>
 #include <vector>
 #include <thread>
 #include <chrono>
 #include <atomic>
 #include <fmt/format.h>
+#include "pfile.h"
 
 #include "control.h"
 #include "player.h"
@@ -43,8 +45,10 @@
 #include "minitext.h"
 #include "inv.h"
 #include "qol/stash.h"
+#include "DiabloUI/diabloui.h"
 #include "msg.h"
 #include "cursor.h"
+#include "init.h"
 #include "sound.h"
 #include "effects.h"
 #include "lighting.h"
@@ -305,6 +309,8 @@ void ExportGodotFrame(const SDL_Surface *surface)
 		g_D1EngineData.isGameRunning = gbRunGame;
 		g_D1EngineData.zoomMode = static_cast<int>(CurrentZoomMode);
 		g_D1EngineData.isModalActive = (stextflag != TalkID::None || HelpFlag || ChatLogFlag || talkflag || qtextflag || gmenu_is_active() || PauseMode != 0 || MyPlayerIsDead);
+		g_D1EngineData.isTextInputActive = IsTextInputActiveLive();
+		g_D1EngineData.isPlayerDead = MyPlayerIsDead || (MyPlayer != nullptr && MyPlayer->_pmode == PM_DEATH);
 
 		size_t reqBytes = static_cast<size_t>(srcSurface->w) * srcSurface->h * 4;
 		if (g_D1InternalFrame.size() != reqBytes) {
@@ -470,8 +476,15 @@ void PollGodotBridgeInput()
 			} else if (msg.type == 3) { // Key
 				ev.type = (msg.state != 0) ? SDL_KEYDOWN : SDL_KEYUP;
 				ev.key.state = (msg.state != 0) ? SDL_PRESSED : SDL_RELEASED;
+				SDL_Keymod mod = KMOD_NONE;
+				if (msg.y & 1) mod = static_cast<SDL_Keymod>(mod | KMOD_SHIFT);
+				if (msg.y & 2) mod = static_cast<SDL_Keymod>(mod | KMOD_CTRL);
+				if (msg.y & 4) mod = static_cast<SDL_Keymod>(mod | KMOD_ALT);
+				ev.key.keysym.mod = mod;
+				SDL_SetModState(mod);
+
 				// Prefer printable Unicode character (msg.x) to preserve casing and symbols for text entry
-				if (msg.state != 0 && msg.x >= 32 && msg.x < 127) {
+				if (msg.state != 0 && msg.x >= 32) {
 					ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.x);
 				} else {
 					ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.code);
@@ -510,7 +523,14 @@ void PollGodotBridgeInput()
 				} else if (msg.type == 3) { // Key
 					ev.type = (msg.state != 0) ? SDL_KEYDOWN : SDL_KEYUP;
 					ev.key.state = (msg.state != 0) ? SDL_PRESSED : SDL_RELEASED;
-					if (msg.state != 0 && msg.x >= 32 && msg.x < 127) {
+					SDL_Keymod mod = KMOD_NONE;
+					if (msg.y & 1) mod = static_cast<SDL_Keymod>(mod | KMOD_SHIFT);
+					if (msg.y & 2) mod = static_cast<SDL_Keymod>(mod | KMOD_CTRL);
+					if (msg.y & 4) mod = static_cast<SDL_Keymod>(mod | KMOD_ALT);
+					ev.key.keysym.mod = mod;
+					SDL_SetModState(mod);
+
+					if (msg.state != 0 && msg.x >= 32) {
 						ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.x);
 					} else {
 						ev.key.keysym.sym = static_cast<SDL_Keycode>(msg.code);
@@ -651,6 +671,11 @@ void CleanupGodotBridge()
 bool IsDevilutionXRunning()
 {
 	return g_DiabloThreadRunning.load();
+}
+
+bool IsGameRunningLive()
+{
+	return gbRunGame && (GetBridgeMenuMode() == D1MenuMode::None);
 }
 
 bool IsDevilutionXQuitRequested()
@@ -2488,6 +2513,19 @@ bool IsAutomapActive()
 	return AutomapActive;
 }
 
+bool IsTextInputActiveLive()
+{
+	if (IsTextInputActive()) return true;
+	if (gbRunGame && (talkflag || DropGoldFlag || IsWithdrawGoldOpen)) return true;
+	return false;
+}
+
+bool IsPlayerDeadLive()
+{
+	if (!IsBridgeSafeToRead()) return false;
+	return MyPlayerIsDead || (MyPlayer != nullptr && MyPlayer->_pmode == PM_DEATH);
+}
+
 // =====================================================================
 // Godot native-modal-overlay bridge.
 // Exports the ACTIVE menu items + current selection for every D1 modal
@@ -2831,6 +2869,368 @@ void SelectSpellBookEntry(int spellId, int spellType)
 	SpellType st = static_cast<SpellType>(spellType);
 	player._pRSpell = sn;
 	player._pRSplType = st;
+}
+
+// -----------------------------------------------------------------------------
+// Native Godot Menu Bridge Implementation
+// -----------------------------------------------------------------------------
+static std::mutex g_MenuMutex;
+static std::condition_variable g_MenuCond;
+static D1MenuMode g_CurrentMenuMode = D1MenuMode::None;
+static _mainmenu_selections g_PendingMainMenuResult = static_cast<_mainmenu_selections>(0); // MAINMENU_NONE
+
+static bool (*g_pfnHeroInfo)(bool (*fninfofunc)(_uiheroinfo *)) = nullptr;
+static bool (*g_pfnHeroCreate)(_uiheroinfo *) = nullptr;
+static bool (*g_pfnHeroRemove)(_uiheroinfo *) = nullptr;
+static void (*g_pfnHeroStats)(unsigned int, _uidefaultstats *) = nullptr;
+
+static bool g_HeroSelectDone = false;
+static _selhero_selections g_HeroSelectResult = static_cast<_selhero_selections>(3); // SELHERO_PREVIOUS
+static uint32_t g_SelectedSaveNumber = 0;
+static _difficulty g_SelectedDifficulty = static_cast<_difficulty>(0); // DIFF_NORMAL
+
+D1MenuMode GetBridgeMenuMode()
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	return g_CurrentMenuMode;
+}
+
+static std::vector<D1HeroEntry> *g_pTempHeroList = nullptr;
+
+static bool AccumulateHeroInfoBridge(_uiheroinfo *info)
+{
+	if (g_pTempHeroList != nullptr && info != nullptr) {
+		if (!IsClassAllowed(static_cast<int>(info->heroclass)))
+			return true;
+		D1HeroEntry entry {};
+		entry.saveNumber = info->saveNumber;
+		std::strncpy(entry.name, info->name, sizeof(entry.name) - 1);
+		entry.name[sizeof(entry.name) - 1] = '\0';
+		entry.level = info->level;
+		entry.heroClass = static_cast<int>(info->heroclass);
+		entry.heroRank = info->herorank;
+		entry.strength = info->strength;
+		entry.magic = info->magic;
+		entry.dexterity = info->dexterity;
+		entry.vitality = info->vitality;
+		entry.hasSaved = info->hassaved;
+		g_pTempHeroList->push_back(entry);
+	}
+	return true;
+}
+
+std::vector<D1HeroEntry> GetBridgeHeroList()
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	std::vector<D1HeroEntry> heroes;
+	if (g_pfnHeroInfo != nullptr) {
+		g_pTempHeroList = &heroes;
+		g_pfnHeroInfo(AccumulateHeroInfoBridge);
+		g_pTempHeroList = nullptr;
+	}
+	return heroes;
+}
+
+D1ClassDefaultStats GetBridgeClassStats(int heroClass)
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	_uidefaultstats rawStats {};
+	if (g_pfnHeroStats != nullptr) {
+		g_pfnHeroStats(static_cast<unsigned int>(heroClass), &rawStats);
+	} else {
+		pfile_ui_set_class_stats(static_cast<unsigned int>(heroClass), &rawStats);
+	}
+	D1ClassDefaultStats stats;
+	stats.strength = rawStats.strength;
+	stats.magic = rawStats.magic;
+	stats.dexterity = rawStats.dexterity;
+	stats.vitality = rawStats.vitality;
+	return stats;
+}
+
+std::string GetBridgeRandomName(int heroClass)
+{
+	static const char *const Names[6][10] = {
+		{ "Aidan", "Qarak", "Born", "Cathan", "Halbu", "Lenalas", "Maximus", "Vane", "Myrdgar", "Rothat" },
+		{ "Moreina", "Akara", "Kashya", "Flavie", "Divo", "Oriana", "Iantha", "Shikha", "Basanti", "Elexa" },
+		{ "Jazreth", "Drognan", "Armin", "Fauztin", "Jere", "Kazzulk", "Ranslor", "Sarnakyle", "Valthek", "Horazon" },
+		{ "Akyev", "Dvorak", "Kekegi", "Kharazim", "Mikulov", "Shenlong", "Vedenin", "Vhalit", "Vylnas", "Zhota" },
+		{ "Moreina", "Akara", "Kashya", "Flavie", "Divo", "Oriana", "Iantha", "Shikha", "Basanti", "Elexa" },
+		{ "Alaric", "Barloc", "Egtheow", "Guthlaf", "Heorogar", "Hrothgar", "Oslaf", "Qual-Kehk", "Ragnar", "Ulf" }
+	};
+	int c = std::max(0, std::min(5, heroClass));
+	int idx = rand() % 10;
+	return Names[c][idx];
+}
+
+bool BridgeCreateHero(const char *name, int heroClass)
+{
+	if (!IsClassAllowed(heroClass))
+		return false;
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	_uiheroinfo info {};
+	info.saveNumber = pfile_ui_get_first_unused_save_num();
+	std::strncpy(info.name, name, sizeof(info.name) - 1);
+	info.name[sizeof(info.name) - 1] = '\0';
+	info.heroclass = static_cast<HeroClass>(heroClass);
+	info.level = 1;
+	info.herorank = 0;
+	info.hassaved = false;
+	info.spawned = false;
+
+	_uidefaultstats rawStats {};
+	if (g_pfnHeroStats != nullptr) {
+		g_pfnHeroStats(static_cast<unsigned int>(heroClass), &rawStats);
+	} else {
+		pfile_ui_set_class_stats(static_cast<unsigned int>(heroClass), &rawStats);
+	}
+	info.strength = rawStats.strength;
+	info.magic = rawStats.magic;
+	info.dexterity = rawStats.dexterity;
+	info.vitality = rawStats.vitality;
+
+	if (g_pfnHeroCreate != nullptr) {
+		return g_pfnHeroCreate(&info);
+	}
+	return pfile_ui_save_create(&info);
+}
+
+bool BridgeDeleteHero(uint32_t saveNumber)
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	_uiheroinfo info {};
+	info.saveNumber = saveNumber;
+	if (g_pfnHeroRemove != nullptr) {
+		return g_pfnHeroRemove(&info);
+	}
+	return pfile_delete_save(&info);
+}
+
+void BridgeSelectSinglePlayer()
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	g_PendingMainMenuResult = MAINMENU_SINGLE_PLAYER;
+	g_MenuCond.notify_all();
+}
+
+void BridgeLaunchHero(uint32_t saveNumber, int difficulty, bool loadExisting)
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	g_SelectedSaveNumber = saveNumber;
+	g_SelectedDifficulty = static_cast<_difficulty>(difficulty);
+	g_HeroSelectResult = loadExisting ? SELHERO_CONTINUE : SELHERO_NEW_DUNGEON;
+	g_HeroSelectDone = true;
+	g_MenuCond.notify_all();
+}
+
+void BridgeCancelHeroSelect()
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	g_HeroSelectResult = SELHERO_PREVIOUS;
+	g_HeroSelectDone = true;
+	g_MenuCond.notify_all();
+}
+
+void BridgeExitGame()
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	g_PendingMainMenuResult = MAINMENU_EXIT_DIABLO;
+	g_MenuCond.notify_all();
+}
+
+bool GodotBridgeMainMenuDialog(_mainmenu_selections *pdwResult)
+{
+	{
+		std::lock_guard<std::mutex> frameLock(g_D1FrameMutex);
+		g_D1EngineData.isGameRunning = false;
+	}
+	std::unique_lock<std::mutex> lock(g_MenuMutex);
+	g_CurrentMenuMode = D1MenuMode::MainMenu;
+	g_PendingMainMenuResult = MAINMENU_NONE;
+
+	while (g_PendingMainMenuResult == MAINMENU_NONE && !g_D1EngineQuitRequested.load()) {
+		g_MenuCond.wait_for(lock, std::chrono::milliseconds(50));
+	}
+
+	if (g_D1EngineQuitRequested.load()) {
+		*pdwResult = MAINMENU_EXIT_DIABLO;
+		g_CurrentMenuMode = D1MenuMode::None;
+		return true;
+	}
+
+	*pdwResult = g_PendingMainMenuResult;
+	g_CurrentMenuMode = D1MenuMode::None;
+	return true;
+}
+
+void GodotBridgeSelHeroDialog(
+    bool (*fninfo)(bool (*fninfofunc)(_uiheroinfo *)),
+    bool (*fncreate)(_uiheroinfo *),
+    bool (*fnremove)(_uiheroinfo *),
+    void (*fnstats)(unsigned int, _uidefaultstats *),
+    _selhero_selections *dlgresult,
+    uint32_t *saveNumber,
+    _difficulty *difficulty)
+{
+	{
+		std::lock_guard<std::mutex> frameLock(g_D1FrameMutex);
+		g_D1EngineData.isGameRunning = false;
+	}
+	std::unique_lock<std::mutex> lock(g_MenuMutex);
+	g_pfnHeroInfo = fninfo;
+	g_pfnHeroCreate = fncreate;
+	g_pfnHeroRemove = fnremove;
+	g_pfnHeroStats = fnstats;
+	g_HeroSelectDone = false;
+	g_CurrentMenuMode = D1MenuMode::CharacterSelect;
+
+	while (!g_HeroSelectDone && !g_D1EngineQuitRequested.load()) {
+		g_MenuCond.wait_for(lock, std::chrono::milliseconds(50));
+	}
+
+	if (g_D1EngineQuitRequested.load()) {
+		*dlgresult = SELHERO_PREVIOUS;
+		g_CurrentMenuMode = D1MenuMode::None;
+		return;
+	}
+
+	*dlgresult = g_HeroSelectResult;
+	*saveNumber = g_SelectedSaveNumber;
+	*difficulty = g_SelectedDifficulty;
+	g_CurrentMenuMode = D1MenuMode::None;
+}
+
+static bool IsValidOptionEntry(OptionEntryBase *pOptionEntry)
+{
+	auto flags = pOptionEntry->GetFlags();
+	if (HasAnyOf(flags, OptionEntryFlags::NeedDiabloMpq) && !HaveDiabdat())
+		return false;
+	if (HasAnyOf(flags, OptionEntryFlags::NeedHellfireMpq) && !HaveHellfire())
+		return false;
+	return HasNoneOf(flags, OptionEntryFlags::Invisible | (gbIsHellfire ? OptionEntryFlags::OnlyDiablo : OptionEntryFlags::OnlyHellfire));
+}
+
+std::vector<D1SettingCategory> GetBridgeSettingsCategories()
+{
+	std::vector<D1SettingCategory> result;
+	auto categories = sgOptions.GetCategories();
+	for (size_t i = 0; i < categories.size(); ++i) {
+		auto *cat = categories[i];
+		D1SettingCategory sc;
+		sc.id = static_cast<int>(i);
+		sc.name = std::string(cat->GetName());
+		sc.description = std::string(cat->GetDescription());
+		result.push_back(sc);
+	}
+	return result;
+}
+
+std::vector<D1SettingEntry> GetBridgeSettingsEntries(int categoryId)
+{
+	std::vector<D1SettingEntry> result;
+	if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
+		SDL_InitSubSystem(SDL_INIT_VIDEO);
+	}
+	auto categories = sgOptions.GetCategories();
+	if (categoryId < 0 || categoryId >= static_cast<int>(categories.size()))
+		return result;
+
+	auto entries = categories[categoryId]->GetEntries();
+	for (size_t i = 0; i < entries.size(); ++i) {
+		auto *entry = entries[i];
+		if (!entry || !IsValidOptionEntry(entry))
+			continue;
+
+		D1SettingEntry se;
+		se.id = static_cast<int>(i);
+		se.categoryId = categoryId;
+		se.name = std::string(entry->GetName());
+		se.description = std::string(entry->GetDescription());
+		se.valueStr = std::string(entry->GetValueDescription());
+
+		auto type = entry->GetType();
+		se.type = static_cast<int>(type);
+		se.boolValue = false;
+		se.listIndex = 0;
+
+		if (type == OptionEntryType::Boolean) {
+			auto *bEntry = static_cast<OptionEntryBoolean *>(entry);
+			se.boolValue = **bEntry;
+		} else if (type == OptionEntryType::List) {
+			auto *lEntry = static_cast<OptionEntryListBase *>(entry);
+			se.listIndex = static_cast<int>(lEntry->GetActiveListIndex());
+			size_t listSize = lEntry->GetListSize();
+			for (size_t l = 0; l < listSize; ++l) {
+				se.listOptions.push_back(std::string(lEntry->GetListDescription(l)));
+			}
+		}
+		result.push_back(se);
+	}
+	return result;
+}
+
+void SetBridgeSettingBool(int categoryId, int entryId, bool value)
+{
+	auto categories = sgOptions.GetCategories();
+	if (categoryId < 0 || categoryId >= static_cast<int>(categories.size()))
+		return;
+	auto entries = categories[categoryId]->GetEntries();
+	if (entryId < 0 || entryId >= static_cast<int>(entries.size()))
+		return;
+	auto *entry = entries[entryId];
+	if (entry && entry->GetType() == OptionEntryType::Boolean) {
+		static_cast<OptionEntryBoolean *>(entry)->SetValue(value);
+	}
+}
+
+void SetBridgeSettingList(int categoryId, int entryId, int listIndex)
+{
+	auto categories = sgOptions.GetCategories();
+	if (categoryId < 0 || categoryId >= static_cast<int>(categories.size()))
+		return;
+	auto entries = categories[categoryId]->GetEntries();
+	if (entryId < 0 || entryId >= static_cast<int>(entries.size()))
+		return;
+	auto *entry = entries[entryId];
+	if (entry && entry->GetType() == OptionEntryType::List) {
+		auto *lEntry = static_cast<OptionEntryListBase *>(entry);
+		if (listIndex >= 0 && listIndex < static_cast<int>(lEntry->GetListSize())) {
+			lEntry->SetActiveListIndex(static_cast<size_t>(listIndex));
+		}
+	}
+}
+
+void SaveBridgeSettings()
+{
+	SaveOptions();
+}
+
+bool IsHellfireMode()
+{
+	return gbIsHellfire;
+}
+
+bool IsClassAllowed(int heroClass)
+{
+	switch (heroClass) {
+	case 0: // Warrior
+	case 1: // Rogue
+	case 2: // Sorcerer
+		return true;
+	case 3: // Monk
+		return gbIsHellfire;
+	case 4: // Bard
+		return gbIsHellfire && (gbBard || *sgOptions.Gameplay.testBard);
+	case 5: // Barbarian
+		return gbIsHellfire && (gbBarbarian || *sgOptions.Gameplay.testBarbarian);
+	default:
+		return false;
+	}
+}
+
+std::string GetBridgeLanguageCode()
+{
+	return std::string(*sgOptions.Language.code);
 }
 
 } // namespace devilution

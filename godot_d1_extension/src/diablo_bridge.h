@@ -72,6 +72,8 @@ public:
 	bool is_game_running() const;
 	bool is_level_loading() const;
 	bool is_modal_active() const;
+	bool is_text_input_active() const;
+	bool is_player_dead() const;
 	int get_modal_type() const;
 	// Native modal overlay data for pause/gamemenu and dialog/store menus.
 	Array get_current_menu_items() const; // [{"text", "enabled", "selectable", "price"}] for the active menu
@@ -144,6 +146,29 @@ public:
 	void set_spell_book_page(int page);
 	Array get_spell_book_entries() const;
 	void select_spell_book_entry(int spell_id, int spell_type);
+
+	// Native Godot Menu Bridge (Main Menu, Character Select, New Hero)
+	int get_menu_mode() const; // 0 = None, 1 = MainMenu, 2 = CharacterSelect
+	bool is_hellfire() const;
+	bool is_class_allowed(int hero_class) const;
+	Array get_allowed_classes() const;
+	String get_language_code() const;
+	void menu_select_single_player();
+	void menu_exit_game();
+	Array get_hero_list() const;
+	Dictionary get_class_base_stats(int hero_class) const;
+	String get_random_hero_name(int hero_class) const;
+	bool create_hero(const String &name, int hero_class);
+	bool delete_hero(int save_num);
+	void launch_hero_game(int save_num, int difficulty, bool load_saved);
+	void cancel_hero_select();
+
+	// Native Godot Full DevilutionX Settings Bridge
+	Array get_settings_categories() const;
+	Array get_settings_entries(int category_id) const;
+	void set_setting_bool(int category_id, int entry_id, bool value);
+	void set_setting_list(int category_id, int entry_id, int list_index);
+	void save_settings();
 
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap
 	PackedInt32Array get_dungeon_grid() const;

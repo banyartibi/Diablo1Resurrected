@@ -4,6 +4,7 @@
 #include <atomic>
 #include <filesystem>
 #include <vector>
+#include <string>
 #include <SDL.h>
 #include "engine/point.hpp"
 #include "engine/direction.hpp"
@@ -104,6 +105,8 @@ struct D1EngineData {
 	bool isInventoryHover = false;
 	bool isMonsterHover = false;
 	bool isModalActive = false;
+	bool isTextInputActive = false;
+	bool isPlayerDead = false;
 	int hoverMouseX = 0;
 	int hoverMouseY = 0;
 	int zoomMode = 2; // 0=1.0x, 1=1.5x, 2=2.0x, 3=2.5x, 4=3.0x
@@ -120,6 +123,8 @@ struct AvailableSpellItem {
 extern D1EngineData g_D1EngineData;
 extern bool gbHideVanillaHUD;
 void SetVanillaHUDHidden(bool hidden);
+bool IsTextInputActiveLive();
+bool IsPlayerDeadLive();
 std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType);
 std::vector<AvailableSpellItem> GetAvailableSpells();
 void SelectSpell(int spellId, int spellType);
@@ -183,6 +188,7 @@ extern std::atomic<bool> g_DiabloThreadRunning;
 bool IsDevilutionXRunning();
 bool IsDevilutionXQuitRequested();
 void RequestDevilutionXQuit();
+bool IsGameRunningLive();
 
 // Native Godot Audio Interception
 struct D1AudioEvent {
@@ -563,6 +569,88 @@ std::vector<D1MissileInfo> GetActiveMissilesList();
 D1MissileSpriteRgba GetMissileSpriteRgba(int missileId);
 
 bool IsBridgeSafeToRead();
+
+// Native Godot Menu Bridge (Main Menu, Character Select, New Hero)
+enum class D1MenuMode : int32_t {
+	None = 0,
+	MainMenu = 1,
+	CharacterSelect = 2,
+};
+
+struct D1HeroEntry {
+	uint32_t saveNumber;
+	char name[16];
+	uint8_t level;
+	int heroClass;
+	uint8_t heroRank;
+	uint16_t strength;
+	uint16_t magic;
+	uint16_t dexterity;
+	uint16_t vitality;
+	bool hasSaved;
+};
+
+struct D1ClassDefaultStats {
+	uint16_t strength;
+	uint16_t magic;
+	uint16_t dexterity;
+	uint16_t vitality;
+};
+
+enum _mainmenu_selections : uint8_t;
+enum _selhero_selections : uint8_t;
+enum _difficulty : uint8_t;
+struct _uiheroinfo;
+struct _uidefaultstats;
+
+D1MenuMode GetBridgeMenuMode();
+std::vector<D1HeroEntry> GetBridgeHeroList();
+D1ClassDefaultStats GetBridgeClassStats(int heroClass);
+std::string GetBridgeRandomName(int heroClass);
+bool BridgeCreateHero(const char *name, int heroClass);
+bool BridgeDeleteHero(uint32_t saveNumber);
+void BridgeSelectSinglePlayer();
+void BridgeLaunchHero(uint32_t saveNumber, int difficulty, bool loadExisting);
+void BridgeCancelHeroSelect();
+void BridgeExitGame();
+bool IsHellfireMode();
+bool IsClassAllowed(int heroClass);
+std::string GetBridgeLanguageCode();
+
+bool GodotBridgeMainMenuDialog(_mainmenu_selections *pdwResult);
+void GodotBridgeSelHeroDialog(
+    bool (*fninfo)(bool (*fninfofunc)(_uiheroinfo *)),
+    bool (*fncreate)(_uiheroinfo *),
+    bool (*fnremove)(_uiheroinfo *),
+    void (*fnstats)(unsigned int, _uidefaultstats *),
+    _selhero_selections *dlgresult,
+    uint32_t *saveNumber,
+    _difficulty *difficulty);
+
+// Native Godot Full DevilutionX Settings Bridge
+struct D1SettingCategory {
+	int id;
+	std::string name;
+	std::string description;
+};
+
+struct D1SettingEntry {
+	int id;
+	int categoryId;
+	std::string name;
+	std::string description;
+	int type; // 0=Boolean, 1=List, 2=Key, 3=PadButton
+	std::string valueStr;
+	bool boolValue;
+	int listIndex;
+	std::vector<std::string> listOptions;
+};
+
+std::vector<D1SettingCategory> GetBridgeSettingsCategories();
+std::vector<D1SettingEntry> GetBridgeSettingsEntries(int categoryId);
+void SetBridgeSettingBool(int categoryId, int entryId, bool value);
+void SetBridgeSettingList(int categoryId, int entryId, int listIndex);
+void SaveBridgeSettings();
 
 } // namespace devilution
 

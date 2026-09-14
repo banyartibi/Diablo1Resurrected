@@ -80,6 +80,11 @@ var sandbox_instance = null
 # Native Godot modal overlay script (D1 pause/gamemenu, dialog/store, death-restart menus)
 const MODAL_SCENE = preload("res://scenes/modals/native_modal_layer.tscn")
 
+# Native Godot 4K Main Menu & Campfire Scene (D2R style)
+var main_menu_scene = preload("res://scenes/menu/main_menu.tscn")
+var main_menu_instance = null
+var menu_layer: CanvasLayer = null
+
 # Modal Dialog & Menu Overlay (for Mode 1 / Mode 2 when talking to Towners, visiting shops, or in Esc menu).
 # Renders D1's own menus natively with Control nodes (see native_modal_layer.gd) instead of blitting
 # D1's rasterized vanilla frame onto the mesh.
@@ -90,6 +95,12 @@ var native_modal: Control = null
 # Automap Overlay (for Tab map in Native 2.5D / 3D)
 var automap_layer: CanvasLayer = null
 var automap_rect: TextureRect = null
+
+# Authentic Diablo 1 / Hellfire Red Death Screen Post-Process
+var death_screen_layer: CanvasLayer = null
+var death_screen_rect: ColorRect = null
+var death_screen_mat: ShaderMaterial = null
+var death_fade: float = 0.0
 
 var current_zoom_step: int = 1          # Default: 1.5x (Balanced View)
 var zoom_step_names = [
@@ -233,6 +244,14 @@ func _ready():
 	if diablo_bridge and modern_hud and modern_hud.has_method("set_bridge"):
 		modern_hud.set_bridge(diablo_bridge)
 
+	# Initialize Native Godot 4K Main Menu & D2R Campfire Scene
+	menu_layer = CanvasLayer.new()
+	menu_layer.name = "NativeMainMenuLayer"
+	menu_layer.layer = 130
+	add_child(menu_layer)
+	main_menu_instance = main_menu_scene.instantiate()
+	menu_layer.add_child(main_menu_instance)
+
 	# Initialize Native Godot 2.5D View (Mode 1)
 	native_25d_instance = native_25d_scene.instantiate()
 	game_view.add_child(native_25d_instance)
@@ -316,6 +335,24 @@ func setup_modal_overlay():
 	automap_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	automap_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	automap_layer.add_child(automap_rect)
+
+	# Authentic Red Death Screen Layer (Layer 118: Above world & automap, below modal layer)
+	death_screen_layer = CanvasLayer.new()
+	death_screen_layer.layer = 118
+	death_screen_layer.visible = false
+	add_child(death_screen_layer)
+
+	var death_shader = load("res://shaders/death_red_screen.gdshader")
+	if death_shader:
+		death_screen_mat = ShaderMaterial.new()
+		death_screen_mat.shader = death_shader
+		death_screen_mat.set_shader_parameter("intensity", 0.0)
+
+		death_screen_rect = ColorRect.new()
+		death_screen_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		death_screen_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		death_screen_rect.material = death_screen_mat
+		death_screen_layer.add_child(death_screen_rect)
 
 func update_torch_light():
 	if hero_light:
@@ -544,6 +581,22 @@ func _process(delta: float):
 		if root_vp_size.x > 0 and root_vp_size.y > 0 and game_view.size != root_vp_size:
 			game_view.size = root_vp_size
 
+	# Authentic Red Death Screen post-processing update
+	if diablo_bridge and diablo_bridge.has_method("is_player_dead"):
+		var is_dead = diablo_bridge.is_player_dead()
+		if is_dead:
+			death_fade = minf(death_fade + delta * 2.5, 1.0)
+			if death_screen_layer:
+				death_screen_layer.visible = true
+			if death_screen_mat:
+				death_screen_mat.set_shader_parameter("intensity", death_fade)
+		else:
+			death_fade = maxf(death_fade - delta * 3.0, 0.0)
+			if death_fade <= 0.0 and death_screen_layer:
+				death_screen_layer.visible = false
+			elif death_screen_mat:
+				death_screen_mat.set_shader_parameter("intensity", death_fade)
+
 	if use_gdextension and diablo_bridge != null:
 		var quit_req = diablo_bridge.is_quit_requested()
 		var eng_run = diablo_bridge.is_engine_running()
@@ -574,12 +627,19 @@ func _process(delta: float):
 					sandbox_instance.diablo_bridge = diablo_bridge
 				if native_modal:
 					native_modal.call("set_bridge", diablo_bridge)
+				if main_menu_instance and main_menu_instance.has_method("set_bridge"):
+					main_menu_instance.set_bridge(diablo_bridge)
 
 			var is_ingame = diablo_bridge.is_game_running() if diablo_bridge.has_method("is_game_running") else false
+			if menu_layer:
+				menu_layer.visible = not is_ingame
+			if main_menu_instance:
+				main_menu_instance.visible = not is_ingame
+
 			var cur_frame_id = diablo_bridge.get_frame_id()
 			if cur_frame_id != last_frame_id:
 				last_frame_id = cur_frame_id
-				if not is_ingame or current_display_mode == DisplayMode.ORIGINAL_25D:
+				if is_ingame and current_display_mode == DisplayMode.ORIGINAL_25D:
 					var pixel_bytes = diablo_bridge.get_frame_bytes()
 					d1_width = diablo_bridge.get_frame_width()
 					d1_height = diablo_bridge.get_frame_height()
@@ -855,25 +915,32 @@ func switch_display_mode(new_mode: int):
 	apply_display_mode()
 
 func _unhandled_input(event: InputEvent):
+	var is_ingame = diablo_bridge.is_game_running() if (diablo_bridge and diablo_bridge.has_method("is_game_running")) else false
+	var is_text_active = diablo_bridge.is_text_input_active() if (diablo_bridge and diablo_bridge.has_method("is_text_input_active")) else false
+
 	if event is InputEventKey and event.pressed and not event.echo:
-		print("[D1-DEBUG] key_unhandled keycode=%d phys=%d" % [event.keycode, event.physical_keycode])
-		if event.keycode == KEY_H:
-			modern_hud_enabled = !modern_hud_enabled
-			if modern_hud:
-				modern_hud.visible = modern_hud_enabled
-			if diablo_bridge:
-				diablo_bridge.set_vanilla_hud_hidden(modern_hud_enabled)
-			update_shader_params()
-			show_osd("[H] HUD Mode: " + ("Modern Diablo IV CanvasLayer (Forward+ Vulkan)" if modern_hud_enabled else "Classic 1996 Panel (Vanilla)"))
-			return
-		elif event.keycode == KEY_G:
-			var is_hd = toggle_hd_graphics()
-			show_osd("[G] Graphics Style: " + ("Resurrected 4x HD" if is_hd else "Authentic 1996 Pixel Art"))
-			return
-		elif event.keycode == KEY_F3:
+		print("[D1-DEBUG] key_unhandled keycode=%d phys=%d uni=%d text_act=%s ingame=%s" % [event.keycode, event.physical_keycode, event.unicode, is_text_active, is_ingame])
+		
+		# If user is entering text (character name, chat, IP, password) or NOT in-game:
+		# DO NOT intercept letter keys H or G! They must type characters!
+		if not is_text_active and is_ingame:
+			if event.keycode == KEY_H:
+				modern_hud_enabled = !modern_hud_enabled
+				if modern_hud:
+					modern_hud.visible = modern_hud_enabled
+				if diablo_bridge:
+					diablo_bridge.set_vanilla_hud_hidden(modern_hud_enabled)
+				update_shader_params()
+				show_osd("[H] HUD Mode: " + ("Modern Diablo IV CanvasLayer (Forward+ Vulkan)" if modern_hud_enabled else "Classic 1996 Panel (Vanilla)"))
+				return
+			elif event.keycode == KEY_G:
+				var is_hd = toggle_hd_graphics()
+				show_osd("[G] Graphics Style: " + ("Resurrected 4x HD" if is_hd else "Authentic 1996 Pixel Art"))
+				return
+
+		if event.keycode == KEY_F3:
 			var next_mode = (current_display_mode + 1) % 3
 			switch_display_mode(next_mode)
-			var is_ingame = diablo_bridge.is_game_running() if (diablo_bridge and diablo_bridge.has_method("is_game_running")) else false
 			if not is_ingame:
 				var mode_names = [
 					"Classic 2.5D Blit (Vanilla + 3D Relief Shader)",
@@ -929,7 +996,6 @@ func _unhandled_input(event: InputEvent):
 			show_osd("[F12] Dungeon Floor: " + ("Wet & Reflective Cobblestone (Glossy Puddles ON)" if wet_floor else "Dry Dusty Stone Surface (OFF)"))
 			return
 
-	var is_ingame = diablo_bridge.is_game_running() if (diablo_bridge and diablo_bridge.has_method("is_game_running")) else false
 	if is_ingame:
 		if current_display_mode == DisplayMode.NATIVE_3D and sandbox_instance != null:
 			if sandbox_instance.handle_input(event):
@@ -973,10 +1039,19 @@ func _unhandled_input(event: InputEvent):
 		var state = 1 if event.pressed else 0
 		send_input_to_d1(2, btn, state, mpos.x, mpos.y)
 	elif event is InputEventKey:
-		var key = get_sdl_key(event.keycode)
+		var raw_code = event.keycode
+		if raw_code == 0:
+			raw_code = event.physical_keycode
+		if raw_code == 0:
+			raw_code = event.key_label
+		var key = get_sdl_key(raw_code)
 		var state = 1 if event.pressed else 0
 		var uni = event.unicode if event.pressed else 0
-		send_input_to_d1(3, key, state, uni, 0)
+		var mod_mask = 0
+		if event.shift_pressed: mod_mask |= 1
+		if event.ctrl_pressed: mod_mask |= 2
+		if event.alt_pressed: mod_mask |= 4
+		send_input_to_d1(3, key, state, uni, mod_mask)
 
 func send_input_to_d1(msg_type: int, code: int, state: int, x: int, y: int):
 	if use_gdextension and diablo_bridge != null:
@@ -1011,10 +1086,12 @@ func get_sdl_key(keycode: int) -> int:
 	if keycode == KEY_DELETE: return 127
 	if keycode >= KEY_0 and keycode <= KEY_9: return keycode
 	if keycode >= KEY_A and keycode <= KEY_Z: return keycode + 32
+	if keycode >= 97 and keycode <= 122: return keycode
 	if keycode >= KEY_F1 and keycode <= KEY_F12: return 1073741882 + (keycode - KEY_F1)
 	if keycode == KEY_SHIFT: return 1073742049
 	if keycode == KEY_CTRL: return 1073742048
 	if keycode == KEY_ALT: return 1073742050
+	if keycode == KEY_CAPSLOCK: return 1073741881
 	if keycode == KEY_UP: return 1073741906
 	if keycode == KEY_DOWN: return 1073741905
 	if keycode == KEY_LEFT: return 1073741904

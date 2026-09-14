@@ -48,6 +48,8 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_game_running"), &DiabloBridge::is_game_running);
 	ClassDB::bind_method(D_METHOD("is_level_loading"), &DiabloBridge::is_level_loading);
 	ClassDB::bind_method(D_METHOD("is_modal_active"), &DiabloBridge::is_modal_active);
+	ClassDB::bind_method(D_METHOD("is_text_input_active"), &DiabloBridge::is_text_input_active);
+	ClassDB::bind_method(D_METHOD("is_player_dead"), &DiabloBridge::is_player_dead);
 	ClassDB::bind_method(D_METHOD("get_modal_type"), &DiabloBridge::get_modal_type);
 	ClassDB::bind_method(D_METHOD("get_current_menu_items"), &DiabloBridge::get_current_menu_items);
 	ClassDB::bind_method(D_METHOD("get_modal_selection_index"), &DiabloBridge::get_modal_selection_index);
@@ -116,6 +118,29 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_spell_book_page", "page"), &DiabloBridge::set_spell_book_page);
 	ClassDB::bind_method(D_METHOD("get_spell_book_entries"), &DiabloBridge::get_spell_book_entries);
 	ClassDB::bind_method(D_METHOD("select_spell_book_entry", "spell_id", "spell_type"), &DiabloBridge::select_spell_book_entry);
+
+	// Native Godot Menu Bridge
+	ClassDB::bind_method(D_METHOD("get_menu_mode"), &DiabloBridge::get_menu_mode);
+	ClassDB::bind_method(D_METHOD("is_hellfire"), &DiabloBridge::is_hellfire);
+	ClassDB::bind_method(D_METHOD("is_class_allowed", "hero_class"), &DiabloBridge::is_class_allowed);
+	ClassDB::bind_method(D_METHOD("get_allowed_classes"), &DiabloBridge::get_allowed_classes);
+	ClassDB::bind_method(D_METHOD("get_language_code"), &DiabloBridge::get_language_code);
+	ClassDB::bind_method(D_METHOD("menu_select_single_player"), &DiabloBridge::menu_select_single_player);
+	ClassDB::bind_method(D_METHOD("menu_exit_game"), &DiabloBridge::menu_exit_game);
+	ClassDB::bind_method(D_METHOD("get_hero_list"), &DiabloBridge::get_hero_list);
+	ClassDB::bind_method(D_METHOD("get_class_base_stats", "hero_class"), &DiabloBridge::get_class_base_stats);
+	ClassDB::bind_method(D_METHOD("get_random_hero_name", "hero_class"), &DiabloBridge::get_random_hero_name);
+	ClassDB::bind_method(D_METHOD("create_hero", "name", "hero_class"), &DiabloBridge::create_hero);
+	ClassDB::bind_method(D_METHOD("delete_hero", "save_num"), &DiabloBridge::delete_hero);
+	ClassDB::bind_method(D_METHOD("launch_hero_game", "save_num", "difficulty", "load_saved"), &DiabloBridge::launch_hero_game);
+	ClassDB::bind_method(D_METHOD("cancel_hero_select"), &DiabloBridge::cancel_hero_select);
+
+	// Native Godot Full DevilutionX Settings Bridge
+	ClassDB::bind_method(D_METHOD("get_settings_categories"), &DiabloBridge::get_settings_categories);
+	ClassDB::bind_method(D_METHOD("get_settings_entries", "category_id"), &DiabloBridge::get_settings_entries);
+	ClassDB::bind_method(D_METHOD("set_setting_bool", "category_id", "entry_id", "value"), &DiabloBridge::set_setting_bool);
+	ClassDB::bind_method(D_METHOD("set_setting_list", "category_id", "entry_id", "list_index"), &DiabloBridge::set_setting_list);
+	ClassDB::bind_method(D_METHOD("save_settings"), &DiabloBridge::save_settings);
 
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
@@ -206,7 +231,7 @@ void DiabloBridge::step_tick() {
 }
 
 bool DiabloBridge::is_engine_ready() const {
-	return devilution::g_D1EngineData.frameId > 0;
+	return devilution::g_D1EngineData.frameId > 0 || (devilution::IsDevilutionXRunning() && devilution::GetBridgeMenuMode() != devilution::D1MenuMode::None);
 }
 
 bool DiabloBridge::is_engine_running() const {
@@ -351,7 +376,7 @@ bool DiabloBridge::is_vanilla_hud_hidden() const {
 }
 
 bool DiabloBridge::is_game_running() const {
-	return devilution::g_D1EngineData.isGameRunning;
+	return devilution::IsGameRunningLive();
 }
 
 bool DiabloBridge::is_level_loading() const {
@@ -360,6 +385,14 @@ bool DiabloBridge::is_level_loading() const {
 
 bool DiabloBridge::is_modal_active() const {
 	return devilution::IsModalActiveLive();
+}
+
+bool DiabloBridge::is_text_input_active() const {
+	return devilution::g_D1EngineData.isTextInputActive || devilution::IsTextInputActiveLive();
+}
+
+bool DiabloBridge::is_player_dead() const {
+	return devilution::g_D1EngineData.isPlayerDead || devilution::IsPlayerDeadLive();
 }
 
 int DiabloBridge::get_modal_type() const {
@@ -1367,5 +1400,143 @@ void DiabloBridge::select_spell_book_entry(int spell_id, int spell_type) {
 	devilution::PushBridgeAction(devilution::D1BridgeActionType::SelectSpellBookEntry, spell_id, spell_type);
 }
 
+// -----------------------------------------------------------------------------
+// Native Godot Menu Bridge Implementations
+// -----------------------------------------------------------------------------
+int DiabloBridge::get_menu_mode() const {
+	return static_cast<int>(devilution::GetBridgeMenuMode());
+}
 
+bool DiabloBridge::is_hellfire() const {
+	return devilution::IsHellfireMode();
+}
 
+bool DiabloBridge::is_class_allowed(int hero_class) const {
+	return devilution::IsClassAllowed(hero_class);
+}
+
+Array DiabloBridge::get_allowed_classes() const {
+	Array result;
+	for (int c = 0; c < 6; ++c) {
+		if (devilution::IsClassAllowed(c)) {
+			result.push_back(c);
+		}
+	}
+	return result;
+}
+
+String DiabloBridge::get_language_code() const {
+	return String::utf8(devilution::GetBridgeLanguageCode().c_str());
+}
+
+void DiabloBridge::menu_select_single_player() {
+	devilution::BridgeSelectSinglePlayer();
+}
+
+void DiabloBridge::menu_exit_game() {
+	devilution::BridgeExitGame();
+}
+
+Array DiabloBridge::get_hero_list() const {
+	Array result;
+	auto heroes = devilution::GetBridgeHeroList();
+	static const char *const classNames[] = {
+		"Warrior", "Rogue", "Sorcerer", "Monk", "Bard", "Barbarian"
+	};
+	for (const auto &h : heroes) {
+		Dictionary d;
+		d["save_num"] = static_cast<int>(h.saveNumber);
+		d["name"] = String::utf8(h.name);
+		d["level"] = static_cast<int>(h.level);
+		d["class_id"] = h.heroClass;
+		int c = std::max(0, std::min(5, h.heroClass));
+		d["class_name"] = String::utf8(classNames[c]);
+		d["rank"] = static_cast<int>(h.heroRank);
+		d["strength"] = static_cast<int>(h.strength);
+		d["magic"] = static_cast<int>(h.magic);
+		d["dexterity"] = static_cast<int>(h.dexterity);
+		d["vitality"] = static_cast<int>(h.vitality);
+		d["has_saved"] = h.hasSaved;
+		result.push_back(d);
+	}
+	return result;
+}
+
+Dictionary DiabloBridge::get_class_base_stats(int hero_class) const {
+	Dictionary d;
+	auto stats = devilution::GetBridgeClassStats(hero_class);
+	d["strength"] = static_cast<int>(stats.strength);
+	d["magic"] = static_cast<int>(stats.magic);
+	d["dexterity"] = static_cast<int>(stats.dexterity);
+	d["vitality"] = static_cast<int>(stats.vitality);
+	return d;
+}
+
+String DiabloBridge::get_random_hero_name(int hero_class) const {
+	return String::utf8(devilution::GetBridgeRandomName(hero_class).c_str());
+}
+
+bool DiabloBridge::create_hero(const String &name, int hero_class) {
+	CharString cs = name.utf8();
+	return devilution::BridgeCreateHero(cs.get_data(), hero_class);
+}
+
+bool DiabloBridge::delete_hero(int save_num) {
+	return devilution::BridgeDeleteHero(static_cast<uint32_t>(save_num));
+}
+
+void DiabloBridge::launch_hero_game(int save_num, int difficulty, bool load_saved) {
+	devilution::BridgeLaunchHero(static_cast<uint32_t>(save_num), difficulty, load_saved);
+}
+
+void DiabloBridge::cancel_hero_select() {
+	devilution::BridgeCancelHeroSelect();
+}
+
+Array DiabloBridge::get_settings_categories() const {
+	Array result;
+	auto cats = devilution::GetBridgeSettingsCategories();
+	for (const auto &c : cats) {
+		Dictionary d;
+		d["id"] = c.id;
+		d["name"] = String::utf8(c.name.c_str());
+		d["description"] = String::utf8(c.description.c_str());
+		result.push_back(d);
+	}
+	return result;
+}
+
+Array DiabloBridge::get_settings_entries(int category_id) const {
+	Array result;
+	auto entries = devilution::GetBridgeSettingsEntries(category_id);
+	for (const auto &e : entries) {
+		Dictionary d;
+		d["id"] = e.id;
+		d["category_id"] = e.categoryId;
+		d["name"] = String::utf8(e.name.c_str());
+		d["description"] = String::utf8(e.description.c_str());
+		d["type"] = e.type;
+		d["value_str"] = String::utf8(e.valueStr.c_str());
+		d["bool_val"] = e.boolValue;
+		d["list_index"] = e.listIndex;
+		Array opts;
+		for (const auto &opt : e.listOptions) {
+			opts.push_back(String::utf8(opt.c_str()));
+		}
+		d["list_options"] = opts;
+		result.push_back(d);
+	}
+	return result;
+}
+
+void DiabloBridge::set_setting_bool(int category_id, int entry_id, bool value) {
+	devilution::SetBridgeSettingBool(category_id, entry_id, value);
+}
+
+void DiabloBridge::set_setting_list(int category_id, int entry_id, int list_index) {
+	devilution::SetBridgeSettingList(category_id, entry_id, list_index);
+}
+
+void DiabloBridge::save_settings() {
+	devilution::SaveBridgeSettings();
+}

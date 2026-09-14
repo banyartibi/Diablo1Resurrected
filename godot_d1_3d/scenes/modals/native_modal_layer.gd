@@ -15,9 +15,14 @@ var last_item_count := -1
 var last_sel := -2
 var last_qtext_active := false
 var last_qtext_line_count := -1
+var last_is_dead := false
 
 var _panel: PanelContainer
+var _default_panel_style: StyleBoxFlat
+var _death_panel_style: StyleBoxEmpty
 var _title_label: Label
+var _default_title_style: StyleBoxFlat
+var _death_title_style: StyleBoxEmpty
 var _gold_label: Label
 var _rows_container: VBoxContainer
 var _qtext_container: VBoxContainer
@@ -143,28 +148,33 @@ func _ready() -> void:
 	add_child(_panel)
 
 	# Gothic panel styling
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(0.05, 0.05, 0.08, 0.96)
-	bg.border_color = Color(0.65, 0.50, 0.22, 1.0)
-	bg.border_width_left = 2
-	bg.border_width_top = 2
-	bg.border_width_right = 2
-	bg.border_width_bottom = 2
-	bg.corner_radius_top_left = 6
-	bg.corner_radius_top_right = 6
-	bg.corner_radius_bottom_right = 6
-	bg.corner_radius_bottom_left = 6
-	bg.shadow_color = Color(0, 0, 0, 0.85)
-	bg.shadow_size = 16
-	_panel.add_theme_stylebox_override("panel", bg)
+	_default_panel_style = StyleBoxFlat.new()
+	_default_panel_style.bg_color = Color(0.05, 0.05, 0.08, 0.96)
+	_default_panel_style.border_color = Color(0.65, 0.50, 0.22, 1.0)
+	_default_panel_style.border_width_left = 2
+	_default_panel_style.border_width_top = 2
+	_default_panel_style.border_width_right = 2
+	_default_panel_style.border_width_bottom = 2
+	_default_panel_style.corner_radius_top_left = 6
+	_default_panel_style.corner_radius_top_right = 6
+	_default_panel_style.corner_radius_bottom_right = 6
+	_default_panel_style.corner_radius_bottom_left = 6
+	_default_panel_style.shadow_color = Color(0, 0, 0, 0.85)
+	_default_panel_style.shadow_size = 16
 
-	var title_style := StyleBoxFlat.new()
-	title_style.bg_color = Color(0.18, 0.13, 0.06, 0.95)
-	title_style.border_color = Color(0.85, 0.68, 0.25, 0.8)
-	title_style.border_width_bottom = 1
-	title_style.content_margin_top = 6
-	title_style.content_margin_bottom = 6
-	_title_label.add_theme_stylebox_override("normal", title_style)
+	_death_panel_style = StyleBoxEmpty.new()
+	_panel.add_theme_stylebox_override("panel", _default_panel_style)
+
+	_default_title_style = StyleBoxFlat.new()
+	_default_title_style.bg_color = Color(0.18, 0.13, 0.06, 0.95)
+	_default_title_style.border_color = Color(0.85, 0.68, 0.25, 0.8)
+	_default_title_style.border_width_bottom = 1
+	_default_title_style.content_margin_top = 6
+	_default_title_style.content_margin_bottom = 6
+
+	_death_title_style = StyleBoxEmpty.new()
+
+	_title_label.add_theme_stylebox_override("normal", _default_title_style)
 	_title_label.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45, 1.0))
 	_title_label.add_theme_font_size_override("font_size", 24)
 
@@ -202,7 +212,7 @@ func _ready() -> void:
 	opt_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	opt_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	opt_title.mouse_filter = Control.MOUSE_FILTER_PASS
-	opt_title.add_theme_stylebox_override("normal", title_style)
+	opt_title.add_theme_stylebox_override("normal", _default_title_style)
 	opt_title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45, 1.0))
 	opt_title.add_theme_font_size_override("font_size", 24)
 	opt_vbox.add_child(opt_title)
@@ -543,6 +553,18 @@ func _build_rows(_mtype_arg: int, items: Array, sel: int) -> void:
 		c.queue_free()
 	row_controls.clear()
 
+	var is_dead = diablo_bridge.is_player_dead() if (diablo_bridge and diablo_bridge.has_method("is_player_dead")) else false
+	if is_dead:
+		_panel.add_theme_stylebox_override("panel", _death_panel_style)
+		_title_label.add_theme_stylebox_override("normal", _death_title_style)
+		_title_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.12, 1.0))
+		_title_label.add_theme_font_size_override("font_size", 34)
+	else:
+		_panel.add_theme_stylebox_override("panel", _default_panel_style)
+		_title_label.add_theme_stylebox_override("normal", _default_title_style)
+		_title_label.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45, 1.0))
+		_title_label.add_theme_font_size_override("font_size", 24)
+
 	var visible_idx := 0
 	var is_first_row := true
 	for d in items:
@@ -579,33 +601,54 @@ func _build_rows(_mtype_arg: int, items: Array, sel: int) -> void:
 			btn.mouse_filter = Control.MOUSE_FILTER_STOP
 			btn.focus_mode = Control.FOCUS_NONE
 
-			var normal_sb := _button_normal_box()
-			var hover_sb := _button_hover_box()
-
-			if not enabled:
-				btn.disabled = true
-				btn.add_theme_color_override("font_color", Color(0.42, 0.42, 0.45, 1.0))
-				btn.add_theme_color_override("font_disabled_color", Color(0.35, 0.35, 0.38, 1.0))
+			if is_dead:
+				btn.add_theme_stylebox_override("normal", _death_panel_style)
+				btn.add_theme_stylebox_override("hover", _death_panel_style)
+				btn.add_theme_stylebox_override("pressed", _death_panel_style)
+				btn.add_theme_stylebox_override("disabled", _death_panel_style)
+				btn.add_theme_font_size_override("font_size", 20)
+				if not enabled:
+					btn.disabled = true
+					btn.text = text.to_upper()
+					btn.add_theme_color_override("font_disabled_color", Color(0.42, 0.36, 0.30, 0.7))
+				elif item_idx == sel:
+					btn.text = "⛤  %s  ⛤" % text.to_upper()
+					btn.add_theme_color_override("font_color", Color(1.0, 0.20, 0.08, 1.0))
+					btn.add_theme_color_override("font_hover_color", Color(1.0, 0.20, 0.08, 1.0))
+				else:
+					btn.text = text.to_upper()
+					btn.add_theme_color_override("font_color", Color(0.85, 0.75, 0.45, 0.95))
+					btn.add_theme_color_override("font_hover_color", Color(1.0, 0.25, 0.12, 1.0))
 			else:
-				btn.add_theme_stylebox_override("normal", normal_sb)
-				btn.add_theme_stylebox_override("hover", hover_sb)
-				btn.add_theme_stylebox_override("pressed", hover_sb)
-				btn.add_theme_color_override("font_color", Color(0.92, 0.88, 0.80, 1.0))
-				btn.add_theme_color_override("font_hover_color", Color(1.0, 0.92, 0.50, 1.0))
-				btn.add_theme_font_size_override("font_size", 16)
+				var normal_sb := _button_normal_box()
+				var hover_sb := _button_hover_box()
+
+				if not enabled:
+					btn.disabled = true
+					btn.add_theme_color_override("font_color", Color(0.42, 0.42, 0.45, 1.0))
+					btn.add_theme_color_override("font_disabled_color", Color(0.35, 0.35, 0.38, 1.0))
+				else:
+					btn.add_theme_stylebox_override("normal", normal_sb)
+					btn.add_theme_stylebox_override("hover", hover_sb)
+					btn.add_theme_stylebox_override("pressed", hover_sb)
+					btn.add_theme_color_override("font_color", Color(0.92, 0.88, 0.80, 1.0))
+					btn.add_theme_color_override("font_hover_color", Color(1.0, 0.92, 0.50, 1.0))
+					btn.add_theme_font_size_override("font_size", 16)
 
 				if item_idx == sel:
 					btn.add_theme_stylebox_override("normal", _button_selected_box())
 					btn.add_theme_color_override("font_color", Color(1.0, 0.92, 0.45, 1.0))
 
-				if text == "Options":
-					# Intercept D1's Options row -> open the native slider panel.
-					btn.pressed.connect(_on_options_row_pressed.bind(item_idx))
-				else:
-					btn.pressed.connect(_on_item_pressed.bind(item_idx))
-				btn.mouse_entered.connect(_on_item_hovered.bind(item_idx))
+			if text == "Options":
+				# Intercept D1's Options row -> open the native slider panel.
+				btn.pressed.connect(_on_options_row_pressed.bind(item_idx))
+			else:
+				btn.pressed.connect(_on_item_pressed.bind(item_idx))
+			btn.mouse_entered.connect(_on_item_hovered.bind(item_idx))
 
-			if price > 0:
+			if is_dead:
+				btn.text = ("⛤  %s  ⛤" % text.to_upper()) if (item_idx == sel and enabled) else text.to_upper()
+			elif price > 0:
 				btn.text = ""
 				var hbox := HBoxContainer.new()
 				hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -705,6 +748,12 @@ func _set_title(t: int, is_qtext: bool) -> void:
 		_title_label.text = title if not title.is_empty() else "Dialogue"
 		return
 
+	var is_dead = diablo_bridge.is_player_dead() if (diablo_bridge and diablo_bridge.has_method("is_player_dead")) else false
+	if is_dead:
+		var is_hf = diablo_bridge.is_hellfire() if (diablo_bridge and diablo_bridge.has_method("is_hellfire")) else true
+		_title_label.text = "HELLFIRE" if is_hf else "DIABLO"
+		return
+
 	match t:
 		1: _title_label.text = "Game Menu"
 		2:
@@ -801,10 +850,13 @@ func _process(_delta: float) -> void:
 	if diablo_bridge.has_method("get_modal_selection_index"):
 		sel = diablo_bridge.get_modal_selection_index()
 
-	if mtype != current_type or item_count != last_item_count or sel != last_sel:
+	var is_dead = diablo_bridge.is_player_dead() if (diablo_bridge and diablo_bridge.has_method("is_player_dead")) else false
+
+	if mtype != current_type or item_count != last_item_count or sel != last_sel or is_dead != last_is_dead:
 		current_type = mtype
 		last_item_count = item_count
 		last_sel = sel
+		last_is_dead = is_dead
 		_set_title(mtype, false)
 		_build_rows(mtype, items, sel)
 
