@@ -154,6 +154,8 @@ public:
 	Array get_allowed_classes() const;
 	String get_language_code() const;
 	void menu_select_single_player();
+	void menu_select_multiplayer();
+	void menu_show_credits();
 	void menu_exit_game();
 	Array get_hero_list() const;
 	Dictionary get_class_base_stats(int hero_class) const;

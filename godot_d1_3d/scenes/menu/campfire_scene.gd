@@ -46,6 +46,8 @@ func set_hero_class(class_id: int) -> void:
 	var c = clampi(class_id, 0, class_textures.size() - 1)
 	if hero_display and class_textures[c] != null:
 		hero_display.texture = class_textures[c]
+		# Sorcerer (class_id 2) képét tükrözzük vízszintesen
+		hero_display.flip_h = (class_id == 2)
 		var tween = create_tween()
 		hero_display.scale = Vector2(0.96, 0.96)
 		tween.tween_property(hero_display, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

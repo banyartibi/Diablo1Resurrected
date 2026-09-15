@@ -404,6 +404,14 @@ func get_cached_spell_icon(spell_id: int, spell_type: int) -> Texture2D:
 	if spell_icon_cache.has(key) and spell_icon_cache[key] != null:
 		return spell_icon_cache[key]
 
+	var hr_path = "res://assets/skills/%d.png" % spell_id
+	if FileAccess.file_exists(hr_path):
+		var img = Image.load_from_file(ProjectSettings.globalize_path(hr_path))
+		if img != null:
+			var hr_tex = ImageTexture.create_from_image(img)
+			spell_icon_cache[key] = hr_tex
+			return hr_tex
+
 	if diablo_bridge and diablo_bridge.has_method("get_spell_icon_texture"):
 		var tex = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
 		if tex != null:
@@ -420,6 +428,9 @@ func toggle_speedbook():
 func open_speedbook():
 	if not diablo_bridge:
 		return
+	if diablo_bridge.has_method("get_player_spell"):
+		current_spell_id = diablo_bridge.get_player_spell()
+		current_spell_type = diablo_bridge.get_player_spell_type()
 	is_speedbook_showing = true
 	populate_speedbook()
 	if skill_selector:
@@ -463,19 +474,40 @@ func populate_speedbook():
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 
-		var empty_sb = StyleBoxEmpty.new()
-		btn.add_theme_stylebox_override("normal", empty_sb)
-		btn.add_theme_stylebox_override("focus", empty_sb)
-		btn.add_theme_stylebox_override("pressed", empty_sb)
-		btn.add_theme_stylebox_override("disabled", empty_sb)
-
-		# Subtle hover sheen without any boxy colored border
-		var hover_sb = StyleBoxFlat.new()
-		hover_sb.bg_color = Color(1.0, 1.0, 1.0, 0.12)
-		hover_sb.set_corner_radius_all(2)
-		btn.add_theme_stylebox_override("hover", hover_sb)
-
 		var is_current = (s_id == current_spell_id and s_type == current_spell_type)
+
+		# Diablo 4 style framed slots: radiant gold for active, dark stone for others
+		var normal_sb = StyleBoxFlat.new()
+		normal_sb.set_corner_radius_all(3)
+		if is_current:
+			normal_sb.bg_color = Color(0.26, 0.20, 0.07, 0.90)
+			normal_sb.border_color = Color(1.0, 0.84, 0.25, 1.0)
+			normal_sb.border_width_left = 2
+			normal_sb.border_width_top = 2
+			normal_sb.border_width_right = 2
+			normal_sb.border_width_bottom = 2
+			normal_sb.shadow_color = Color(1.0, 0.8, 0.2, 0.45)
+			normal_sb.shadow_size = 4
+		else:
+			normal_sb.bg_color = Color(0.08, 0.07, 0.09, 0.80)
+			normal_sb.border_color = Color(0.35, 0.30, 0.22, 0.70)
+			normal_sb.border_width_left = 1
+			normal_sb.border_width_top = 1
+			normal_sb.border_width_right = 1
+			normal_sb.border_width_bottom = 1
+
+		btn.add_theme_stylebox_override("normal", normal_sb)
+		btn.add_theme_stylebox_override("focus", normal_sb)
+
+		var hover_sb = normal_sb.duplicate()
+		hover_sb.border_color = Color(1.0, 0.92, 0.50, 1.0)
+		hover_sb.border_width_left = 2
+		hover_sb.border_width_top = 2
+		hover_sb.border_width_right = 2
+		hover_sb.border_width_bottom = 2
+		hover_sb.bg_color = Color(0.30, 0.24, 0.10, 0.95)
+		btn.add_theme_stylebox_override("hover", hover_sb)
+		btn.add_theme_stylebox_override("pressed", hover_sb)
 
 		# Icon
 		var icon_tex = get_cached_spell_icon(s_id, s_type)
@@ -484,12 +516,24 @@ func populate_speedbook():
 			tex_rect.texture = icon_tex
 			tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			tex_rect.custom_minimum_size = Vector2(38, 38)
+			tex_rect.custom_minimum_size = Vector2(34, 34)
 			tex_rect.anchors_preset = Control.PRESET_FULL_RECT
 			tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			if is_current:
-				tex_rect.modulate = Color(1.15, 1.15, 1.05)
+				tex_rect.modulate = Color(1.2, 1.15, 1.05)
 			btn.add_child(tex_rect)
+
+		# Active indicator badge (Gold Checkmark)
+		if is_current:
+			var active_badge = Label.new()
+			active_badge.text = "✓"
+			active_badge.add_theme_font_size_override("font_size", 11)
+			active_badge.add_theme_color_override("font_color", Color(1.0, 0.90, 0.3, 1.0))
+			active_badge.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1.0))
+			active_badge.add_theme_constant_override("shadow_outline_size", 3)
+			active_badge.position = Vector2(25, 23)
+			active_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(active_badge)
 
 		# Hotkey badge
 		if hotkey != "":
@@ -503,6 +547,8 @@ func populate_speedbook():
 
 		var type_str = SPELL_TYPE_NAMES.get(s_type, "Skill")
 		var tip = "%s (%s)" % [s_name, type_str]
+		if is_current:
+			tip += " [ACTIVE RMB]"
 		if s_type == 1 and mana > 0:
 			tip += "\nMana Cost: %d" % mana
 		if hotkey != "":
@@ -510,6 +556,11 @@ func populate_speedbook():
 		btn.tooltip_text = tip
 
 		btn.pressed.connect(func():
+			current_spell_id = s_id
+			current_spell_type = s_type
+			if secondary_icon and icon_tex:
+				secondary_icon.texture = icon_tex
+				secondary_icon.visible = true
 			if diablo_bridge and diablo_bridge.has_method("select_spell"):
 				diablo_bridge.select_spell(s_id, s_type)
 			close_speedbook()

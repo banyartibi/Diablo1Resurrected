@@ -631,6 +631,12 @@ void UiSelHeroMultDialog(
     _selhero_selections *dlgresult,
     uint32_t *saveNumber)
 {
+	if (gbGodotBridgeActive) {
+		_difficulty dummyDiff = DIFF_NORMAL;
+		GodotBridgeSelHeroDialog(fninfo, fncreate, fnremove, fnstats, dlgresult, saveNumber, &dummyDiff);
+		return;
+	}
+
 	selhero_isMultiPlayer = true;
 	UiSelHeroDialog(fninfo, fncreate, fnstats, fnremove, dlgresult, saveNumber);
 }

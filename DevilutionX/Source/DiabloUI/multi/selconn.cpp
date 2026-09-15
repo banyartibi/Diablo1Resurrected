@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 
 #include "DiabloUI/diabloui.h"
+#include "engine/render_bridge.hpp"
 #include "stores.h"
 #include "storm/storm_net.hpp"
 #include "utils/language.h"
@@ -137,6 +138,12 @@ void SelconnSelect(int value)
 
 bool UiSelectProvider(GameData *gameData)
 {
+	if (gbGodotBridgeActive) {
+		// Automatikusan TCP provider – a Godot UI kezeli a hálózat típus választást
+		provider = SELCONN_TCP;
+		return SNetInitializeProvider(SELCONN_TCP, gameData);
+	}
+
 	selconn_GameData = gameData;
 	SelconnLoad();
 

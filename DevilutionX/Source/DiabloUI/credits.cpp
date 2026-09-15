@@ -12,6 +12,7 @@
 #include "engine/load_clx.hpp"
 #include "engine/render/clx_render.hpp"
 #include "engine/render/text_render.hpp"
+#include "engine/render_bridge.hpp"
 #include "hwcursor.hpp"
 #include "utils/display.h"
 #include "utils/language.h"
@@ -169,6 +170,11 @@ bool TextDialog(char const *const *text, std::size_t textLines)
 
 bool UiCreditsDialog()
 {
+	if (gbGodotBridgeActive) {
+		// Credits are handled natively by the Godot UI – nothing to do here.
+		return true;
+	}
+
 	ArtBackgroundWidescreen = LoadOptionalClx("ui_art\\creditsw.clx");
 	LoadBackgroundArt("ui_art\\credits");
 

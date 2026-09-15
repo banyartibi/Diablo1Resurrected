@@ -11,6 +11,7 @@
 #include "DiabloUI/selok.h"
 #include "config.h"
 #include "control.h"
+#include "engine/render_bridge.hpp"
 #include "menu.h"
 #include "options.h"
 #include "storm/storm_net.hpp"
@@ -716,6 +717,23 @@ void RefreshGameList()
 
 bool UiSelectGame(GameData *gameData, int *playerId)
 {
+	if (gbGodotBridgeActive) {
+		// Bridge módban automatikusan új játékot hozunk létre (host)
+		// Az SDL lobby loop kihagyva – az okozta a thread safety crasht
+		gameData->nDifficulty = nDifficulty;
+		gameData->nTickRate = *sgOptions.Gameplay.tickRate;  // 0 → div-by-zero lenne!
+		gameData->bRunInTown = *sgOptions.Gameplay.runInTown ? 1 : 0;
+		gameData->bTheoQuest = *sgOptions.Gameplay.theoQuest ? 1 : 0;
+		gameData->bCowQuest = *sgOptions.Gameplay.cowQuest ? 1 : 0;
+
+		GameData gameInitInfo = *gameData;
+		gameInitInfo.swapLE();
+		if (SNetCreateGame(nullptr, "", reinterpret_cast<char *>(&gameInitInfo), sizeof(gameInitInfo), playerId)) {
+			return true;
+		}
+		return false;
+	}
+
 	firstPublicGameInfoRequestSend = 0;
 	gdwPlayerId = playerId;
 	m_game_data = gameData;

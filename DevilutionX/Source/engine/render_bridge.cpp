@@ -1691,7 +1691,12 @@ void UseInventorySlot(int slotType, int slotIdx)
 		if (itemIndex >= 0 && itemIndex < player._pNumInv) {
 			Item &item = player.InvList[itemIndex];
 			if (item.isUsable()) {
+				// Godot HUD-ból hívva pcurs nem biztos CURSOR_HAND,
+				// de az UseInvItem erre ellenőriz – ideiglenesen állítsuk be.
+				int prevCurs = pcurs;
+				pcurs = CURSOR_HAND;
 				UseInvItem(INVITEM_INV_FIRST + itemIndex);
+				pcurs = prevCurs;
 			} else if (player.CanUseItem(item)) {
 				// Auto-equip weapon/armor/ring/amulet
 				AutoEquip(player, item);
@@ -3010,6 +3015,20 @@ void BridgeSelectSinglePlayer()
 {
 	std::lock_guard<std::mutex> lock(g_MenuMutex);
 	g_PendingMainMenuResult = MAINMENU_SINGLE_PLAYER;
+	g_MenuCond.notify_all();
+}
+
+void BridgeSelectMultiplayer()
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	g_PendingMainMenuResult = MAINMENU_MULTIPLAYER;
+	g_MenuCond.notify_all();
+}
+
+void BridgeShowCredits()
+{
+	std::lock_guard<std::mutex> lock(g_MenuMutex);
+	g_PendingMainMenuResult = MAINMENU_SHOW_CREDITS;
 	g_MenuCond.notify_all();
 }
 

@@ -174,8 +174,14 @@ func update_spellbook():
 		icon_rect.custom_minimum_size = Vector2(32, 32)
 		icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if diablo_bridge and diablo_bridge.has_method("get_spell_icon_texture"):
+		var hr_path = "res://assets/skills/%d.png" % spell_id
+		if FileAccess.file_exists(hr_path):
+			var img = Image.load_from_file(ProjectSettings.globalize_path(hr_path))
+			if img != null:
+				icon_rect.texture = ImageTexture.create_from_image(img)
+			elif diablo_bridge and diablo_bridge.has_method("get_spell_icon_texture"):
+				icon_rect.texture = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
+		elif diablo_bridge and diablo_bridge.has_method("get_spell_icon_texture"):
 			icon_rect.texture = diablo_bridge.get_spell_icon_texture(spell_id, spell_type)
 		if not can_cast:
 			icon_rect.modulate = Color(0.9, 0.35, 0.35, 1.0)

@@ -610,6 +610,8 @@ std::string GetBridgeRandomName(int heroClass);
 bool BridgeCreateHero(const char *name, int heroClass);
 bool BridgeDeleteHero(uint32_t saveNumber);
 void BridgeSelectSinglePlayer();
+void BridgeSelectMultiplayer();
+void BridgeShowCredits();
 void BridgeLaunchHero(uint32_t saveNumber, int difficulty, bool loadExisting);
 void BridgeCancelHeroSelect();
 void BridgeExitGame();

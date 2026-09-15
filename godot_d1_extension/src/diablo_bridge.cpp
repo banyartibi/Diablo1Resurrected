@@ -126,6 +126,8 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_allowed_classes"), &DiabloBridge::get_allowed_classes);
 	ClassDB::bind_method(D_METHOD("get_language_code"), &DiabloBridge::get_language_code);
 	ClassDB::bind_method(D_METHOD("menu_select_single_player"), &DiabloBridge::menu_select_single_player);
+	ClassDB::bind_method(D_METHOD("menu_select_multiplayer"), &DiabloBridge::menu_select_multiplayer);
+	ClassDB::bind_method(D_METHOD("menu_show_credits"), &DiabloBridge::menu_show_credits);
 	ClassDB::bind_method(D_METHOD("menu_exit_game"), &DiabloBridge::menu_exit_game);
 	ClassDB::bind_method(D_METHOD("get_hero_list"), &DiabloBridge::get_hero_list);
 	ClassDB::bind_method(D_METHOD("get_class_base_stats", "hero_class"), &DiabloBridge::get_class_base_stats);
@@ -1431,6 +1433,14 @@ String DiabloBridge::get_language_code() const {
 
 void DiabloBridge::menu_select_single_player() {
 	devilution::BridgeSelectSinglePlayer();
+}
+
+void DiabloBridge::menu_select_multiplayer() {
+	devilution::BridgeSelectMultiplayer();
+}
+
+void DiabloBridge::menu_show_credits() {
+	devilution::BridgeShowCredits();
 }
 
 void DiabloBridge::menu_exit_game() {

@@ -82,9 +82,21 @@ func set_bridge(bridge: Node) -> void:
 func _ready() -> void:
 	_update_logo()
 
-	btn_single_player.pressed.connect(_on_single_player_pressed)
-	btn_settings.pressed.connect(_on_settings_pressed)
-	btn_exit.pressed.connect(_on_exit_pressed)
+	# Diagnosztika: null-e valamelyik gomb?
+	print("[MainMenu] _ready: btn_single_player=%s btn_multiplayer=%s btn_settings=%s btn_credits=%s btn_exit=%s" % [
+		btn_single_player != null, btn_multiplayer != null, btn_settings != null,
+		btn_credits != null, btn_exit != null])
+
+	if btn_single_player:
+		btn_single_player.pressed.connect(_on_single_player_pressed)
+	if btn_multiplayer:
+		btn_multiplayer.pressed.connect(_on_multiplayer_pressed)
+	if btn_settings:
+		btn_settings.pressed.connect(_on_settings_pressed)
+	if btn_credits:
+		btn_credits.pressed.connect(_on_credits_pressed)
+	if btn_exit:
+		btn_exit.pressed.connect(_on_exit_pressed)
 
 	if character_select:
 		character_select.connect("hero_focused", _on_hero_focused)
@@ -178,8 +190,31 @@ func _on_select_back_pressed() -> void:
 		diablo_bridge.cancel_hero_select()
 	_apply_state(MenuState.MAIN_MENU)
 
-func _on_hero_created_done() -> void:
+func _on_hero_created_done(_save_num: int) -> void:
 	_apply_state(MenuState.CHARACTER_SELECT)
 
 func _on_create_cancelled() -> void:
 	_apply_state(MenuState.CHARACTER_SELECT)
+
+func _on_multiplayer_pressed() -> void:
+	if diablo_bridge and diablo_bridge.has_method("menu_select_multiplayer"):
+		diablo_bridge.menu_select_multiplayer()
+		# Megjelenítjük a hős-választó UI-t – az engine a bridge-en keresztül vár rá
+		_apply_state(MenuState.CHARACTER_SELECT)
+
+func _on_credits_pressed() -> void:
+	if diablo_bridge and diablo_bridge.has_method("menu_show_credits"):
+		diablo_bridge.menu_show_credits()
+	# Natív Godot credits popup (az SDL credits képernyő bridge módban ki van hagyva)
+	var dlg = AcceptDialog.new()
+	dlg.title = "Készítők" if is_hungarian else "Credits"
+	dlg.dialog_text = (
+		"DIABLO 1 RESURRECTED\n\n" +
+		("Fejlesztő: biti\nMotor: Godot 4.7 + DevilutionX\n\nKöszönet a DevilutionX csapatnak\naz eredeti Diablo engine\nnyílt forráskódú újraírásáért."
+		if is_hungarian else
+		"Developer: biti\nEngine: Godot 4.7 + DevilutionX\n\nSpecial Thanks to the DevilutionX team\nfor the open-source reimplementation\nof the original Diablo engine.")
+	)
+	dlg.confirmed.connect(func(): dlg.queue_free())
+	dlg.canceled.connect(func(): dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered()
