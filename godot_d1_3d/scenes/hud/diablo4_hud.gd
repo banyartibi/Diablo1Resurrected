@@ -476,7 +476,7 @@ func populate_speedbook():
 
 		var is_current = (s_id == current_spell_id and s_type == current_spell_type)
 
-		# Diablo 4 style framed slots: radiant gold for active, dark stone for others
+		# Diablo 4 style framed slots: radiant gold for active, crimson for scrolls, amber for staves, dark stone for spells/skills
 		var normal_sb = StyleBoxFlat.new()
 		normal_sb.set_corner_radius_all(3)
 		if is_current:
@@ -488,7 +488,21 @@ func populate_speedbook():
 			normal_sb.border_width_bottom = 2
 			normal_sb.shadow_color = Color(1.0, 0.8, 0.2, 0.45)
 			normal_sb.shadow_size = 4
-		else:
+		elif s_type == 2: # Scroll (Classic Red Frame)
+			normal_sb.bg_color = Color(0.18, 0.06, 0.06, 0.85)
+			normal_sb.border_color = Color(0.80, 0.24, 0.24, 0.85)
+			normal_sb.border_width_left = 1
+			normal_sb.border_width_top = 1
+			normal_sb.border_width_right = 1
+			normal_sb.border_width_bottom = 1
+		elif s_type == 3: # Staff / Charges (Classic Amber Frame)
+			normal_sb.bg_color = Color(0.18, 0.11, 0.04, 0.85)
+			normal_sb.border_color = Color(0.85, 0.55, 0.18, 0.85)
+			normal_sb.border_width_left = 1
+			normal_sb.border_width_top = 1
+			normal_sb.border_width_right = 1
+			normal_sb.border_width_bottom = 1
+		else: # Memorized Spell or Skill
 			normal_sb.bg_color = Color(0.08, 0.07, 0.09, 0.80)
 			normal_sb.border_color = Color(0.35, 0.30, 0.22, 0.70)
 			normal_sb.border_width_left = 1
@@ -521,6 +535,12 @@ func populate_speedbook():
 			tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			if is_current:
 				tex_rect.modulate = Color(1.2, 1.15, 1.05)
+			elif s_type == 2:
+				# Subtle red warmth to match classic scroll tone
+				tex_rect.modulate = Color(1.08, 0.96, 0.96)
+			elif s_type == 3:
+				# Subtle amber warmth to match classic staff tone
+				tex_rect.modulate = Color(1.08, 1.02, 0.92)
 			btn.add_child(tex_rect)
 
 		# Active indicator badge (Gold Checkmark)
@@ -535,6 +555,22 @@ func populate_speedbook():
 			active_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			btn.add_child(active_badge)
 
+		# Scroll / Staff Type Badge
+		if s_type == 2: # Scroll indicator
+			var scrl_badge = Label.new()
+			scrl_badge.text = "📜"
+			scrl_badge.add_theme_font_size_override("font_size", 10)
+			scrl_badge.position = Vector2(1, 22)
+			scrl_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(scrl_badge)
+		elif s_type == 3: # Staff indicator
+			var stf_badge = Label.new()
+			stf_badge.text = "⚡"
+			stf_badge.add_theme_font_size_override("font_size", 10)
+			stf_badge.position = Vector2(1, 22)
+			stf_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(stf_badge)
+
 		# Hotkey badge
 		if hotkey != "":
 			var hk_lbl = Label.new()
@@ -545,12 +581,20 @@ func populate_speedbook():
 			hk_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			btn.add_child(hk_lbl)
 
-		var type_str = SPELL_TYPE_NAMES.get(s_type, "Skill")
-		var tip = "%s (%s)" % [s_name, type_str]
+		var tip = ""
+		if s_type == 2:
+			tip = "Scroll of %s\n[Single Use - Consumable]" % s_name
+		elif s_type == 3:
+			tip = "Staff of %s\n[Charged Weapon Skill]" % s_name
+		elif s_type == 0:
+			tip = "%s (Innate Skill)" % s_name
+		else:
+			tip = "%s (Spell)" % s_name
+			if mana > 0:
+				tip += "\nMana Cost: %d" % mana
+
 		if is_current:
-			tip += " [ACTIVE RMB]"
-		if s_type == 1 and mana > 0:
-			tip += "\nMana Cost: %d" % mana
+			tip += "\n★ Currently Active (RMB)"
 		if hotkey != "":
 			tip += "\nHotkey: %s" % hotkey
 		btn.tooltip_text = tip
