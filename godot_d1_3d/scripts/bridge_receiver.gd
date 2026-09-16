@@ -15,14 +15,14 @@ var d1_width: int = 2560
 var d1_height: int = 1440
 
 # User Requested Defaults:
-var vsync_enabled: bool = true          # Default: ON (Smooth 144Hz Monitor Sync)
-var show_fps: bool = false              # Default: OFF [F8]
-var current_fog_mode: int = 0           # Default: 0 = OFF [F9]
-var current_color_profile: int = 3      # Default: 3 = Crypt Cyan [F10]
-var current_upscaler_mode: int = 0      # Default: 0 = AMD FidelityFX CAS Super-Resolution (FSR) [F7]
-var current_relief_mode: int = 4        # Default: 4 = Mode 4 (Extreme Sculpted 3D Relief) [F11]
-var current_hdr_level: int = 1          # Default: 1 = Balanced Gothic Glow (1.0x) [F5]
-var hero_light_enabled: bool = true     # Default: ENABLED [F6]
+var vsync_enabled: bool = true          # Default: ON (Smooth 144Hz Monitor Sync) - menu driven, no hotkey
+var show_fps: bool = false              # Default: OFF - Settings / Graphics / Show FPS drives this (no F8)
+var current_fog_mode: int = 0           # Default: 0 = OFF (pause-menu driven)
+var current_color_profile: int = 0      # Default: 0 = Vanilla / OFF (pause-menu driven)
+var current_upscaler_mode: int = 0      # Default: 0 = AMD FidelityFX CAS Super-Resolution (FSR) (pause-menu driven)
+var current_relief_mode: int = 4        # Default: 4 = Mode 4 (Extreme Sculpted 3D Relief) (pause-menu driven)
+var current_hdr_level: int = 1          # Default: 1 = Balanced Gothic Glow (1.0x) (pause-menu driven)
+var hero_light_enabled: bool = false    # Default: DISABLED (pause-menu driven)
 
 # Dynamic 3D Lights, Shadows & Particles (all live inside the GameView SubViewport)
 @onready var game_view: SubViewport = $GameView
@@ -47,7 +47,7 @@ var pooled_shadow_boxes: Array = []
 var hero_sparks: GPUParticles3D = null
 var occluder_box_mesh: BoxMesh = null
 
-var wet_floor: bool = true              # Default: ON [F12] (Wet & Reflective Cobblestone)
+var wet_floor: bool = true              # Default: ON - pause menu driven (Wet & Reflective Cobblestone)
 var playfield_zoom: float = 1.0
 var left_panel_open: bool = false
 var right_panel_open: bool = false
@@ -65,7 +65,7 @@ var last_level_idx: int = -999
 # Mode 1: Native Godot 2.5D Engine (Direct Godot 2D Engine, 144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)
 # Mode 2: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)
 enum DisplayMode { ORIGINAL_25D = 0, NATIVE_25D = 1, NATIVE_3D = 2 }
-var current_display_mode: int = DisplayMode.ORIGINAL_25D
+var current_display_mode: int = DisplayMode.NATIVE_25D
 # Track modal open/close in native modes so we can re-apply the display mode (show/hide the authentic D1 UI blit)
 var last_modal_active := false
 
@@ -113,46 +113,47 @@ var zoom_step_names = [
 
 var hdr_multipliers = [0.0, 1.0, 2.0, 3.0]
 var hdr_names = [
-	"[F5] Engine HDR Glow: OFF (0.0x)",
-	"[F5] Engine HDR Glow: 1.0x (Subtle Natural Glow)",
-	"[F5] Engine HDR Glow: 2.0x (Warm Radiant Bloom)",
-	"[F5] Engine HDR Glow: 3.0x (Intense Blazing Bloom - Default)"
+	"Engine HDR Glow: OFF (0.0x)",
+	"Engine HDR Glow: 1.0x (Subtle Natural Glow - Default)",
+	"Engine HDR Glow: 2.0x (Warm Radiant Bloom)",
+	"Engine HDR Glow: 3.0x (Intense Blazing Bloom)"
 ]
 
 var upscaler_names = [
-	"Upscaler [F7]: AMD FidelityFX CAS Super-Resolution",
-	"Upscaler [F7]: Anime4K / Neural Spatial CNN (Edge Reconstruction)",
-	"Upscaler [F7]: Anime4K Ultra Thin Lines & Vector Contours",
-	"Upscaler [F7]: 8K Catmull-Rom Bicubic Spline (Default)",
-	"Upscaler [F7]: Native 1:1 Direct Retro Pixel-Art"
+	"Upscaler: AMD FidelityFX CAS Super-Resolution",
+	"Upscaler: Anime4K / Neural Spatial CNN (Edge Reconstruction)",
+	"Upscaler: Anime4K Ultra Thin Lines & Vector Contours",
+	"Upscaler: 8K Catmull-Rom Bicubic Spline",
+	"Upscaler: Native 1:1 Direct Retro Pixel-Art"
 ]
 
 var color_names = [
-	"Vanilla (1996 Classic 32-bit - UI Untouched)",
-	"Dark Gothic (Deep OLED Slate Contrast - Default)",
+	"Vanilla (1996 Classic 32-bit - UI Untouched - Default)",
+	"Dark Gothic (Deep OLED Slate Contrast)",
 	"Hellish Crimson (Warm Blood-Amber)",
 	"Crypt Cyan (Gothic Cold Chill)",
 	"Desaturated Noir (Grimdark Film)"
 ]
 
 var fog_names = [
-	"Atmospheric Fog: OFF",
-	"Atmospheric Fog: Crypt Mist (Subtle Dungeon Pára - Default)",
+	"Atmospheric Fog: OFF (Default)",
+	"Atmospheric Fog: Crypt Mist (Subtle Dungeon Pára)",
 	"Atmospheric Fog: Dense Drift (Hellfire Smoke)"
 ]
 
 var relief_names = [
-	"3D Surface Relief [F11]: OFF (Flat 2D)",
-	"3D Surface Relief [F11]: Mode 1 (Subtle 3D)",
-	"3D Surface Relief [F11]: Mode 2 (Balanced 3D Emboss)",
-	"3D Surface Relief [F11]: Mode 3 (Deep 3D Embossed Relief - Default)",
-	"3D Surface Relief [F11]: Mode 4 (Extreme Sculpted 3D Relief)"
+	"3D Surface Relief: OFF (Flat 2D)",
+	"3D Surface Relief: Mode 1 (Subtle 3D)",
+	"3D Surface Relief: Mode 2 (Balanced 3D Emboss)",
+	"3D Surface Relief: Mode 3 (Deep 3D Embossed Relief - Default)",
+	"3D Surface Relief: Mode 4 (Extreme Sculpted 3D Relief)"
 ]
 
 var osd_label: Label
 var osd_timer: float = 0.0
 var fps_label: Label
 var fps_timer: float = 0.0
+var settings_poll_timer := 0.0
 var frame_counter: int = 0
 var current_fps: int = 0
 const AudioManagerScript = preload("res://scripts/audio_manager.gd")
@@ -273,7 +274,7 @@ func _ready():
 		native_modal.call("set_bridge", diablo_bridge)
 		native_modal.call("set_brightness_host", self)
 	
-	show_osd("Diablo 1 Resurrected | [F3] Switch Display Mode (Original 2.5D / Native 2.5D / 3D Sandbox) | [H] HUD", 4.5)
+	show_osd("Diablo 1 Resurrected - Display Mode switch is rebindable (see Game Settings > Resurrected)", 4.5)
 	print("[Godot-D1 Bridge] 3-Mode Architecture ready: [Original 2.5D] / [Native Godot 2.5D] / [Native 3D Sandbox].")
 
 func _notification(what: int):
@@ -570,7 +571,61 @@ func _process(delta: float):
 		fps_timer = 0.0
 		if fps_label and fps_label.visible:
 			fps_label.text = "Godot 4.7.2 Forward+ Vulkan: %d FPS (RX 6800 XT)" % current_fps
-	
+
+	# Poll Resurrected + Graphics settings from C++ (~4 Hz). Menu-driven changes
+	# (pause menu / Game Settings) apply directly - no effect hotkeys left.
+	if diablo_bridge != null and diablo_bridge.has_method("get_vsync_enabled"):
+		settings_poll_timer += delta
+		if settings_poll_timer >= 0.25:
+			settings_poll_timer = 0.0
+			if diablo_bridge.has_method("get_resurrected_display_mode"):
+				var new_disp = int(diablo_bridge.get_resurrected_display_mode())
+				if new_disp != current_display_mode and new_disp >= 0 and new_disp < 3:
+					switch_display_mode(new_disp)
+			var new_vs = bool(diablo_bridge.get_vsync_enabled())
+			if new_vs != vsync_enabled:
+				vsync_enabled = new_vs
+				DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if new_vs else DisplayServer.VSYNC_DISABLED)
+				show_osd("V-Sync: " + ("ENABLED (144Hz Smooth)" if new_vs else "DISABLED (Uncapped FPS)"), 2.5)
+			var new_fps = bool(diablo_bridge.get_show_fps())
+			if new_fps != show_fps:
+				show_fps = new_fps
+				_update_fps_label()
+			var new_torch = bool(diablo_bridge.get_resurrected_torchlight())
+			if new_torch != hero_light_enabled:
+				hero_light_enabled = new_torch
+				update_torch_light()
+				show_osd("Dungeon Soft Torchlight: " + ("ENABLED (Warm Candlelight)" if new_torch else "DISABLED"), 2.5)
+			var new_fog = int(diablo_bridge.get_resurrected_fog_level())
+			if new_fog != current_fog_mode and new_fog >= 0 and new_fog < fog_names.size():
+				current_fog_mode = new_fog
+				update_fog_mode()
+				show_osd(fog_names[current_fog_mode], 2.5)
+			var new_color = int(diablo_bridge.get_resurrected_color_profile())
+			if new_color != current_color_profile and new_color >= 0 and new_color < color_names.size():
+				current_color_profile = new_color
+				update_shader_params()
+				show_osd("Color Profile: " + color_names[current_color_profile], 2.5)
+			var new_hdr = int(diablo_bridge.get_resurrected_hdr_level())
+			if new_hdr != current_hdr_level and new_hdr >= 0 and new_hdr < hdr_multipliers.size():
+				current_hdr_level = new_hdr
+				update_shader_params()
+				show_osd(hdr_names[current_hdr_level], 2.5)
+			var new_ups = int(diablo_bridge.get_resurrected_upscaler_mode())
+			if new_ups != current_upscaler_mode and new_ups >= 0 and new_ups < upscaler_names.size():
+				current_upscaler_mode = new_ups
+				apply_upscaler_mode()
+				show_osd(upscaler_names[current_upscaler_mode], 2.5)
+			var new_relief = int(diablo_bridge.get_resurrected_relief_mode())
+			if new_relief != current_relief_mode and new_relief >= 0 and new_relief < relief_names.size():
+				current_relief_mode = new_relief
+				update_shader_params()
+				show_osd(relief_names[current_relief_mode], 2.5)
+			var new_wet = bool(diablo_bridge.get_resurrected_wet_floor())
+			if new_wet != wet_floor:
+				wet_floor = new_wet
+				update_shader_params()
+
 	if osd_timer > 0.0:
 		osd_timer -= delta
 		if osd_timer <= 0.0 and osd_label:
@@ -786,8 +841,15 @@ func get_game_mouse_pos(screen_pos: Vector2, vp_size: Vector2) -> Vector2i:
 	var game_y = int(clamp(norm_y * float(d1_height), 0.0, float(d1_height - 1)))
 	return Vector2i(game_x, game_y)
 
+func _update_fps_label() -> void:
+	# Mode 0 uses DevilutionX's own DrawFPS meter inside the authentic blit texture;
+	# Native modes use the Godot engine FPS label.
+	if fps_label:
+		fps_label.visible = show_fps and current_display_mode != DisplayMode.ORIGINAL_25D
+
 func apply_display_mode():
 	var is_ingame = diablo_bridge.is_game_running() if (diablo_bridge and diablo_bridge.has_method("is_game_running")) else false
+	_update_fps_label()
 
 	# If the engine is in menus, hero creation, cutscenes or title screen:
 	# Always ensure classic blit mesh is visible and interactive!
@@ -851,7 +913,7 @@ func apply_display_mode():
 			update_fog_mode()
 		if camera:
 			camera.make_current()
-		show_osd("[F3] Display Mode 1/3: Classic 2.5D Blit (Vanilla + 3D Relief Shader)", 3.5)
+		show_osd("Display Mode 1/3: Classic 2.5D Blit (Vanilla + 3D Relief Shader)", 3.5)
 
 	elif current_display_mode == DisplayMode.NATIVE_25D:
 		# Mode 1: Native Godot 2.5D Engine (Smooth 144Hz Camera, Y-Sorted Sprites, PointLight2D)
@@ -879,7 +941,7 @@ func apply_display_mode():
 			modal_layer.visible = diablo_bridge.is_modal_active()
 		if native_25d_instance:
 			native_25d_instance.activate()
-		show_osd("[F3] Display Mode 2/3: Native Godot 2.5D Engine (144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)", 3.5)
+		show_osd("Display Mode 2/3: Native Godot 2.5D Engine (144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)", 3.5)
 
 	elif current_display_mode == DisplayMode.NATIVE_3D:
 		# Mode 2: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)
@@ -907,7 +969,7 @@ func apply_display_mode():
 			modal_layer.visible = diablo_bridge.is_modal_active()
 		if sandbox_instance:
 			sandbox_instance.activate()
-		show_osd("[F3] Display Mode 3/3: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)", 3.5)
+		show_osd("Display Mode 3/3: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)", 3.5)
 
 func switch_display_mode(new_mode: int):
 	current_display_mode = new_mode
@@ -938,63 +1000,26 @@ func _unhandled_input(event: InputEvent):
 				show_osd("[G] Graphics Style: " + ("Resurrected 4x HD" if is_hd else "Authentic 1996 Pixel Art"))
 				return
 
-		if event.keycode == KEY_F3:
-			var next_mode = (current_display_mode + 1) % 3
-			switch_display_mode(next_mode)
-			if not is_ingame:
-				var mode_names = [
-					"Classic 2.5D Blit (Vanilla + 3D Relief Shader)",
-					"Native Godot 2.5D Engine (144Hz Smooth Camera)",
-					"Native 3D Sandbox (Real 3D Geometry)"
-				]
-				show_osd("[F3] Mode selected: " + mode_names[next_mode] + " (Active when game begins)", 3.0)
-			return
-		elif event.keycode == KEY_F4:
-			vsync_enabled = !vsync_enabled
-			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED)
-			show_osd("V-Sync [F4]: " + ("ENABLED (144Hz Smooth)" if vsync_enabled else "DISABLED (Uncapped FPS)"))
-			return
-		elif event.keycode == KEY_F5:
-			current_hdr_level = (current_hdr_level + 1) % hdr_multipliers.size()
-			update_shader_params()
-			show_osd(hdr_names[current_hdr_level])
-			return
-		elif event.keycode == KEY_F6:
-			hero_light_enabled = !hero_light_enabled
-			update_torch_light()
-			show_osd("[F6] Dungeon Soft Torchlight: " + ("ENABLED (Warm Candlelight)" if hero_light_enabled else "DISABLED"))
-			return
-		elif event.keycode == KEY_F7:
-			current_upscaler_mode = (current_upscaler_mode + 1) % upscaler_names.size()
-			apply_upscaler_mode()
-			show_osd(upscaler_names[current_upscaler_mode])
-			return
-		elif event.keycode == KEY_F8:
-			show_fps = !show_fps
-			if fps_label:
-				fps_label.visible = show_fps
-			show_osd("[F8] FPS Display: " + ("ON" if show_fps else "OFF"))
-			return
-		elif event.keycode == KEY_F9:
-			current_fog_mode = (current_fog_mode + 1) % 3
-			update_fog_mode()
-			show_osd("[F9] " + fog_names[current_fog_mode])
-			return
-		elif event.keycode == KEY_F10:
-			current_color_profile = (current_color_profile + 1) % color_names.size()
-			update_shader_params()
-			show_osd("[F10] Color Profile: " + color_names[current_color_profile])
-			return
-		elif event.keycode == KEY_F11:
-			current_relief_mode = (current_relief_mode + 1) % relief_names.size()
-			update_shader_params()
-			show_osd(relief_names[current_relief_mode])
-			return
-		elif event.keycode == KEY_F12:
-			wet_floor = !wet_floor
-			update_shader_params()
-			show_osd("[F12] Dungeon Floor: " + ("Wet & Reflective Cobblestone (Glossy Puddles ON)" if wet_floor else "Dry Dusty Stone Surface (OFF)"))
-			return
+		if diablo_bridge != null and diablo_bridge.has_method("get_mode_switch_key"):
+			var sw_key := int(diablo_bridge.get_mode_switch_key())
+			var sw_mods := int(diablo_bridge.get_mode_switch_mods())
+			var pressed_mask := 0
+			if event.shift_pressed: pressed_mask |= 1
+			if event.ctrl_pressed: pressed_mask |= 2
+			if event.alt_pressed: pressed_mask |= 4
+			if event.meta_pressed: pressed_mask |= 8
+			if int(event.physical_keycode) == sw_key and pressed_mask == sw_mods:
+				var next_mode = (current_display_mode + 1) % 3
+				switch_display_mode(next_mode)
+				_write_display_mode(next_mode)   # persists to diablo.ini
+				if not is_ingame:
+					var mode_names = [
+						"Classic 2.5D Blit (Vanilla + 3D Relief Shader)",
+						"Native Godot 2.5D Engine (144Hz Smooth Camera)",
+						"Native 3D Sandbox (Real 3D Geometry)"
+					]
+					show_osd("Mode selected: " + mode_names[next_mode] + " (Active when game begins)", 3.0)
+				return
 
 	if is_ingame:
 		if current_display_mode == DisplayMode.NATIVE_3D and sandbox_instance != null:
@@ -1052,6 +1077,25 @@ func _unhandled_input(event: InputEvent):
 		if event.ctrl_pressed: mod_mask |= 2
 		if event.alt_pressed: mod_mask |= 4
 		send_input_to_d1(3, key, state, uni, mod_mask)
+
+func _write_display_mode(mode_idx: int):
+	if diablo_bridge == null or not diablo_bridge.has_method("get_settings_categories"):
+		return
+	var cats = diablo_bridge.get_settings_categories()
+	for cat in cats:
+		if str(cat.get("name", "")) == "Resurrected":
+			var found := false
+			var e_id := -1
+			var entries = diablo_bridge.get_settings_entries(int(cat.get("id", 0))) if diablo_bridge.has_method("get_settings_entries") else []
+			for entry in entries:
+				if str(entry.get("name", "")) == "Display Mode" and int(entry.get("type", -1)) == 1:
+					e_id = int(entry.get("id", 0))
+					found = true
+					break
+			if found and diablo_bridge.has_method("set_setting_list"):
+				diablo_bridge.set_setting_list(int(cat.get("id", 0)), e_id, mode_idx)
+				diablo_bridge.save_settings()
+			return
 
 func send_input_to_d1(msg_type: int, code: int, state: int, x: int, y: int):
 	if use_gdextension and diablo_bridge != null:
@@ -1114,7 +1158,7 @@ func update_dynamic_lighting(delta: float) -> void:
 			light.visible = false
 		return
 
-	# 1. Hero Torch (Type 0, index 0 - togglable via F6, default off to keep character sprite clean)
+	# 1. Hero Torch (Type 0, index 0 - pause-menu driven soft torchlight; default off keeps hero sprite clean
 	if hero_light:
 		if hero_light_enabled and active_lights.size() > 0:
 			var hero_info = active_lights[0]

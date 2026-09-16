@@ -3224,6 +3224,71 @@ void SaveBridgeSettings()
 	SaveOptions();
 }
 
+bool GetVsyncEnabled()
+{
+	return static_cast<bool>(*sgOptions.Graphics.vSync);
+}
+
+bool GetShowFpsEnabled()
+{
+	return static_cast<bool>(*sgOptions.Graphics.showFPS);
+}
+
+int GetResurrectedDisplayMode()
+{
+	return static_cast<int>(*sgOptions.Resurrected.displayMode);
+}
+
+int GetModeSwitchKey()
+{
+	return sgOptions.Resurrected.modeSwitchBinding.GetKey();
+}
+
+uint8_t GetModeSwitchMods()
+{
+	return sgOptions.Resurrected.modeSwitchBinding.GetMods();
+}
+
+void SetModeSwitchBinding(int key, uint8_t mods)
+{
+	sgOptions.Resurrected.modeSwitchBinding.SetValue(key, static_cast<uint8_t>(mods));
+}
+
+bool GetResurrectedTorchlight()
+{
+	return static_cast<bool>(*sgOptions.Resurrected.softTorchlight);
+}
+
+int GetResurrectedFogLevel()
+{
+	return static_cast<int>(*sgOptions.Resurrected.atmosphericFog);
+}
+
+int GetResurrectedColorProfile()
+{
+	return static_cast<int>(*sgOptions.Resurrected.colorProfile);
+}
+
+int GetResurrectedHdrLevel()
+{
+	return static_cast<int>(*sgOptions.Resurrected.hdrLevel);
+}
+
+int GetResurrectedUpscalerMode()
+{
+	return static_cast<int>(*sgOptions.Resurrected.upscalerMode);
+}
+
+int GetResurrectedReliefMode()
+{
+	return static_cast<int>(*sgOptions.Resurrected.reliefMode);
+}
+
+bool GetResurrectedWetFloor()
+{
+	return static_cast<bool>(*sgOptions.Resurrected.wetFloor);
+}
+
 bool IsHellfireMode()
 {
 	return gbIsHellfire;

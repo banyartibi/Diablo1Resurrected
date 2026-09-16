@@ -143,6 +143,19 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_setting_bool", "category_id", "entry_id", "value"), &DiabloBridge::set_setting_bool);
 	ClassDB::bind_method(D_METHOD("set_setting_list", "category_id", "entry_id", "list_index"), &DiabloBridge::set_setting_list);
 	ClassDB::bind_method(D_METHOD("save_settings"), &DiabloBridge::save_settings);
+	ClassDB::bind_method(D_METHOD("get_vsync_enabled"), &DiabloBridge::get_vsync_enabled);
+	ClassDB::bind_method(D_METHOD("get_show_fps"), &DiabloBridge::get_show_fps);
+	ClassDB::bind_method(D_METHOD("get_resurrected_display_mode"), &DiabloBridge::get_resurrected_display_mode);
+	ClassDB::bind_method(D_METHOD("get_mode_switch_key"), &DiabloBridge::get_mode_switch_key);
+	ClassDB::bind_method(D_METHOD("get_mode_switch_mods"), &DiabloBridge::get_mode_switch_mods);
+	ClassDB::bind_method(D_METHOD("set_mode_switch_binding", "key", "mods"), &DiabloBridge::set_mode_switch_binding);
+	ClassDB::bind_method(D_METHOD("get_resurrected_torchlight"), &DiabloBridge::get_resurrected_torchlight);
+	ClassDB::bind_method(D_METHOD("get_resurrected_fog_level"), &DiabloBridge::get_resurrected_fog_level);
+	ClassDB::bind_method(D_METHOD("get_resurrected_color_profile"), &DiabloBridge::get_resurrected_color_profile);
+	ClassDB::bind_method(D_METHOD("get_resurrected_hdr_level"), &DiabloBridge::get_resurrected_hdr_level);
+	ClassDB::bind_method(D_METHOD("get_resurrected_upscaler_mode"), &DiabloBridge::get_resurrected_upscaler_mode);
+	ClassDB::bind_method(D_METHOD("get_resurrected_relief_mode"), &DiabloBridge::get_resurrected_relief_mode);
+	ClassDB::bind_method(D_METHOD("get_resurrected_wet_floor"), &DiabloBridge::get_resurrected_wet_floor);
 
 	// 112x112 Dungeon Grid
 	ClassDB::bind_method(D_METHOD("get_dungeon_grid"), &DiabloBridge::get_dungeon_grid);
@@ -1549,4 +1562,56 @@ void DiabloBridge::set_setting_list(int category_id, int entry_id, int list_inde
 
 void DiabloBridge::save_settings() {
 	devilution::SaveBridgeSettings();
+}
+
+bool DiabloBridge::get_vsync_enabled() const {
+	return devilution::GetVsyncEnabled();
+}
+
+bool DiabloBridge::get_show_fps() const {
+	return devilution::GetShowFpsEnabled();
+}
+
+int DiabloBridge::get_resurrected_display_mode() const {
+	return devilution::GetResurrectedDisplayMode();
+}
+
+int DiabloBridge::get_mode_switch_key() const {
+	return devilution::GetModeSwitchKey();
+}
+
+int DiabloBridge::get_mode_switch_mods() const {
+	return static_cast<int>(devilution::GetModeSwitchMods());
+}
+
+void DiabloBridge::set_mode_switch_binding(int key, int mods) {
+	devilution::SetModeSwitchBinding(key, static_cast<uint8_t>(mods));
+}
+
+bool DiabloBridge::get_resurrected_torchlight() const {
+	return devilution::GetResurrectedTorchlight();
+}
+
+int DiabloBridge::get_resurrected_fog_level() const {
+	return devilution::GetResurrectedFogLevel();
+}
+
+int DiabloBridge::get_resurrected_color_profile() const {
+	return devilution::GetResurrectedColorProfile();
+}
+
+int DiabloBridge::get_resurrected_hdr_level() const {
+	return devilution::GetResurrectedHdrLevel();
+}
+
+int DiabloBridge::get_resurrected_upscaler_mode() const {
+	return devilution::GetResurrectedUpscalerMode();
+}
+
+int DiabloBridge::get_resurrected_relief_mode() const {
+	return devilution::GetResurrectedReliefMode();
+}
+
+bool DiabloBridge::get_resurrected_wet_floor() const {
+	return devilution::GetResurrectedWetFloor();
 }

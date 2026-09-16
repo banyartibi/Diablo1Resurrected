@@ -79,7 +79,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 46)
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "BEÁLLÍTÁSOK"
+text = "JÁTÉK BEÁLLÍTÁSOK"
 
 [node name="BtnCredits" type="Button" parent="MainButtonsPanel/ButtonsVBox"]
 unique_name_in_owner = true

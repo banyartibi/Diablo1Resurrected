@@ -172,6 +172,25 @@ public:
 	void set_setting_list(int category_id, int entry_id, int list_index);
 	void save_settings();
 
+	// V-Sync & Show FPS state (Graphics category) for the Godot host window.
+	bool get_vsync_enabled() const;
+	bool get_show_fps() const;
+
+	// Resurrected display mode + rebindable mode-switch hotkey binding.
+	int get_resurrected_display_mode() const;
+	int get_mode_switch_key() const;
+	int get_mode_switch_mods() const;
+	void set_mode_switch_binding(int key, int mods);
+
+	// Resurrected display effect states (Mode 0), polled by the Godot side.
+	bool get_resurrected_torchlight() const;
+	int get_resurrected_fog_level() const;
+	int get_resurrected_color_profile() const;
+	int get_resurrected_hdr_level() const;
+	int get_resurrected_upscaler_mode() const;
+	int get_resurrected_relief_mode() const;
+	bool get_resurrected_wet_floor() const;
+
 	// Direct 112x112 Dungeon Grid Access for Godot TileMap / GridMap
 	PackedInt32Array get_dungeon_grid() const;
 	int get_dungeon_tile(int x, int y) const;

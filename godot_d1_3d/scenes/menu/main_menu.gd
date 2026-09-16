@@ -47,7 +47,7 @@ func apply_localization(is_hu: bool) -> void:
 	if btn_multiplayer:
 		btn_multiplayer.text = "TÖBBJÁTÉKOS MÓD" if is_hungarian else "MULTIPLAYER"
 	if btn_settings:
-		btn_settings.text = "BEÁLLÍTÁSOK" if is_hungarian else "SETTINGS"
+		btn_settings.text = "JÁTÉK BEÁLLÍTÁSOK" if is_hungarian else "GAME SETTINGS"
 	if btn_credits:
 		btn_credits.text = "KÉSZÍTŐK" if is_hungarian else "CREDITS"
 	if btn_exit:

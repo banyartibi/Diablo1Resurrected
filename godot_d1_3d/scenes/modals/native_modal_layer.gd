@@ -46,6 +46,17 @@ var _opt_gamma_slider: HSlider
 var _opt_brightness_slider: HSlider
 var _opt_speed_slider: HSlider
 var _opt_hd_button: Button = null
+# --- Resurrected effect toggles + graphics rows (menu-driven; no hotkeys) ---
+var _opt_torchlight_button: Button = null
+var _opt_fog_button: Button = null
+var _opt_color_button: Button = null
+var _opt_hdr_button: Button = null
+var _opt_upscaler_button: Button = null
+var _opt_relief_button: Button = null
+var _opt_wet_floor_button: Button = null
+var _opt_display_mode_button: Button = null
+var _opt_vsync_button: Button = null
+var _opt_show_fps_button: Button = null
 var brightness_host = null   # bridge_receiver (owns GameView + global brightness)
 var _opt_music_value: Label
 var _opt_sound_value: Label
@@ -256,6 +267,46 @@ func _ready() -> void:
 	_opt_hd_button = hd_row.get_node("Button")
 	_opt_hd_button.pressed.connect(_on_opt_hd_toggled)
 
+	var torchlight_row := _add_option_button_row(opt_vbox, "Soft Torchlight", "Off")
+	_opt_torchlight_button = torchlight_row.get_node("Button")
+	_opt_torchlight_button.pressed.connect(_on_opt_torchlight_toggled)
+
+	var fog_row := _add_option_button_row(opt_vbox, "Atmospheric Fog", "Cycle")
+	_opt_fog_button = fog_row.get_node("Button")
+	_opt_fog_button.pressed.connect(_on_opt_fog_cycled)
+
+	var color_row := _add_option_button_row(opt_vbox, "Color Profile", "Cycle")
+	_opt_color_button = color_row.get_node("Button")
+	_opt_color_button.pressed.connect(_on_opt_color_cycled)
+
+	var hdr_row := _add_option_button_row(opt_vbox, "Engine HDR Glow", "Cycle")
+	_opt_hdr_button = hdr_row.get_node("Button")
+	_opt_hdr_button.pressed.connect(_on_opt_hdr_cycled)
+
+	var upscaler_row := _add_option_button_row(opt_vbox, "Upscaler", "Cycle")
+	_opt_upscaler_button = upscaler_row.get_node("Button")
+	_opt_upscaler_button.pressed.connect(_on_opt_upscaler_cycled)
+
+	var relief_row := _add_option_button_row(opt_vbox, "3D Surface Relief", "Cycle")
+	_opt_relief_button = relief_row.get_node("Button")
+	_opt_relief_button.pressed.connect(_on_opt_relief_cycled)
+
+	var wet_floor_row := _add_option_button_row(opt_vbox, "Wet Floor", "On")
+	_opt_wet_floor_button = wet_floor_row.get_node("Button")
+	_opt_wet_floor_button.pressed.connect(_on_opt_wet_floor_toggled)
+
+	var display_mode_row := _add_option_button_row(opt_vbox, "Display Mode", "Cycle")
+	_opt_display_mode_button = display_mode_row.get_node("Button")
+	_opt_display_mode_button.pressed.connect(_on_opt_display_mode_switched)
+
+	var vsync_row := _add_option_button_row(opt_vbox, "V-Sync", "On")
+	_opt_vsync_button = vsync_row.get_node("Button")
+	_opt_vsync_button.pressed.connect(_on_opt_vsync_toggled)
+
+	var fps_row := _add_option_button_row(opt_vbox, "Show FPS", "Off")
+	_opt_show_fps_button = fps_row.get_node("Button")
+	_opt_show_fps_button.pressed.connect(_on_opt_show_fps_toggled)
+
 	var close_btn := Button.new()
 	close_btn.name = "CloseButton"
 	close_btn.text = "Close [Esc]"
@@ -430,6 +481,16 @@ func _refresh_option_values() -> void:
 		if brightness_host and brightness_host.has_method("get_hd_graphics_enabled"):
 			is_hd = brightness_host.get_hd_graphics_enabled()
 		_opt_hd_button.text = "Resurrected 4x HD" if is_hd else "Authentic 1996"
+	_set_row_text(_opt_torchlight_button, "Resurrected", "Soft Torchlight")
+	_set_row_text(_opt_fog_button, "Resurrected", "Atmospheric Fog")
+	_set_row_text(_opt_color_button, "Resurrected", "Color Profile")
+	_set_row_text(_opt_hdr_button, "Resurrected", "Engine HDR Glow")
+	_set_row_text(_opt_upscaler_button, "Resurrected", "Upscaler")
+	_set_row_text(_opt_relief_button, "Resurrected", "3D Surface Relief")
+	_set_row_text(_opt_wet_floor_button, "Resurrected", "Wet Floor")
+	_set_row_text(_opt_display_mode_button, "Resurrected", "Display Mode")
+	_set_row_text(_opt_vsync_button, "Graphics", "V-Sync")
+	_set_row_text(_opt_show_fps_button, "Graphics", "Show FPS")
 	_options_refreshing = false
 
 func _on_opt_hd_toggled() -> void:
@@ -439,6 +500,103 @@ func _on_opt_hd_toggled() -> void:
 		var is_hd: bool = brightness_host.toggle_hd_graphics()
 		if _opt_hd_button:
 			_opt_hd_button.text = "Resurrected 4x HD" if is_hd else "Authentic 1996"
+
+# --- Resurrected effect toggles + graphics rows (menu-driven; no hotkeys) ---
+
+func _get_bridge_entry(cat_name: String, entry_name: String) -> Variant:
+	if diablo_bridge == null or not diablo_bridge.has_method("get_settings_categories"):
+		return null
+	var cat_id := -1
+	for cat in diablo_bridge.get_settings_categories():
+		if str(cat.get("name", "")) == cat_name:
+			cat_id = int(cat.get("id", 0))
+			break
+	if cat_id < 0 or not diablo_bridge.has_method("get_settings_entries"):
+		return null
+	for entry in diablo_bridge.get_settings_entries(cat_id):
+		if str(entry.get("name", "")) == entry_name:
+			var info = {
+				"cat_id": cat_id,
+				"id": int(entry.get("id", 0)),
+				"type": int(entry.get("type", -1)),
+				"bool_val": bool(entry.get("bool_val", false)),
+				"list_index": int(entry.get("list_index", 0)),
+				"list_options": entry.get("list_options", []),
+			}
+			return info
+	return null
+
+func _set_row_text(btn: Button, cat_name: String, entry_name: String) -> void:
+	var info = _get_bridge_entry(cat_name, entry_name)
+	if btn == null or info == null:
+		return
+	if int(info["type"]) == 0:
+		btn.text = "On" if bool(info["bool_val"]) else "Off"
+	elif int(info["type"]) == 1:
+		var opts = info["list_options"]
+		var idx := int(info["list_index"])
+		if idx >= 0 and idx < opts.size():
+			btn.text = str(opts[idx])
+
+func _toggle_resurrected_bool(btn: Button, cat_name: String, entry_name: String) -> void:
+	if _options_refreshing or diablo_bridge == null:
+		return
+	var info = _get_bridge_entry(cat_name, entry_name)
+	if info == null:
+		return
+	var next_v := not bool(info["bool_val"])
+	if diablo_bridge.has_method("set_setting_bool"):
+		diablo_bridge.set_setting_bool(int(info["cat_id"]), int(info["id"]), bool(next_v))
+	if diablo_bridge.has_method("save_settings"):
+		diablo_bridge.save_settings()
+	_set_row_text(btn, cat_name, entry_name)
+
+func _cycle_resurrected_list(btn: Button, cat_name: String, entry_name: String) -> void:
+	if _options_refreshing or diablo_bridge == null:
+		return
+	var info = _get_bridge_entry(cat_name, entry_name)
+	if info == null:
+		return
+	var opts = info["list_options"]
+	var sz := int(opts.size())
+	if int(info["type"]) != 1 or sz <= 0:
+		return
+	var next_idx := (int(info["list_index"]) + 1) % sz
+	if diablo_bridge.has_method("set_setting_list"):
+		diablo_bridge.set_setting_list(int(info["cat_id"]), int(info["id"]), int(next_idx))
+	if diablo_bridge.has_method("save_settings"):
+		diablo_bridge.save_settings()
+	_set_row_text(btn, cat_name, entry_name)
+
+func _on_opt_torchlight_toggled() -> void:
+	_toggle_resurrected_bool(_opt_torchlight_button, "Resurrected", "Soft Torchlight")
+
+func _on_opt_fog_cycled() -> void:
+	_cycle_resurrected_list(_opt_fog_button, "Resurrected", "Atmospheric Fog")
+
+func _on_opt_color_cycled() -> void:
+	_cycle_resurrected_list(_opt_color_button, "Resurrected", "Color Profile")
+
+func _on_opt_hdr_cycled() -> void:
+	_cycle_resurrected_list(_opt_hdr_button, "Resurrected", "Engine HDR Glow")
+
+func _on_opt_upscaler_cycled() -> void:
+	_cycle_resurrected_list(_opt_upscaler_button, "Resurrected", "Upscaler")
+
+func _on_opt_relief_cycled() -> void:
+	_cycle_resurrected_list(_opt_relief_button, "Resurrected", "3D Surface Relief")
+
+func _on_opt_wet_floor_toggled() -> void:
+	_toggle_resurrected_bool(_opt_wet_floor_button, "Resurrected", "Wet Floor")
+
+func _on_opt_display_mode_switched() -> void:
+	_cycle_resurrected_list(_opt_display_mode_button, "Resurrected", "Display Mode")
+
+func _on_opt_vsync_toggled() -> void:
+	_toggle_resurrected_bool(_opt_vsync_button, "Graphics", "V-Sync")
+
+func _on_opt_show_fps_toggled() -> void:
+	_toggle_resurrected_bool(_opt_show_fps_button, "Graphics", "Show FPS")
 
 func _on_opt_music_changed(v: float) -> void:
 	if _options_refreshing:

@@ -68,6 +68,43 @@ enum class Resampler : uint8_t {
 string_view ResamplerToString(Resampler resampler);
 std::optional<Resampler> ResamplerFromString(string_view resampler);
 
+enum class AtmosphericFogMode : uint8_t {
+	Off = 0,
+	CryptMist = 1,
+	DenseDrift = 2,
+};
+
+enum class ColorProfileMode : uint8_t {
+	Vanilla = 0,
+	DarkGothic = 1,
+	Crimson = 2,
+	CryptCyan = 3,
+	Noir = 4,
+};
+
+enum class HDRGlowLevel : uint8_t {
+	Off = 0,
+	Balanced_1x = 1,
+	Radiant_2x = 2,
+	Blazing_3x = 3,
+};
+
+enum class UpscalerMode : uint8_t {
+	CAS_FSR = 0,
+	Neural_CNN = 1,
+	ThinLines = 2,
+	CatmullRom = 3,
+	NativePixelArt = 4,
+};
+
+enum class ReliefMode : uint8_t {
+	Flat_2D = 0,
+	Subtle_3D = 1,
+	Balanced_Emboss = 2,
+	Deep_Relief = 3,
+	Extreme_Sculpted = 4,
+};
+
 enum class FloatingNumbers : uint8_t {
 	/** @brief Show no floating numbers. */
 	Off = 0,
@@ -82,6 +119,8 @@ enum class OptionEntryType : uint8_t {
 	List,
 	Key,
 	PadButton,
+	/** @brief Rebindable hotkey binding (Godot physical key + modifier mask), stored in diablo.ini. */
+	KeyCapture,
 };
 
 enum class OptionEntryFlags : uint8_t {
@@ -287,6 +326,65 @@ public:
 	{
 		SetValueInternal(static_cast<int>(value));
 	}
+};
+
+/**
+ * @brief Rebindable hotkey binding entry (e.g. mode switch "Ctrl+F12").
+ *
+ * Stores a Godot physical key code plus modifier mask in diablo.ini
+ * (<Key>KeyCode / <Key>Mods); the settings dialog shows it as
+ * "[ Ctrl+F12 ]" with a Rebind button that captures the new binding.
+ */
+class OptionEntryKeyCapture : public OptionEntryBase {
+public:
+	/** Modifier mask: shift=1, ctrl=2, alt=4, meta=8 (Godot InputEvent flags). */
+	OptionEntryKeyCapture(string_view key, const char *name, const char *description, int defaultKey, uint8_t defaultMods)
+	    : OptionEntryBase(key, OptionEntryFlags::None, name, description)
+	    , keyVal(defaultKey)
+	    , mods(defaultMods)
+	    , defaultKeyValue_(defaultKey)
+	    , defaultModsValue_(static_cast<int>(defaultMods))
+	{
+	}
+
+	[[nodiscard]] OptionEntryType GetType() const override
+	{
+		return OptionEntryType::KeyCapture;
+	}
+
+	void LoadFromIni(string_view category) override;
+	void SaveToIni(string_view category) const override;
+
+	[[nodiscard]] string_view GetValueDescription() const override
+	{
+		descBuf = FormatBinding(keyVal, mods);
+		return descBuf;
+	}
+
+	void SetValue(int newKey, uint8_t newMods)
+	{
+		keyVal = newKey;
+		mods = newMods;
+	}
+
+	[[nodiscard]] int GetKey() const
+	{
+		return keyVal;
+	}
+	[[nodiscard]] uint8_t GetMods() const
+	{
+		return mods;
+	}
+
+private:
+	static std::string FormatBinding(int godotKey, uint8_t modsMask);
+	int defaultKeyValue_;
+	int defaultModsValue_;
+	mutable std::string descBuf;
+
+private:
+	int keyVal;
+	uint8_t mods;
 };
 
 class OptionEntryLanguageCode : public OptionEntryListBase {
@@ -528,6 +626,42 @@ struct GraphicsOptions : OptionCategoryBase {
 #endif
 	/** @brief Show FPS, even without the -f command line flag. */
 	OptionEntryBoolean showFPS;
+	/** @brief Vertical synchronization (display sync) ON/OFF.
+	 * Replaces Frame Rate Control; applied by the Godot host window.
+	 */
+	OptionEntryBoolean vSync;
+};
+
+/** @brief Native display modes for the hybrid Godot-D1 engine. */
+enum class DisplayMode : uint8_t {
+	Original_25D = 0,
+	Native_25D = 1,
+	Native_3D = 2,
+};
+
+struct ResurrectedOptions : OptionCategoryBase {
+	ResurrectedOptions();
+	std::vector<OptionEntryBase *> GetEntries() override;
+
+	/** @brief Rebindable display-mode switch hotkey (default Ctrl+F12), stored in diablo.ini. */
+	OptionEntryKeyCapture modeSwitchBinding;
+	/** @brief Native display mode: Original 2.5D / Native Godot 2.5D / Native Godot 3D Sandbox. */
+	OptionEntryEnum<DisplayMode> displayMode;
+
+	/** @brief Soft torchlight for dungeon hero light (warm candlelight). */
+	OptionEntryBoolean softTorchlight;
+	/** @brief Atmospheric fog level. */
+	OptionEntryEnum<AtmosphericFogMode> atmosphericFog;
+	/** @brief Color profile / grading preset. */
+	OptionEntryEnum<ColorProfileMode> colorProfile;
+	/** @brief HDR glow strength. */
+	OptionEntryEnum<HDRGlowLevel> hdrLevel;
+	/** @brief Upscaler implementation. */
+	OptionEntryEnum<UpscalerMode> upscalerMode;
+	/** @brief 3D surface relief mode for Mode 0. */
+	OptionEntryEnum<ReliefMode> reliefMode;
+	/** @brief Wet & reflective cobblestone floor (glossy puddles). */
+	OptionEntryBoolean wetFloor;
 };
 
 struct GameplayOptions : OptionCategoryBase {
@@ -805,6 +939,7 @@ struct Options {
 	DiabloOptions Diablo;
 	HellfireOptions Hellfire;
 	AudioOptions Audio;
+	ResurrectedOptions Resurrected;
 	GameplayOptions Gameplay;
 	GraphicsOptions Graphics;
 	ControllerOptions Controller;
@@ -821,6 +956,7 @@ struct Options {
 			&GameMode,
 			&StartUp,
 			&Graphics,
+			&Resurrected,
 			&Audio,
 			&Diablo,
 			&Hellfire,

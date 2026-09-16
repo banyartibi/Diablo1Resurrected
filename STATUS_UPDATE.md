@@ -23,6 +23,29 @@ headless ellenőrzés tiszta indítás/frame-stream/SIGTERM exit-0.
 
 ---
 
+## 🆕 Fázis-2: Hotkey-eltávolítás + Pause-menu Settings (2026-09-16)
+
+| # | Munka | Állapot |
+|---|---|---|
+| 1 | "Settings" → **Game Settings** (HU: JÁTÉK BEÁLLÍTÁSOK, EN: GAME SETTINGS) – főmenü + dialog header | ✅ |
+| 2 | Új **„Resurrected”** sub-menu a Game Settings-ben: rebindable key binding (type-4 KeyCapture), Rebind capture UI, diablo.ini persisted | ✅ |
+| 3 | **7 effect hotkey eltávolítva** (F9/F10/F11/F12 + Ctrl/Alt variantok) – a settings kizárólag az ESC pause menu Options paneljából állíthatók | ✅ |
+| 4 | Mode switch binding: **Ctrl+F12** default, rebindable + ini-persisted (Godot physical keycode + modifier mask) | ✅ |
+| 5 | Pause menu (ESC → Options) új sorok: Soft Torchlight, Atmospheric Fog, Color Profile, Engine HDR Glow, Upscaler, 3D Surface Relief, Wet Floor + Display Mode switch + V-Sync ON/OFF + Show FPS ON/OFF – mind kizárólag menüvezreléssel | ✅ |
+| 6 | **Build fix:** `OptionEntryKeyCapture` LoadFromIni/SaveToIni átkelve `options.cpp`-be (a header-ben lévő inline bodies a buildet tönkretették) + diablo_bridge bindings hex-verifikálva | ✅ |
+
+**Build:** `ninja -C DevilutionX/build` + `./build_gdextension.sh` – **sikerrel**. Byte-scan: searc=0 mindenhol,
+„switch” helyesen írva; GDScript parse-check (`godot --headless --check`) tiszta mind a 3 módosított scripten.
+
+**Következő:** az új build-lel (`./run_d1_godot3d.sh`) futatott játékban verifikálni:
+- ESC → Options: a 7 Resurrected toggle + Display Mode cycle + V-Sync/Show FPS ON/OFF működik;
+- Game Settings → Resurrected: mode switch rebind (Rebind button) új binding beállítva ini-be;
+- Ctrl+F12 (vagy a rebindelt kombináció) mode switch in-game + main menüben.
+
+Minden verifikálva után commit + push (a felhasználó kéri).
+
+---
+
 ## Task 1 – DevilutionX + Godot Vulkan (extra tuning)
 
 ### ✅ Kész és működik

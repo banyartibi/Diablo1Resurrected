@@ -450,6 +450,21 @@ string_view OptionEntryBoolean::GetValueDescription() const
 	return value ? _("ON") : _("OFF");
 }
 
+void OptionEntryKeyCapture::LoadFromIni(string_view category)
+{
+	auto section = std::string(category.data());
+	std::string keyName = std::string(key);
+	keyVal = GetIniInt(section.c_str(), (keyName + "KeyCode").c_str(), defaultKeyValue_);
+	mods = static_cast<uint8_t>(GetIniInt(section.c_str(), (keyName + "Mods").c_str(), defaultModsValue_));
+}
+void OptionEntryKeyCapture::SaveToIni(string_view category) const
+{
+	auto section = std::string(category.data());
+	std::string keyName = std::string(key);
+	SetIniValue(section.c_str(), (keyName + "KeyCode").c_str(), keyVal);
+	SetIniValue(section.c_str(), (keyName + "Mods").c_str(), static_cast<int>(mods));
+}
+
 OptionEntryType OptionEntryListBase::GetType() const
 {
 	return OptionEntryType::List;
@@ -975,11 +990,7 @@ GraphicsOptions::GraphicsOptions()
     , integerScaling("Integer Scaling", OptionEntryFlags::CantChangeInGame | OptionEntryFlags::RecreateUI, N_("Integer Scaling"), N_("Scales the image using whole number pixel ratio."), false)
 #endif
     , frameRateControl("Frame Rate Control",
-          OptionEntryFlags::RecreateUI
-#if defined(NXDK) || defined(__ANDROID__)
-              | OptionEntryFlags::Invisible
-#endif
-          ,
+          OptionEntryFlags::RecreateUI | OptionEntryFlags::Invisible,
           N_("Frame Rate Control"),
           N_("Manages frame rate to balance performance, reduce tearing, or save power."),
 #if defined(NXDK) || defined(USE_SDL1)
@@ -1005,6 +1016,7 @@ GraphicsOptions::GraphicsOptions()
     , hardwareCursorMaxSize("Hardware Cursor Maximum Size", OptionEntryFlags::CantChangeInGame | OptionEntryFlags::RecreateUI | (HardwareCursorSupported() ? OptionEntryFlags::None : OptionEntryFlags::Invisible), N_("Hardware Cursor Maximum Size"), N_("Maximum width / height for the hardware cursor. Larger cursors fall back to software."), 128, { 0, 64, 128, 256, 512 })
 #endif
     , showFPS("Show FPS", OptionEntryFlags::None, N_("Show FPS"), N_("Displays the FPS in the upper left corner of the screen."), false)
+    , vSync("V-Sync", OptionEntryFlags::None, N_("V-Sync"), N_("Enable vertical synchronization (display sync) for smooth frame pacing. Replaces Frame Rate Control."), true)
 {
 	resolution.SetValueChangedCallback(ResizeWindow);
 	fullscreen.SetValueChangedCallback(SetFullscreenMode);
@@ -1038,6 +1050,7 @@ std::vector<OptionEntryBase *> GraphicsOptions::GetEntries()
 		&gammaCorrection,
 		&zoom,
 		&showFPS,
+		&vSync,
 		&colorCycling,
 		&alternateNestArt,
 #if SDL_VERSION_ATLEAST(2, 0, 0)
@@ -1045,6 +1058,122 @@ std::vector<OptionEntryBase *> GraphicsOptions::GetEntries()
 		&hardwareCursorForItems,
 		&hardwareCursorMaxSize,
 #endif
+	};
+	// clang-format on
+}
+
+/**
+ * @brief Formats a Godot physical key + modifier mask as human-readable binding text.
+ *
+ * Modifier bits: shift=1, ctrl=2, alt=4, meta=8; modifiers first then key, joined with '+'.
+ */
+std::string OptionEntryKeyCapture::FormatBinding(int godotKey, uint8_t modsMask)
+{
+	std::string result;
+	static const char *modNames[4] = { "Shift", "Ctrl", "Alt", "Meta" };
+	for (int i = 0; i < 4; ++i) {
+		if ((modsMask & static_cast<uint8_t>(1 << i)) != 0) {
+			result += modNames[i];
+			result += "+";
+		}
+	}
+	std::string keyName;
+	if (godotKey >= 'A' && godotKey <= 'Z') {
+		keyName = std::string(1, static_cast<char>(godotKey));
+	} else if (godotKey >= '0' && godotKey <= '9') {
+		keyName = std::string(1, static_cast<char>(godotKey));
+	} else if (godotKey >= 4194332 && godotKey <= 4194357) { // Godot F-keys: F1..F26
+		keyName = "F" + std::to_string(godotKey - 4194331);
+	} else {
+		static const std::pair<int, std::string> specialKeys[] = {
+			{ 4194305, "Esc" }, { 4194306, "Tab" }, { 4194307, "Back-Tab" }, { 4194308, "Backspace" },
+			{ 4194309, "Enter" }, { 4194310, "KP-Enter" }, { 4194311, "Insert" }, { 4194312, "Delete" },
+			{ 4194313, "Pause" }, { 4194314, "Print Screen" }, { 4194317, "Home" }, { 4194318, "End" },
+			{ 4194319, "Left" }, { 4194320, "Up" }, { 4194321, "Right" }, { 4194322, "Down" },
+			{ 4194323, "PgUp" }, { 4194324, "PgDn" }, { 4194325, "Shift" }, { 4194326, "Ctrl" },
+			{ 4194327, "Meta" }, { 4194328, "Alt" }, { 4194329, "Caps Lock" }, { 4194330, "Num Lock" },
+			{ 4194331, "Scroll Lock" }
+		};
+		for (const auto &entry : specialKeys) {
+			if (entry.first == godotKey) {
+				keyName = entry.second;
+				break;
+			}
+		}
+		if (keyName.empty() && godotKey >= 32 && godotKey <= 127) {
+			keyName = std::string(1, static_cast<char>(godotKey));
+		}
+		if (keyName.empty()) {
+			keyName = "Key " + std::to_string(godotKey);
+		}
+	}
+	result += keyName;
+	return result;
+}
+
+ResurrectedOptions::ResurrectedOptions()
+    : OptionCategoryBase("Resurrected", N_("Resurrected"), N_("Diablo 1 Resurrected: native display mode switch binding + effects (Legacy Blit / Godot 2.5D / Godot 3D)"))
+    , modeSwitchBinding("Mode Switch", N_("Display Mode Switch"), N_("Cycles Original 2.5D / Native Godot 2.5D / Native Godot 3D Sandbox."), /*Godot KEY_F12*/ 4194343, /*Ctrl modifier bit*/ 2)
+    , displayMode("Display Mode", OptionEntryFlags::None, N_("Display Mode"), N_("Original 2.5D Blit / Native Godot 2.5D / Native Godot 3D Sandbox."), DisplayMode::Native_25D,
+          {
+              { DisplayMode::Original_25D, N_("Legacy Blit (Original 2.5D)") },
+              { DisplayMode::Native_25D, N_("Native Godot 2.5D") },
+              { DisplayMode::Native_3D, N_("Native Godot 3D Sandbox") },
+          })
+    , softTorchlight("Soft Torchlight", OptionEntryFlags::None, N_("Soft Torchlight"), N_("Warm candlelight around the hero in dungeons."), false)
+    , atmosphericFog("Atmospheric Fog", OptionEntryFlags::None, N_("Atmospheric Fog"), N_("Volumetric fog atmosphere for dungeons."), AtmosphericFogMode::Off,
+          {
+              { AtmosphericFogMode::Off, N_("OFF") },
+              { AtmosphericFogMode::CryptMist, N_("Crypt Mist (Subtle Dungeon Pára)") },
+              { AtmosphericFogMode::DenseDrift, N_("Dense Drift (Hellfire Smoke)") },
+          })
+    , colorProfile("Color Profile", OptionEntryFlags::None, N_("Color Profile"), N_("Color grading preset for the playfield."), ColorProfileMode::Vanilla,
+          {
+              { ColorProfileMode::Vanilla, N_("OFF (1996 Classic - UI Untouched)") },
+              { ColorProfileMode::DarkGothic, N_("Dark Gothic (Deep OLED Slate Contrast)") },
+              { ColorProfileMode::Crimson, N_("Hellish Crimson (Warm Blood-Amber)") },
+              { ColorProfileMode::CryptCyan, N_("Crypt Cyan (Gothic Cold Chill)") },
+              { ColorProfileMode::Noir, N_("Desaturated Noir (Grimdark Film)") },
+          })
+    , hdrLevel("HDR Glow Level", OptionEntryFlags::None, N_("Engine HDR Glow"), N_("Bloom / glow strength for the playfield."), HDRGlowLevel::Balanced_1x,
+          {
+              { HDRGlowLevel::Off, N_("OFF (0.0x)") },
+              { HDRGlowLevel::Balanced_1x, N_("1.0x (Subtle Natural Glow)") },
+              { HDRGlowLevel::Radiant_2x, N_("2.0x (Warm Radiant Bloom)") },
+              { HDRGlowLevel::Blazing_3x, N_("3.0x (Intense Blazing Bloom)") },
+          })
+    , upscalerMode("Upscaler Mode", OptionEntryFlags::None, N_("Upscaler"), N_("Upsampler implementation for the playfield."), UpscalerMode::CAS_FSR,
+          {
+              { UpscalerMode::CAS_FSR, N_("AMD FidelityFX CAS Super-Resolution") },
+              { UpscalerMode::Neural_CNN, N_("Anime4K / Neural Spatial CNN (Edge Reconstruction)") },
+              { UpscalerMode::ThinLines, N_("Anime4K Ultra Thin Lines & Vector Contours") },
+              { UpscalerMode::CatmullRom, N_("8K Catmull-Rom Bicubic Spline") },
+              { UpscalerMode::NativePixelArt, N_("Native 1:1 Direct Retro Pixel-Art") },
+          })
+    , reliefMode("Surface Relief Mode", OptionEntryFlags::None, N_("3D Surface Relief"), N_("Bump-mapped surface relief for the playfield (Mode 0)."), ReliefMode::Extreme_Sculpted,
+          {
+              { ReliefMode::Flat_2D, N_("OFF (Flat 2D)") },
+              { ReliefMode::Subtle_3D, N_("Mode 1 (Subtle 3D)") },
+              { ReliefMode::Balanced_Emboss, N_("Mode 2 (Balanced 3D Emboss)") },
+              { ReliefMode::Deep_Relief, N_("Mode 3 (Deep 3D Embossed Relief)") },
+              { ReliefMode::Extreme_Sculpted, N_("Mode 4 (Extreme Sculpted 3D Relief)") },
+          })
+    , wetFloor("Wet Floor", OptionEntryFlags::None, N_("Wet Floor"), N_("Wet & reflective cobblestone (glossy puddles)."), true)
+{
+}
+std::vector<OptionEntryBase *> ResurrectedOptions::GetEntries()
+{
+	// clang-format off
+	return {
+		&modeSwitchBinding,
+		&displayMode,
+		&softTorchlight,
+		&atmosphericFog,
+		&colorProfile,
+		&hdrLevel,
+		&upscalerMode,
+		&reliefMode,
+		&wetFloor,
 	};
 	// clang-format on
 }

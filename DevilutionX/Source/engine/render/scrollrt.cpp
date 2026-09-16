@@ -1487,7 +1487,7 @@ void DrawFPS(const Surface &out)
 	static int framesSinceLastUpdate = 0;
 	static string_view formatted {};
 
-	if (!frameflag || !gbActive || gbGodotBridgeActive) {
+	if (!frameflag || !gbActive) {
 		return;
 	}
 

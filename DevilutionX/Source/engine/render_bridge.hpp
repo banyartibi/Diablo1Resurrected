@@ -654,5 +654,23 @@ void SetBridgeSettingBool(int categoryId, int entryId, bool value);
 void SetBridgeSettingList(int categoryId, int entryId, int listIndex);
 void SaveBridgeSettings();
 
+// V-Sync & Show FPS state for the Godot host window.
+bool GetVsyncEnabled();
+bool GetShowFpsEnabled();
+
+int GetResurrectedDisplayMode();
+int GetModeSwitchKey();
+uint8_t GetModeSwitchMods();
+void SetModeSwitchBinding(int key, uint8_t mods);
+
+// Resurrected display effect states (Mode 0), polled by the Godot side.
+bool GetResurrectedTorchlight();
+int GetResurrectedFogLevel();
+int GetResurrectedColorProfile();
+int GetResurrectedHdrLevel();
+int GetResurrectedUpscalerMode();
+int GetResurrectedReliefMode();
+bool GetResurrectedWetFloor();
+
 } // namespace devilution
 
