@@ -68,6 +68,13 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_hover_item_info"), &DiabloBridge::get_hover_item_info);
 	ClassDB::bind_method(D_METHOD("get_available_spells"), &DiabloBridge::get_available_spells);
 	ClassDB::bind_method(D_METHOD("select_spell", "spell_id", "spell_type"), &DiabloBridge::select_spell);
+	ClassDB::bind_method(D_METHOD("get_potion_summary"), &DiabloBridge::get_potion_summary);
+	ClassDB::bind_method(D_METHOD("use_smart_potion", "category"), &DiabloBridge::use_smart_potion);
+	ClassDB::bind_method(D_METHOD("get_town_portal_summary"), &DiabloBridge::get_town_portal_summary);
+	ClassDB::bind_method(D_METHOD("use_smart_town_portal"), &DiabloBridge::use_smart_town_portal);
+	ClassDB::bind_method(D_METHOD("get_target_monster_summary", "target_id"), &DiabloBridge::get_target_monster_summary, DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("bind_spell_hotkey", "spell_id", "spell_type", "slot_idx"), &DiabloBridge::bind_spell_hotkey);
+	ClassDB::bind_method(D_METHOD("quick_cast_hotkey", "slot_idx"), &DiabloBridge::quick_cast_hotkey);
 	ClassDB::bind_method(D_METHOD("get_zoom_mode"), &DiabloBridge::get_zoom_mode);
 
 	// Native Godot Options menu (Music/Sound/Gamma/Speed)
@@ -91,6 +98,9 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("toggle_quest_log"), &DiabloBridge::toggle_quest_log);
 	ClassDB::bind_method(D_METHOD("is_inventory_open"), &DiabloBridge::is_inventory_open);
 	ClassDB::bind_method(D_METHOD("toggle_inventory"), &DiabloBridge::toggle_inventory);
+	ClassDB::bind_method(D_METHOD("set_active_ui_panel", "panel"), &DiabloBridge::set_active_ui_panel);
+	ClassDB::bind_method(D_METHOD("close_all_ui_panels"), &DiabloBridge::close_all_ui_panels);
+	ClassDB::bind_method(D_METHOD("get_active_ui_panel"), &DiabloBridge::get_active_ui_panel);
 
 	// Native Godot Diablo IV Inventory
 	ClassDB::bind_method(D_METHOD("get_inventory_version"), &DiabloBridge::get_inventory_version);
@@ -100,6 +110,9 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_item_texture", "curs_id"), &DiabloBridge::get_item_texture);
 	ClassDB::bind_method(D_METHOD("click_inventory_slot", "slot_type", "slot_idx", "is_shift", "is_ctrl"), &DiabloBridge::click_inventory_slot, DEFVAL(false), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("use_inventory_slot", "slot_type", "slot_idx"), &DiabloBridge::use_inventory_slot);
+	ClassDB::bind_method(D_METHOD("get_player_durability_warnings"), &DiabloBridge::get_player_durability_warnings);
+	ClassDB::bind_method(D_METHOD("get_durability_icon", "frame_idx"), &DiabloBridge::get_durability_icon);
+	ClassDB::bind_method(D_METHOD("get_durability_icon_composite", "icon_idx", "durability"), &DiabloBridge::get_durability_icon_composite);
 
 	// Native Godot Diablo IV Stash
 	ClassDB::bind_method(D_METHOD("is_stash_open"), &DiabloBridge::is_stash_open);
@@ -557,6 +570,67 @@ Array DiabloBridge::get_available_spells() const {
 
 void DiabloBridge::select_spell(int spell_id, int spell_type) {
 	devilution::PushBridgeAction(devilution::D1BridgeActionType::SelectSpell, spell_id, spell_type);
+}
+
+Dictionary DiabloBridge::get_potion_summary() const {
+	Dictionary d;
+	auto sum = devilution::GetPotionSummary();
+	d["hp_count"] = sum.hpCount;
+	d["hp_best_type"] = sum.hpBestType;
+	d["mana_count"] = sum.manaCount;
+	d["mana_best_type"] = sum.manaBestType;
+	d["rejuv_count"] = sum.rejuvCount;
+	d["rejuv_best_type"] = sum.rejuvBestType;
+	return d;
+}
+
+void DiabloBridge::use_smart_potion(int category) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::UseSmartPotion, category);
+}
+
+Dictionary DiabloBridge::get_town_portal_summary() const {
+	Dictionary d;
+	auto sum = devilution::GetTownPortalSummary();
+	d["has_spell"] = sum.hasSpell;
+	d["spell_mana_cost"] = sum.spellManaCost;
+	d["can_cast_spell"] = sum.canCastSpell;
+	d["scroll_count"] = sum.scrollCount;
+	d["charge_count"] = sum.chargeCount;
+	d["best_mode"] = sum.bestMode;
+	return d;
+}
+
+void DiabloBridge::use_smart_town_portal() {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::UseSmartTownPortal);
+}
+
+Dictionary DiabloBridge::get_target_monster_summary(int target_id) const {
+	devilution::D1TargetMonsterSummary s = devilution::GetTargetMonsterSummary(target_id);
+	Dictionary d;
+	d["has_target"] = s.hasTarget;
+	d["is_hovered"] = s.isHovered;
+	d["monster_id"] = s.monsterId;
+	d["name"] = String::utf8(s.name);
+	d["hp"] = s.hp;
+	d["max_hp"] = s.maxHp;
+	d["hp_percent"] = (s.maxHp > 0) ? (static_cast<float>(s.hp) / static_cast<float>(s.maxHp)) : 0.0f;
+	d["mode"] = s.mode;
+	d["is_unique"] = s.isUnique;
+	d["is_champion"] = s.isChampion;
+	d["monster_class"] = s.monsterClass;
+	d["class_name"] = String::utf8(s.classText);
+	d["resists"] = String::utf8(s.resistText);
+	d["immunes"] = String::utf8(s.immuneText);
+	d["kill_count"] = s.killCount;
+	return d;
+}
+
+void DiabloBridge::bind_spell_hotkey(int spell_id, int spell_type, int slot_idx) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::BindSpellHotkey, spell_id, spell_type, slot_idx);
+}
+
+void DiabloBridge::quick_cast_hotkey(int slot_idx) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::QuickCastHotkey, slot_idx);
 }
 
 int DiabloBridge::get_zoom_mode() const {
@@ -1074,9 +1148,13 @@ Array DiabloBridge::get_quests_info() const {
 	auto list = devilution::GetQuestsInfo();
 	for (const auto &qe : list) {
 		Dictionary q;
+		q["id"] = qe.idx;
 		q["idx"] = qe.idx;
 		q["name"] = String::utf8(qe.name);
 		q["is_finished"] = qe.isFinished;
+		q["isFinished"] = qe.isFinished;
+		q["level"] = qe.level;
+		q["state"] = qe.isFinished ? 3 : 2;
 		arr.push_back(q);
 	}
 	return arr;
@@ -1101,6 +1179,19 @@ bool DiabloBridge::is_inventory_open() const {
 void DiabloBridge::toggle_inventory() {
 	devilution::PushBridgeAction(devilution::D1BridgeActionType::ToggleInventory);
 }
+
+void DiabloBridge::set_active_ui_panel(int panel) {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::SetActiveUiPanel, panel);
+}
+
+void DiabloBridge::close_all_ui_panels() {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::CloseAllUiPanels);
+}
+
+int DiabloBridge::get_active_ui_panel() const {
+	return devilution::GetActiveUiPanel();
+}
+
 
 static Dictionary InvDataToDict(const devilution::D1InvItemData &item) {
 	Dictionary d;
@@ -1185,6 +1276,76 @@ void DiabloBridge::click_inventory_slot(int slot_type, int slot_idx, bool is_shi
 
 void DiabloBridge::use_inventory_slot(int slot_type, int slot_idx) {
 	devilution::PushBridgeAction(devilution::D1BridgeActionType::UseInventorySlot, slot_type, slot_idx);
+}
+
+Array DiabloBridge::get_player_durability_warnings() const {
+	Array arr;
+	auto warnings = devilution::GetPlayerDurabilityWarnings();
+	for (const auto &w : warnings) {
+		Dictionary d;
+		d["slot_id"] = w.slotId;
+		d["icon_idx"] = w.iconIdx;
+		d["frame_idx"] = w.frameIdx;
+		d["durability"] = w.durability;
+		d["max_durability"] = w.maxDurability;
+		d["status"] = w.status;
+		d["name"] = String::utf8(w.name);
+		arr.push_back(d);
+	}
+	return arr;
+}
+
+Ref<ImageTexture> DiabloBridge::get_durability_icon(int frame_idx) {
+	if (frame_idx < 0 || frame_idx >= 16)
+		return Ref<ImageTexture>();
+
+	auto it = durability_texture_cache.find(frame_idx);
+	if (it != durability_texture_cache.end() && it->second.is_valid())
+		return it->second;
+
+	auto icon = devilution::GetDurabilityIconRgba(frame_idx);
+	if (icon.rgba.empty() || icon.width <= 0 || icon.height <= 0)
+		return Ref<ImageTexture>();
+
+	PackedByteArray pba;
+	pba.resize(icon.rgba.size());
+	std::memcpy(pba.ptrw(), icon.rgba.data(), icon.rgba.size());
+
+	Ref<Image> img = Image::create_from_data(icon.width, icon.height, false, Image::FORMAT_RGBA8, pba);
+	if (img.is_null())
+		return Ref<ImageTexture>();
+
+	Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+	durability_texture_cache[frame_idx] = tex;
+	return tex;
+}
+
+Ref<ImageTexture> DiabloBridge::get_durability_icon_composite(int icon_idx, int durability) {
+	if (icon_idx < 0 || icon_idx >= 8)
+		return Ref<ImageTexture>();
+
+	int clamped_dur = std::clamp(durability, 0, 5);
+	int cache_key = 100 + icon_idx * 10 + clamped_dur;
+
+	auto it = durability_texture_cache.find(cache_key);
+	if (it != durability_texture_cache.end() && it->second.is_valid())
+		return it->second;
+
+	auto icon = devilution::GetDurabilityCompositeIconRgba(icon_idx, clamped_dur);
+	if (icon.rgba.empty() || icon.width <= 0 || icon.height <= 0)
+		return Ref<ImageTexture>();
+
+	PackedByteArray pba;
+	pba.resize(icon.rgba.size());
+	std::memcpy(pba.ptrw(), icon.rgba.data(), icon.rgba.size());
+
+	Ref<Image> img = Image::create_from_data(icon.width, icon.height, false, Image::FORMAT_RGBA8, pba);
+	if (img.is_null())
+		return Ref<ImageTexture>();
+
+	Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+	durability_texture_cache[cache_key] = tex;
+	return tex;
 }
 
 Array DiabloBridge::get_active_objects() const {

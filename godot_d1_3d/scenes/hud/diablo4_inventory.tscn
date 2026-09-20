@@ -1,21 +1,16 @@
-[gd_scene load_steps=7 format=3 uid="uid://c8y7v4m1n3p9i"]
+[gd_scene load_steps=8 format=3 uid="uid://c8y7v4m1n3p9i"]
 
 [ext_resource type="Script" path="res://scenes/hud/diablo4_inventory.gd" id="1_inv"]
 [ext_resource type="Texture2D" path="res://assets/hud/gothic_char_panel.png" id="2_bg"]
+[ext_resource type="Texture2D" path="res://assets/hud/gothic_slot_9patch.png" id="3_slot_9patch"]
+[ext_resource type="FontFile" uid="uid://bmpcd7fayhogn" path="res://assets/fonts/Exocet.ttf" id="4_font"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_slot"]
-bg_color = Color(0.08, 0.07, 0.09, 0.9)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.35, 0.28, 0.20, 0.7)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
-shadow_color = Color(0, 0, 0, 0.8)
-shadow_size = 2
+[sub_resource type="StyleBoxTexture" id="StyleBoxFlat_slot"]
+texture = ExtResource("3_slot_9patch")
+texture_margin_left = 11.0
+texture_margin_top = 11.0
+texture_margin_right = 11.0
+texture_margin_bottom = 11.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close_btn"]
 bg_color = Color(0.11, 0.09, 0.12, 0.92)
@@ -46,13 +41,14 @@ shadow_color = Color(0, 0, 0, 0.9)
 shadow_size = 6
 
 [node name="InventoryPanel" type="Control"]
-custom_minimum_size = Vector2(320, 352)
-offset_right = 500.0
-offset_bottom = 550.0
+custom_minimum_size = Vector2(428, 560)
+offset_right = 428.0
+offset_bottom = 560.0
 mouse_filter = 1
 script = ExtResource("1_inv")
 
 [node name="Background" type="TextureRect" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -67,17 +63,15 @@ stretch_mode = 0
 [node name="Content" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
-anchor_left = 0.17
-anchor_top = 0.22
-anchor_right = 0.83
-anchor_bottom = 0.88
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 8
 
 [node name="VBox" type="VBoxContainer" parent="Content"]
 layout_mode = 2
@@ -86,8 +80,8 @@ theme_override_constants/separation = 4
 
 [node name="HeaderMargin" type="MarginContainer" parent="Content/VBox"]
 layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_right = 12
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_right = 4
 
 [node name="HeaderRow" type="HBoxContainer" parent="Content/VBox/HeaderMargin"]
 layout_mode = 2
@@ -97,25 +91,27 @@ alignment = 1
 [node name="TitleLabel" type="Label" parent="Content/VBox/HeaderMargin/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("4_font")
 theme_override_colors/font_color = Color(1, 0.88, 0.4, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 3
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 14
 text = "INVENTORY"
 
 [node name="GoldLabel" type="Label" parent="Content/VBox/HeaderMargin/HeaderRow"]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("4_font")
 theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 12
 text = "Gold: 0"
 
 [node name="Divider" type="ColorRect" parent="Content/VBox"]
 custom_minimum_size = Vector2(0, 1)
 layout_mode = 2
 mouse_filter = 2
-color = Color(0.65, 0.52, 0.25, 0.6)
+color = Color(0.35, 0.28, 0.18, 0.7)
 
 [node name="Paperdoll" type="HBoxContainer" parent="Content/VBox"]
 layout_mode = 2
@@ -130,12 +126,12 @@ theme_override_constants/separation = 6
 alignment = 1
 
 [node name="TopSpacer" type="Control" parent="Content/VBox/Paperdoll/ColLeft"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(80, 80)
 layout_mode = 2
 mouse_filter = 2
 
 [node name="HandLeftSlot" type="Control" parent="Content/VBox/Paperdoll/ColLeft"]
-custom_minimum_size = Vector2(48, 72)
+custom_minimum_size = Vector2(80, 120)
 layout_mode = 2
 
 [node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColLeft/HandLeftSlot"]
@@ -155,8 +151,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 9
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_colors/font_color = Color(0.45, 0.40, 0.35, 0.75)
+theme_override_font_sizes/font_size = 11
 text = "LEFT
 HAND"
 horizontal_alignment = 1
@@ -175,12 +172,12 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="RingLeftBox" type="CenterContainer" parent="Content/VBox/Paperdoll/ColLeft"]
-custom_minimum_size = Vector2(48, 30)
+custom_minimum_size = Vector2(80, 40)
 layout_mode = 2
 mouse_filter = 2
 
 [node name="RingLeftSlot" type="Control" parent="Content/VBox/Paperdoll/ColLeft/RingLeftBox"]
-custom_minimum_size = Vector2(30, 30)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 
 [node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColLeft/RingLeftBox/RingLeftSlot"]
@@ -200,8 +197,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 8
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_colors/font_color = Color(0.45, 0.40, 0.35, 0.75)
+theme_override_font_sizes/font_size = 10
 text = "RING"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -225,7 +223,7 @@ theme_override_constants/separation = 6
 alignment = 1
 
 [node name="HeadSlot" type="Control" parent="Content/VBox/Paperdoll/ColCenter"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(80, 80)
 layout_mode = 2
 
 [node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColCenter/HeadSlot"]
@@ -245,8 +243,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 9
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_colors/font_color = Color(0.45, 0.40, 0.35, 0.75)
+theme_override_font_sizes/font_size = 11
 text = "HEAD"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -264,7 +263,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="ChestSlot" type="Control" parent="Content/VBox/Paperdoll/ColCenter"]
-custom_minimum_size = Vector2(48, 72)
+custom_minimum_size = Vector2(80, 120)
 layout_mode = 2
 
 [node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColCenter/ChestSlot"]
@@ -284,8 +283,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 9
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_colors/font_color = Color(0.45, 0.40, 0.35, 0.75)
+theme_override_font_sizes/font_size = 11
 text = "TORSO"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -303,7 +303,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="BotSpacer" type="Control" parent="Content/VBox/Paperdoll/ColCenter"]
-custom_minimum_size = Vector2(48, 30)
+custom_minimum_size = Vector2(80, 40)
 layout_mode = 2
 mouse_filter = 2
 
@@ -314,12 +314,12 @@ theme_override_constants/separation = 6
 alignment = 1
 
 [node name="AmuletBox" type="CenterContainer" parent="Content/VBox/Paperdoll/ColRight"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(80, 80)
 layout_mode = 2
 mouse_filter = 2
 
 [node name="AmuletSlot" type="Control" parent="Content/VBox/Paperdoll/ColRight/AmuletBox"]
-custom_minimum_size = Vector2(30, 30)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 
 [node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColRight/AmuletBox/AmuletSlot"]
@@ -339,8 +339,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 8
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_colors/font_color = Color(0.45, 0.40, 0.35, 0.75)
+theme_override_font_sizes/font_size = 10
 text = "NECK"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -358,7 +359,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="HandRightSlot" type="Control" parent="Content/VBox/Paperdoll/ColRight"]
-custom_minimum_size = Vector2(48, 72)
+custom_minimum_size = Vector2(80, 120)
 layout_mode = 2
 
 [node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColRight/HandRightSlot"]
@@ -378,8 +379,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 9
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_colors/font_color = Color(0.45, 0.40, 0.35, 0.75)
+theme_override_font_sizes/font_size = 11
 text = "RIGHT
 HAND"
 horizontal_alignment = 1
@@ -398,12 +400,12 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="RingRightBox" type="CenterContainer" parent="Content/VBox/Paperdoll/ColRight"]
-custom_minimum_size = Vector2(48, 30)
+custom_minimum_size = Vector2(80, 40)
 layout_mode = 2
 mouse_filter = 2
 
 [node name="RingRightSlot" type="Control" parent="Content/VBox/Paperdoll/ColRight/RingRightBox"]
-custom_minimum_size = Vector2(30, 30)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 
 [node name="Border" type="Panel" parent="Content/VBox/Paperdoll/ColRight/RingRightBox/RingRightSlot"]
@@ -423,8 +425,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.4, 0.35, 0.3, 0.7)
-theme_override_font_sizes/font_size = 8
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_colors/font_color = Color(0.45, 0.40, 0.35, 0.75)
+theme_override_font_sizes/font_size = 10
 text = "RING"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -441,6 +444,40 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
+[node name="BeltContainer" type="VBoxContainer" parent="Content/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="BeltLabel" type="Label" parent="Content/VBox/BeltContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_colors/font_color = Color(0.85, 0.72, 0.4, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_outline_size = 2
+theme_override_font_sizes/font_size = 11
+text = "BELT"
+horizontal_alignment = 1
+
+[node name="BeltCenter" type="CenterContainer" parent="Content/VBox/BeltContainer"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="BeltBackdrop" type="Control" parent="Content/VBox/BeltContainer/BeltCenter"]
+custom_minimum_size = Vector2(418, 40)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="BeltCells" type="HBoxContainer" parent="Content/VBox/BeltContainer/BeltCenter/BeltBackdrop"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
 [node name="BackpackDivider" type="ColorRect" parent="Content/VBox"]
 custom_minimum_size = Vector2(0, 1)
 layout_mode = 2
@@ -454,10 +491,11 @@ theme_override_constants/separation = 2
 
 [node name="BackpackLabel" type="Label" parent="Content/VBox/BackpackContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.62, 0.48, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_colors/font_color = Color(0.85, 0.72, 0.4, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
 theme_override_constants/shadow_outline_size = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 11
 text = "BACKPACK"
 horizontal_alignment = 1
 
@@ -466,7 +504,7 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="GridBackdrop" type="Control" parent="Content/VBox/BackpackContainer/GridCenter"]
-custom_minimum_size = Vector2(249, 99)
+custom_minimum_size = Vector2(418, 166)
 layout_mode = 2
 mouse_filter = 2
 
@@ -478,8 +516,8 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/h_separation = 1
-theme_override_constants/v_separation = 1
+theme_override_constants/h_separation = 2
+theme_override_constants/v_separation = 2
 columns = 10
 
 [node name="ItemsOverlay" type="Control" parent="Content/VBox/BackpackContainer/GridCenter/GridBackdrop"]
@@ -492,6 +530,7 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="CloseBtnContainer" type="Control" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_left = 0.35
@@ -542,6 +581,7 @@ theme_override_constants/separation = 4
 
 [node name="TitleLabel" type="Label" parent="Tooltip/Margin/VBox"]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("4_font")
 theme_override_colors/font_color = Color(0.9, 0.85, 0.7, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
@@ -556,6 +596,7 @@ color = Color(0.65, 0.52, 0.25, 0.6)
 
 [node name="StatsLabel" type="Label" parent="Tooltip/Margin/VBox"]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("4_font")
 theme_override_colors/font_color = Color(0.8, 0.75, 0.68, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
 theme_override_constants/shadow_outline_size = 1

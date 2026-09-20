@@ -79,7 +79,16 @@ func set_bridge(bridge: Node) -> void:
 	if settings_dialog and settings_dialog.has_method("set_bridge"):
 		settings_dialog.set_bridge(diablo_bridge)
 
+const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
+
+func _apply_font_recursive(node: Node):
+	if node is Label or node is Button or node is LineEdit:
+		node.add_theme_font_override("font", FONT_EXOCET)
+	for child in node.get_children():
+		_apply_font_recursive(child)
+
 func _ready() -> void:
+	_apply_font_recursive(self)
 	_update_logo()
 
 	# Diagnosztika: null-e valamelyik gomb?

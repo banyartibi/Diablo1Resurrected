@@ -53,15 +53,14 @@ grow_vertical = 2
 script = ExtResource("1_script")
 
 [node name="LeftPanel" type="Control" parent="."]
-custom_minimum_size = Vector2(570, 760)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = 32.0
-offset_top = -380.0
-offset_right = 602.0
-offset_bottom = 380.0
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_left = 48.0
+offset_top = 30.0
+offset_right = 1092.0
+offset_bottom = -30.0
 grow_vertical = 2
 
 [node name="PanelBackground" type="TextureRect" parent="LeftPanel"]
@@ -82,20 +81,20 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 96
-theme_override_constants/margin_top = 118
-theme_override_constants/margin_right = 96
-theme_override_constants/margin_bottom = 68
+theme_override_constants/margin_left = 216
+theme_override_constants/margin_top = 294
+theme_override_constants/margin_right = 216
+theme_override_constants/margin_bottom = 164
 
 [node name="VBox" type="VBoxContainer" parent="LeftPanel/ContentMargin"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 12
 
 [node name="TitleLabel" type="Label" parent="LeftPanel/ContentMargin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 24
 text = "SELECT HERO"
 horizontal_alignment = 1
 
@@ -112,21 +111,21 @@ theme_override_constants/separation = 6
 
 [node name="PlayButton" type="Button" parent="LeftPanel/ContentMargin/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 46)
+custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.95, 0.6, 1)
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 17
 theme_override_styles/normal = SubResource("StyleBoxFlat_play_btn")
 text = "⚔ ENTER SANCTUARY ⚔"
 
 [node name="ButtonsGrid" type="GridContainer" parent="LeftPanel/ContentMargin/VBox"]
 layout_mode = 2
-theme_override_constants/h_separation = 6
+theme_override_constants/h_separation = 8
 columns = 3
 
 [node name="CreateButton" type="Button" parent="LeftPanel/ContentMargin/VBox/ButtonsGrid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 13
@@ -135,7 +134,7 @@ text = "+ NEW HERO"
 
 [node name="DeleteButton" type="Button" parent="LeftPanel/ContentMargin/VBox/ButtonsGrid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 13
@@ -144,7 +143,7 @@ text = "DELETE"
 
 [node name="BackButton" type="Button" parent="LeftPanel/ContentMargin/VBox/ButtonsGrid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 13
@@ -152,17 +151,17 @@ theme_override_styles/normal = SubResource("StyleBoxFlat_sub_btn")
 text = "BACK"
 
 [node name="RightInfoPanel" type="PanelContainer" parent="."]
-custom_minimum_size = Vector2(350, 480)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 1
 anchors_preset = 6
 anchor_left = 1.0
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
-offset_left = -398.0
-offset_top = -240.0
-offset_right = -48.0
-offset_bottom = 240.0
+offset_left = -520.0
+offset_top = -340.0
+offset_right = -60.0
+offset_bottom = 340.0
 grow_horizontal = 0
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_stat_panel")

@@ -88,6 +88,7 @@ Rectangle LeftPanel;
 Rectangle RightPanel;
 std::optional<OwnedSurface> pBtmBuff;
 OptionalOwnedClxSpriteList pGBoxBuff;
+OptionalOwnedClxSpriteList pDurIcons;
 
 const Rectangle &GetMainPanel()
 {
@@ -138,7 +139,6 @@ namespace {
 std::optional<OwnedSurface> pLifeBuff;
 std::optional<OwnedSurface> pManaBuff;
 OptionalOwnedClxSpriteList talkButtons;
-OptionalOwnedClxSpriteList pDurIcons;
 OptionalOwnedClxSpriteList multiButtons;
 OptionalOwnedClxSpriteList pPanelButtons;
 

@@ -17,6 +17,14 @@ var last_qtext_active := false
 var last_qtext_line_count := -1
 var last_is_dead := false
 
+const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
+
+func _apply_font_recursive(node: Node):
+	if node is Label or node is Button or node is LineEdit:
+		node.add_theme_font_override("font", FONT_EXOCET)
+	for child in node.get_children():
+		_apply_font_recursive(child)
+
 var _panel: PanelContainer
 var _default_panel_style: StyleBoxFlat
 var _death_panel_style: StyleBoxEmpty
@@ -149,6 +157,12 @@ func _ready() -> void:
 	_qtext_button.custom_minimum_size = Vector2(240, 38)
 	_qtext_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_qtext_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_qtext_button.add_theme_stylebox_override("normal", _button_normal_box())
+	_qtext_button.add_theme_stylebox_override("hover", _button_hover_box())
+	_qtext_button.add_theme_stylebox_override("pressed", _button_selected_box())
+	_qtext_button.add_theme_stylebox_override("focus", _button_hover_box())
+	_qtext_button.add_theme_color_override("font_color", Color(0.95, 0.88, 0.72, 1.0))
+	_qtext_button.add_theme_color_override("font_hover_color", Color(1.0, 0.95, 0.50, 1.0))
 	_qtext_button.pressed.connect(_on_qtext_dismiss_pressed)
 	_qtext_container.add_child(_qtext_button)
 
@@ -343,6 +357,7 @@ func _ready() -> void:
 	opt_box.add_theme_stylebox_override("panel", opt_bg)
 
 	add_child(_options_panel)
+	_apply_font_recursive(self)
 
 func _on_qtext_dismiss_pressed() -> void:
 	if diablo_bridge and diablo_bridge.has_method("dismiss_qtext"):
@@ -846,6 +861,7 @@ func _build_rows(_mtype_arg: int, items: Array, sel: int) -> void:
 
 			_rows_container.add_child(btn)
 			row_controls.append(btn)
+	_apply_font_recursive(_rows_container)
 
 func _format_number(n: int) -> String:
 	var s := str(n)
@@ -948,11 +964,12 @@ func _process(_delta: float) -> void:
 			_gold_label.visible = false
 
 		var qlines: Array = diablo_bridge.get_qtext_lines() if diablo_bridge.has_method("get_qtext_lines") else []
-		if not last_qtext_active or qlines.size() != last_qtext_line_count:
+		var new_text: String = "\n".join(qlines)
+		if not last_qtext_active or _qtext_label.text != new_text:
 			last_qtext_active = true
 			last_qtext_line_count = qlines.size()
 			_set_title(2, true)
-			_qtext_label.text = "\n".join(qlines)
+			_qtext_label.text = new_text
 		return
 
 	# Regular menu / dialogue list

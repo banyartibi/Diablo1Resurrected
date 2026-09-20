@@ -26,6 +26,7 @@ private:
 	mutable std::unordered_map<int, Ref<ImageTexture>> item_texture_cache;
 	mutable std::unordered_map<int, Ref<ImageTexture>> piece_texture_cache;
 	mutable std::unordered_map<int, Ref<ImageTexture>> special_texture_cache;
+	mutable std::unordered_map<int, Ref<ImageTexture>> durability_texture_cache;
 
 protected:
 	static void _bind_methods();
@@ -93,6 +94,13 @@ public:
 	Dictionary get_hover_item_info() const;
 	Array get_available_spells() const;
 	void select_spell(int spell_id, int spell_type);
+	Dictionary get_potion_summary() const;
+	void use_smart_potion(int category);
+	Dictionary get_town_portal_summary() const;
+	void use_smart_town_portal();
+	Dictionary get_target_monster_summary(int target_id = -1) const;
+	void bind_spell_hotkey(int spell_id, int spell_type, int slot_idx);
+	void quick_cast_hotkey(int slot_idx);
 	int get_zoom_mode() const;
 
 	// Native Godot Options menu (Music/Sound/Gamma/Speed).
@@ -119,6 +127,9 @@ public:
 
 	bool is_inventory_open() const;
 	void toggle_inventory();
+	void set_active_ui_panel(int panel);
+	void close_all_ui_panels();
+	int get_active_ui_panel() const;
 
 	// Native Godot Diablo IV Inventory
 	int get_inventory_version() const;
@@ -128,6 +139,9 @@ public:
 	Ref<ImageTexture> get_item_texture(int curs_id);
 	void click_inventory_slot(int slot_type, int slot_idx, bool is_shift = false, bool is_ctrl = false);
 	void use_inventory_slot(int slot_type, int slot_idx);
+	Array get_player_durability_warnings() const;
+	Ref<ImageTexture> get_durability_icon(int frame_idx);
+	Ref<ImageTexture> get_durability_icon_composite(int icon_idx, int durability);
 
 	// Native Godot Diablo IV Stash
 	bool is_stash_open() const;

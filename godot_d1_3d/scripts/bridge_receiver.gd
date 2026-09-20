@@ -734,9 +734,11 @@ func _process(delta: float):
 			# (native_modal_layer.gd); the world view does not need to rebuild.
 			if modal_layer and diablo_bridge.has_method("is_modal_active"):
 				var modal_active = diablo_bridge.is_modal_active()
-				if current_display_mode != DisplayMode.ORIGINAL_25D and modal_active != last_modal_active:
-					last_modal_active = modal_active
-					modal_layer.visible = modal_active
+				var is_qtext = diablo_bridge.is_qtext_active() if diablo_bridge.has_method("is_qtext_active") else false
+				var should_show_modal = modal_active and (current_display_mode != DisplayMode.ORIGINAL_25D or modern_hud_enabled or is_qtext)
+				if modal_layer.visible != should_show_modal:
+					modal_layer.visible = should_show_modal
+				last_modal_active = modal_active
 
 
 			# Transparent Automap Overlay for Native 2.5D / 3D views

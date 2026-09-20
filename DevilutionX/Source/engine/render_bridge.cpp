@@ -6,6 +6,7 @@
 #include "loadsave.h"
 #include "engine/render/scrollrt.h"
 #include "engine/render/clx_render.hpp"
+#include "engine/load_cel.hpp"
 #include "utils/clx_decode.hpp"
 #include "engine/render/dun_render.hpp"
 #include "engine/dx.h"
@@ -452,6 +453,12 @@ void PollGodotBridgeInput()
 			}
 			break;
 		}
+		case D1BridgeActionType::UseSmartPotion:      UseSmartPotion(job.a); break;
+		case D1BridgeActionType::BindSpellHotkey:     BindSpellHotkey(job.a, job.b, job.c); break;
+		case D1BridgeActionType::QuickCastHotkey:     QuickCastHotkey(job.a); break;
+		case D1BridgeActionType::UseSmartTownPortal:  UseSmartTownPortal(); break;
+		case D1BridgeActionType::SetActiveUiPanel:   SetActiveUiPanel(job.a); break;
+		case D1BridgeActionType::CloseAllUiPanels:   CloseAllUiPanels(); break;
 		default: break;
 	}
 	}
@@ -977,7 +984,7 @@ std::vector<AvailableSpellItem> GetAvailableSpells()
 
 			for (size_t t = 0; t < NumHotkeys; t++) {
 				if (myPlayer._pSplHotKey[t] == splId && myPlayer._pSplTHotKey[t] == static_cast<SpellType>(i)) {
-					std::snprintf(item.hotkey, sizeof(item.hotkey), "F%zu", t + 5);
+					std::snprintf(item.hotkey, sizeof(item.hotkey), "F%zu", t + 1);
 					break;
 				}
 			}
@@ -995,6 +1002,79 @@ void SelectSpell(int spellId, int spellType)
 	MyPlayer->_pRSpell = static_cast<SpellID>(spellId);
 	MyPlayer->_pRSplType = static_cast<SpellType>(spellType);
 	spselflag = false;
+	RedrawEverything();
+}
+
+void BindSpellHotkey(int spellId, int spellType, int slotIdx)
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return;
+	if (slotIdx < 0 || slotIdx >= static_cast<int>(NumHotkeys))
+		return;
+
+	Player &myPlayer = *MyPlayer;
+	SpellID splId = static_cast<SpellID>(spellId);
+	SpellType splType = static_cast<SpellType>(spellType);
+
+	// If already bound to this slot, unbind it
+	if (myPlayer._pSplHotKey[slotIdx] == splId && myPlayer._pSplTHotKey[slotIdx] == splType) {
+		myPlayer._pSplHotKey[slotIdx] = SpellID::Invalid;
+		myPlayer._pSplTHotKey[slotIdx] = SpellType::Invalid;
+		return;
+	}
+
+	// Remove this spell from any other hotkey slot
+	for (size_t i = 0; i < NumHotkeys; ++i) {
+		if (myPlayer._pSplHotKey[i] == splId && myPlayer._pSplTHotKey[i] == splType) {
+			myPlayer._pSplHotKey[i] = SpellID::Invalid;
+			myPlayer._pSplTHotKey[i] = SpellType::Invalid;
+		}
+	}
+
+	myPlayer._pSplHotKey[slotIdx] = splId;
+	myPlayer._pSplTHotKey[slotIdx] = splType;
+}
+
+void QuickCastHotkey(int slotIdx)
+{
+	if (!gbRunGame || MyPlayer == nullptr)
+		return;
+	if (slotIdx < 0 || slotIdx >= static_cast<int>(NumHotkeys))
+		return;
+
+	Player &myPlayer = *MyPlayer;
+	SpellID spell = myPlayer._pSplHotKey[slotIdx];
+	SpellType spellType = myPlayer._pSplTHotKey[slotIdx];
+
+	if (!IsValidSpell(spell) || spellType == SpellType::Invalid)
+		return;
+
+	// Verify player still has access to this spell / scroll / charges
+	uint64_t spells = 0;
+	switch (spellType) {
+	case SpellType::Skill:
+		spells = myPlayer._pAblSpells;
+		break;
+	case SpellType::Spell:
+		spells = myPlayer._pMemSpells;
+		break;
+	case SpellType::Scroll:
+		spells = myPlayer._pScrlSpells;
+		break;
+	case SpellType::Charges:
+		spells = myPlayer._pISpells;
+		break;
+	default:
+		return;
+	}
+
+	uint64_t spl = GetSpellBitmask(spell);
+	if ((spells & spl) == 0)
+		return;
+
+	myPlayer._pRSpell = spell;
+	myPlayer._pRSplType = spellType;
+	CheckPlrSpell(false, spell, spellType);
 	RedrawEverything();
 }
 
@@ -1337,6 +1417,63 @@ void ToggleInventory()
 	}
 }
 
+void SetActiveUiPanel(int panel)
+{
+	if (!gbRunGame) return;
+	// panel: 0 = Character, 1 = Inventory, 2 = SpellBook, 3 = QuestLog, -1 = Close all
+	if (panel == -1) {
+		CloseAllUiPanels();
+		return;
+	}
+	PlaySFX(IS_TITLEMOV);
+	if (panel != 0 && chrflag) chrflag = false;
+	if (panel != 1 && invflag) {
+		invflag = false;
+		CloseGoldWithdraw();
+		CloseStash();
+		if (DropGoldFlag) CloseGoldDrop();
+	}
+	if (panel != 2 && sbookflag) sbookflag = false;
+	if (panel != 3 && QuestLogIsOpen) QuestLogIsOpen = false;
+
+	if (panel == 0 && !chrflag) chrflag = true;
+	if (panel == 1 && !invflag) {
+		invflag = true;
+		CloseGoldWithdraw();
+		CloseStash();
+		if (DropGoldFlag) CloseGoldDrop();
+	}
+	if (panel == 2 && !sbookflag) sbookflag = true;
+	if (panel == 3 && !QuestLogIsOpen) StartQuestlog();
+}
+
+void CloseAllUiPanels()
+{
+	if (!gbRunGame) return;
+	bool had_open = chrflag || invflag || sbookflag || QuestLogIsOpen;
+	if (chrflag) chrflag = false;
+	if (invflag) {
+		invflag = false;
+		CloseGoldWithdraw();
+		CloseStash();
+		if (DropGoldFlag) CloseGoldDrop();
+	}
+	if (sbookflag) sbookflag = false;
+	if (QuestLogIsOpen) QuestLogIsOpen = false;
+	if (had_open) PlaySFX(IS_TITLEMOV);
+}
+
+int GetActiveUiPanel()
+{
+	if (!IsBridgeSafeToRead()) return -1;
+	if (invflag) return 1;
+	if (chrflag) return 0;
+	if (sbookflag) return 2;
+	if (QuestLogIsOpen) return 3;
+	return -1;
+}
+
+
 std::vector<D1QuestEntry> GetQuestsInfo()
 {
 	std::vector<D1QuestEntry> list;
@@ -1350,6 +1487,7 @@ std::vector<D1QuestEntry> GetQuestsInfo()
 			std::memcpy(qe.name, sv.data(), len);
 			qe.name[len] = '\0';
 			qe.isFinished = false;
+			qe.level = quest._qlevel;
 			list.push_back(qe);
 		}
 	}
@@ -1363,18 +1501,29 @@ std::vector<D1QuestEntry> GetQuestsInfo()
 			std::memcpy(qe.name, sv.data(), len);
 			qe.name[len] = '\0';
 			qe.isFinished = true;
+			qe.level = quest._qlevel;
 			list.push_back(qe);
 		}
 	}
 	return list;
 }
 
+static std::string g_ActiveQuestTitle = "";
+
 void SelectQuest(int questIdx)
 {
 	if (questIdx >= 0 && questIdx < MAXQUESTS) {
-		InitQTextMsg(Quests[questIdx]._qmsg);
-		PlaySFX(IS_TITLSLCT);
-		QuestLogIsOpen = false;
+		_speech_id msg = Quests[questIdx]._qmsg;
+		if (msg == TEXT_NONE || msg < 0) {
+			msg = QuestsData[questIdx]._qdmsg;
+		}
+		if (msg != TEXT_NONE && msg >= 0) {
+			std::string_view sv = _(QuestsData[questIdx]._qlstr);
+			g_ActiveQuestTitle = std::string(sv);
+			InitQTextMsg(msg);
+			PlaySFX(IS_TITLSLCT);
+			QuestLogIsOpen = false;
+		}
 	}
 }
 
@@ -1610,6 +1759,216 @@ D1ItemIconRgba GetItemSpriteRgba(int cursId)
 	return res;
 }
 
+static int GetDurIconIndex(const Item &item, inv_body_loc slot)
+{
+	if (slot == INVLOC_HEAD)
+		return 3;
+	if (slot == INVLOC_CHEST)
+		return 2;
+	switch (item._itype) {
+	case ItemType::Sword:
+		return 1;
+	case ItemType::Axe:
+		return 5;
+	case ItemType::Bow:
+		return 6;
+	case ItemType::Mace:
+		return 4;
+	case ItemType::Staff:
+		return 7;
+	case ItemType::Shield:
+	default:
+		return 0;
+	}
+}
+
+std::vector<D1DurabilityWarning> GetPlayerDurabilityWarnings()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame || MyPlayer == nullptr)
+		return {};
+
+	const int durabilityThresholdGold = 5;
+	const int durabilityThresholdRed = 2;
+
+	std::vector<D1DurabilityWarning> result;
+	Player &myPlayer = *MyPlayer;
+
+	// In Diablo 1, the slots checked are Head, Chest, Hand Left, Hand Right
+	const inv_body_loc slotsToCheck[] = { INVLOC_HEAD, INVLOC_CHEST, INVLOC_HAND_LEFT, INVLOC_HAND_RIGHT };
+
+	for (inv_body_loc slot : slotsToCheck) {
+		const Item &item = myPlayer.InvBody[slot];
+		if (item.isEmpty())
+			continue;
+		if (item._iMaxDur <= 0)
+			continue;
+		if (item._iDurability > durabilityThresholdGold)
+			continue;
+
+		D1DurabilityWarning w;
+		w.slotId = static_cast<int>(slot);
+		w.durability = item._iDurability;
+		w.maxDurability = item._iMaxDur;
+		w.iconIdx = GetDurIconIndex(item, slot);
+
+		if (item._iDurability <= durabilityThresholdRed) {
+			w.status = 2; // Critical / Red
+			w.frameIdx = w.iconIdx;
+		} else {
+			w.status = 1; // Warning / Gold
+			w.frameIdx = w.iconIdx + 8;
+		}
+
+		std::string cleanName = SanitizeUtf8(item.getName());
+		size_t nameLen = std::min(cleanName.size(), sizeof(w.name) - 1);
+		std::memcpy(w.name, cleanName.data(), nameLen);
+		w.name[nameLen] = '\0';
+
+		result.push_back(w);
+	}
+
+	return result;
+}
+
+D1ItemIconRgba GetDurabilityIconRgba(int frameIdx)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (frameIdx < 0 || frameIdx >= 16)
+		return {};
+
+	if (!pDurIcons) {
+		if (!FindAsset("items\\duricons" DEVILUTIONX_CEL_EXT).ok())
+			return {};
+		pDurIcons = LoadCel("items\\duricons", 32);
+		if (!pDurIcons)
+			return {};
+	}
+
+	if (frameIdx >= static_cast<int>((*pDurIcons).numSprites()))
+		return {};
+
+	const ClxSprite sprite = (*pDurIcons)[frameIdx];
+	int w = sprite.width();
+	int h = sprite.height();
+	if (w <= 0 || h <= 0 || w > 128 || h > 128)
+		return {};
+
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+
+	ClxDraw(surface, { 0, h - 1 }, sprite);
+
+	const auto &pal = orig_palette;
+	D1ItemIconRgba res;
+	res.width = w;
+	res.height = h;
+	res.rgba.resize(w * h * 4, 0);
+
+	bool hasPixels = false;
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		uint8_t *dst = res.rgba.data() + (y * w * 4);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = pal[idx];
+				hasPixels = true;
+				dst[x * 4 + 0] = c.r;
+				dst[x * 4 + 1] = c.g;
+				dst[x * 4 + 2] = c.b;
+				dst[x * 4 + 3] = 255;
+			}
+		}
+	}
+	if (!hasPixels)
+		return {};
+
+	return res;
+}
+
+D1ItemIconRgba GetDurabilityCompositeIconRgba(int iconIdx, int durability)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (iconIdx < 0 || iconIdx >= 8)
+		return {};
+
+	if (!pDurIcons) {
+		if (!FindAsset("items\\duricons" DEVILUTIONX_CEL_EXT).ok())
+			return {};
+		pDurIcons = LoadCel("items\\duricons", 32);
+		if (!pDurIcons)
+			return {};
+	}
+
+	if (iconIdx + 8 >= static_cast<int>((*pDurIcons).numSprites()))
+		return {};
+
+	const int durabilityThresholdGold = 5;
+	const int durabilityThresholdRed = 2;
+
+	const ClxSprite redSprite = (*pDurIcons)[iconIdx];
+	const ClxSprite goldSprite = (*pDurIcons)[iconIdx + 8];
+
+	int w = redSprite.width();
+	int h = redSprite.height();
+	if (w <= 0 || h <= 0 || w > 128 || h > 128)
+		return {};
+
+	int partition = 0;
+	if (durability > durabilityThresholdRed) {
+		int current = std::min(durability, durabilityThresholdGold) - durabilityThresholdRed;
+		partition = (h * current) / (durabilityThresholdGold - durabilityThresholdRed);
+	}
+
+	OwnedSurface surface(w, h);
+	std::memset(surface.begin(), 0, surface.pitch() * surface.h());
+
+	if (partition > 0) {
+		const Surface stenciledBuffer = surface.subregionY(h - partition, partition);
+		ClxDraw(stenciledBuffer, { 0, partition }, goldSprite);
+	}
+	if (partition != h) {
+		const Surface stenciledBuffer = surface.subregionY(0, h - partition);
+		ClxDraw(stenciledBuffer, { 0, h }, redSprite);
+	}
+
+	bool paletteReady = false;
+	for (int i = 16; i < 256; ++i) {
+		if (orig_palette[i].r > 40 || orig_palette[i].g > 40 || orig_palette[i].b > 40) {
+			paletteReady = true;
+			break;
+		}
+	}
+	const auto &pal = paletteReady ? orig_palette : system_palette;
+
+	D1ItemIconRgba res;
+	res.width = w;
+	res.height = h;
+	res.rgba.resize(w * h * 4, 0);
+
+	bool hasPixels = false;
+	for (int y = 0; y < h; ++y) {
+		const uint8_t *src = surface.at(0, y);
+		uint8_t *dst = res.rgba.data() + (y * w * 4);
+		for (int x = 0; x < w; ++x) {
+			uint8_t idx = src[x];
+			if (idx != 0) {
+				SDL_Color c = pal[idx];
+				hasPixels = true;
+				dst[x * 4 + 0] = c.r;
+				dst[x * 4 + 1] = c.g;
+				dst[x * 4 + 2] = c.b;
+				dst[x * 4 + 3] = 255;
+			}
+		}
+	}
+	if (!hasPixels)
+		return {};
+
+	return res;
+}
+
 void ClickInventorySlot(int slotType, int slotIdx, bool isShift, bool isCtrl)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
@@ -1706,6 +2065,307 @@ void UseInventorySlot(int slotType, int slotIdx)
 		}
 	}
 	g_InventoryVersion.fetch_add(1);
+}
+
+D1PotionSummary GetPotionSummary()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1PotionSummary sum;
+	if (!IsBridgeSafeToRead() || MyPlayer == nullptr)
+		return sum;
+
+	const Player &myPlayer = *MyPlayer;
+
+	auto examineItem = [&](const Item &item) {
+		if (item.isEmpty()) return;
+
+		// Health
+		if (item._iMiscId == IMISC_FULLHEAL) {
+			sum.hpCount++;
+			if (sum.hpBestType == 0 || sum.hpBestType > 1) sum.hpBestType = 1;
+		} else if (item._iMiscId == IMISC_HEAL) {
+			sum.hpCount++;
+			if (sum.hpBestType == 0 || sum.hpBestType > 2) sum.hpBestType = 2;
+		} else if (item.isScrollOf(SpellID::Healing)) {
+			sum.hpCount++;
+			if (sum.hpBestType == 0) sum.hpBestType = 3;
+		}
+
+		// Mana
+		if (item._iMiscId == IMISC_FULLMANA) {
+			sum.manaCount++;
+			if (sum.manaBestType == 0 || sum.manaBestType > 1) sum.manaBestType = 1;
+		} else if (item._iMiscId == IMISC_MANA) {
+			sum.manaCount++;
+			if (sum.manaBestType == 0) sum.manaBestType = 2;
+		}
+
+		// Rejuv
+		if (item._iMiscId == IMISC_FULLREJUV) {
+			sum.rejuvCount++;
+			if (sum.rejuvBestType == 0 || sum.rejuvBestType > 1) sum.rejuvBestType = 1;
+		} else if (item._iMiscId == IMISC_REJUV) {
+			sum.rejuvCount++;
+			if (sum.rejuvBestType == 0) sum.rejuvBestType = 2;
+		}
+	};
+
+	// 1. Belt items
+	for (int i = 0; i < 8; ++i) {
+		examineItem(myPlayer.SpdList[i]);
+	}
+	// 2. Backpack items
+	for (int i = 0; i < myPlayer._pNumInv; ++i) {
+		examineItem(myPlayer.InvList[i]);
+	}
+
+	return sum;
+}
+
+void UseSmartPotion(int category)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame || MyPlayer == nullptr)
+		return;
+
+	Player &myPlayer = *MyPlayer;
+
+	auto matchesTarget = [&](const Item &item, int priority) -> bool {
+		if (item.isEmpty()) return false;
+		if (category == 0) { // HP
+			if (priority == 1) return item._iMiscId == IMISC_FULLHEAL;
+			if (priority == 2) return item._iMiscId == IMISC_HEAL;
+			if (priority == 3) return item.isScrollOf(SpellID::Healing);
+		} else if (category == 1) { // Mana
+			if (priority == 1) return item._iMiscId == IMISC_FULLMANA;
+			if (priority == 2) return item._iMiscId == IMISC_MANA;
+		} else if (category == 2) { // Rejuv
+			if (priority == 1) return item._iMiscId == IMISC_FULLREJUV;
+			if (priority == 2) return item._iMiscId == IMISC_REJUV;
+		}
+		return false;
+	};
+
+	int maxPrio = (category == 0) ? 3 : 2;
+	for (int prio = 1; prio <= maxPrio; ++prio) {
+		// Belt first
+		for (int i = 0; i < 8; ++i) {
+			if (matchesTarget(myPlayer.SpdList[i], prio)) {
+				UseInvItem(INVITEM_BELT_FIRST + i);
+				g_InventoryVersion.fetch_add(1);
+				return;
+			}
+		}
+		// Backpack next
+		for (int i = 0; i < myPlayer._pNumInv; ++i) {
+			if (matchesTarget(myPlayer.InvList[i], prio)) {
+				int prevCurs = pcurs;
+				pcurs = CURSOR_HAND;
+				UseInvItem(INVITEM_INV_FIRST + i);
+				pcurs = prevCurs;
+				g_InventoryVersion.fetch_add(1);
+				return;
+			}
+		}
+	}
+}
+
+D1TownPortalSummary GetTownPortalSummary()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1TownPortalSummary s;
+	if (!gbRunGame || MyPlayer == nullptr)
+		return s;
+
+	const Player &myPlayer = *MyPlayer;
+	uint64_t tpMask = GetSpellBitmask(SpellID::TownPortal);
+
+	// 1. Check learned spell
+	if ((myPlayer._pMemSpells & tpMask) != 0) {
+		s.hasSpell = true;
+		s.spellManaCost = GetManaAmount(myPlayer, SpellID::TownPortal) >> 6;
+		int curMana = myPlayer._pMana >> 6;
+		s.canCastSpell = (curMana >= s.spellManaCost);
+	}
+
+	// 2. Count scrolls in belt and backpack
+	for (int i = 0; i < 8; ++i) {
+		const auto &item = myPlayer.SpdList[i];
+		if (!item.isEmpty() && item.isScrollOf(SpellID::TownPortal)) {
+			s.scrollCount++;
+		}
+	}
+	for (int i = 0; i < myPlayer._pNumInv; ++i) {
+		const auto &item = myPlayer.InvList[i];
+		if (!item.isEmpty() && item.isScrollOf(SpellID::TownPortal)) {
+			s.scrollCount++;
+		}
+	}
+
+	// 3. Count staff/charges
+	if ((myPlayer._pISpells & tpMask) != 0) {
+		for (const auto &item : myPlayer.InvBody) {
+			if (!item.isEmpty() && item._iSpell == SpellID::TownPortal && item._iCharges > 0) {
+				s.chargeCount += item._iCharges;
+			}
+		}
+	}
+
+	// Determine best mode
+	if (s.hasSpell && s.canCastSpell) {
+		s.bestMode = 1;
+	} else if (s.scrollCount > 0) {
+		s.bestMode = 2;
+	} else if (s.chargeCount > 0) {
+		s.bestMode = 3;
+	} else if (s.hasSpell) {
+		s.bestMode = 1;
+	} else {
+		s.bestMode = 0;
+	}
+
+	return s;
+}
+
+void UseSmartTownPortal()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame || MyPlayer == nullptr)
+		return;
+
+	Player &myPlayer = *MyPlayer;
+	uint64_t tpMask = GetSpellBitmask(SpellID::TownPortal);
+
+	// Case 1: Player knows spell and has enough mana
+	if ((myPlayer._pMemSpells & tpMask) != 0) {
+		int manaCost = GetManaAmount(myPlayer, SpellID::TownPortal) >> 6;
+		int curMana = myPlayer._pMana >> 6;
+		if (curMana >= manaCost) {
+			myPlayer._pRSpell = SpellID::TownPortal;
+			myPlayer._pRSplType = SpellType::Spell;
+			CheckPlrSpell(false, SpellID::TownPortal, SpellType::Spell);
+			RedrawEverything();
+			return;
+		}
+	}
+
+	// Case 2: Use scroll (from belt or inventory)
+	for (int i = 0; i < 8; ++i) {
+		if (!myPlayer.SpdList[i].isEmpty() && myPlayer.SpdList[i].isScrollOf(SpellID::TownPortal)) {
+			UseInvItem(INVITEM_BELT_FIRST + i);
+			g_InventoryVersion.fetch_add(1);
+			return;
+		}
+	}
+	for (int i = 0; i < myPlayer._pNumInv; ++i) {
+		if (!myPlayer.InvList[i].isEmpty() && myPlayer.InvList[i].isScrollOf(SpellID::TownPortal)) {
+			int prevCurs = pcurs;
+			pcurs = CURSOR_HAND;
+			UseInvItem(INVITEM_INV_FIRST + i);
+			pcurs = prevCurs;
+			g_InventoryVersion.fetch_add(1);
+			return;
+		}
+	}
+
+	// Case 3: Use charges if available
+	if ((myPlayer._pISpells & tpMask) != 0) {
+		myPlayer._pRSpell = SpellID::TownPortal;
+		myPlayer._pRSplType = SpellType::Charges;
+		CheckPlrSpell(false, SpellID::TownPortal, SpellType::Charges);
+		RedrawEverything();
+		return;
+	}
+
+	// Case 4: Fallback to spell if learned (to trigger "Not enough mana" sound)
+	if ((myPlayer._pMemSpells & tpMask) != 0) {
+		myPlayer._pRSpell = SpellID::TownPortal;
+		myPlayer._pRSplType = SpellType::Spell;
+		CheckPlrSpell(false, SpellID::TownPortal, SpellType::Spell);
+		RedrawEverything();
+		return;
+	}
+}
+
+D1TargetMonsterSummary GetTargetMonsterSummary(int targetId)
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	D1TargetMonsterSummary s;
+	if (!gbRunGame || leveltype == DTYPE_TOWN) {
+		return s;
+	}
+
+	int mIdx = targetId;
+	if (mIdx < 0) {
+		mIdx = pcursmonst;
+	}
+
+	if (mIdx < 0 || mIdx >= static_cast<int>(MaxMonsters)) {
+		return s;
+	}
+
+	const Monster &m = Monsters[mIdx];
+	if (m.isInvalid || m.isPlayerMinion()) {
+		return s;
+	}
+
+	s.hasTarget = true;
+	s.isHovered = (pcursmonst == mIdx);
+	s.monsterId = mIdx;
+
+	string_view nView = m.name();
+	size_t nLen = std::min(nView.size(), sizeof(s.name) - 1);
+	std::memcpy(s.name, nView.data(), nLen);
+	s.name[nLen] = '\0';
+
+	s.hp = std::max(0, m.hitPoints >> 6);
+	s.maxHp = std::max(1, m.maxHitPoints >> 6);
+	s.mode = static_cast<int>(m.mode);
+	s.isUnique = m.isUnique();
+	s.isChampion = (m.leader != Monster::NoLeader);
+	s.monsterClass = static_cast<int>(m.data().monsterClass);
+
+	const char *classStr = "";
+	switch (m.data().monsterClass) {
+	case MonsterClass::Undead:
+		classStr = "Undead";
+		break;
+	case MonsterClass::Demon:
+		classStr = "Demon";
+		break;
+	case MonsterClass::Animal:
+		classStr = "Animal";
+		break;
+	default:
+		break;
+	}
+	std::strncpy(s.classText, classStr, sizeof(s.classText) - 1);
+
+	int mt = m.type().type;
+	s.killCount = (mt >= 0 && mt < NUM_MTYPES) ? MonsterKillCounts[mt] : 0;
+
+	// Resistances and Immunities
+	if (m.isUnique() || s.killCount >= 15) {
+		std::string resists;
+		if ((m.resistance & RESIST_MAGIC) != 0) resists += "Magic, ";
+		if ((m.resistance & RESIST_FIRE) != 0) resists += "Fire, ";
+		if ((m.resistance & RESIST_LIGHTNING) != 0) resists += "Lightning, ";
+		if (!resists.empty()) {
+			resists.resize(resists.size() - 2);
+			std::strncpy(s.resistText, resists.c_str(), sizeof(s.resistText) - 1);
+		}
+
+		std::string immunes;
+		if ((m.resistance & IMMUNE_MAGIC) != 0) immunes += "Magic, ";
+		if ((m.resistance & IMMUNE_FIRE) != 0) immunes += "Fire, ";
+		if ((m.resistance & IMMUNE_LIGHTNING) != 0) immunes += "Lightning, ";
+		if (!immunes.empty()) {
+			immunes.resize(immunes.size() - 2);
+			std::strncpy(s.immuneText, immunes.c_str(), sizeof(s.immuneText) - 1);
+		}
+	}
+
+	return s;
 }
 
 D1PlayerEntityData GetPlayerEntityData()
@@ -2617,11 +3277,15 @@ std::vector<std::string> GetQTextLines()
 std::string GetQTextTitle()
 {
 	if (!IsBridgeSafeToRead()) return "";
+	if (qtextflag && !g_ActiveQuestTitle.empty()) {
+		return g_ActiveQuestTitle;
+	}
 	return devilution::GetActiveTalkerName();
 }
 
 void DismissQText()
 {
+	g_ActiveQuestTitle.clear();
 	if (!IsBridgeSafeToRead()) return;
 	devilution::DismissRawQText();
 }

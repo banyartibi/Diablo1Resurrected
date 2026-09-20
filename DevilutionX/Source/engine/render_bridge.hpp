@@ -131,6 +131,49 @@ void SelectSpell(int spellId, int spellType);
 void UseBeltSlot(int slotIndex);
 void ClickBeltSlot(int slotIndex);
 
+struct D1PotionSummary {
+	int hpCount = 0;
+	int hpBestType = 0; // 0=None, 1=Full Heal, 2=Heal, 3=Scroll of Heal
+	int manaCount = 0;
+	int manaBestType = 0; // 0=None, 1=Full Mana, 2=Mana
+	int rejuvCount = 0;
+	int rejuvBestType = 0; // 0=None, 1=Full Rejuv, 2=Rejuv
+};
+
+struct D1TownPortalSummary {
+	bool hasSpell = false;
+	int spellManaCost = 0;
+	bool canCastSpell = false;
+	int scrollCount = 0;
+	int chargeCount = 0;
+	int bestMode = 0; // 0=None, 1=Spell, 2=Scroll, 3=Charges
+};
+
+struct D1TargetMonsterSummary {
+	bool hasTarget = false;
+	bool isHovered = false;
+	int monsterId = -1;
+	char name[64] = { 0 };
+	int hp = 0;
+	int maxHp = 0;
+	int mode = 0;
+	bool isUnique = false;
+	bool isChampion = false;
+	int monsterClass = 0; // 0=Animal/Beast, 1=Demon, 2=Undead
+	char classText[32] = { 0 };
+	char resistText[64] = { 0 };
+	char immuneText[64] = { 0 };
+	int killCount = 0;
+};
+
+D1PotionSummary GetPotionSummary();
+void UseSmartPotion(int category);
+D1TownPortalSummary GetTownPortalSummary();
+void UseSmartTownPortal();
+D1TargetMonsterSummary GetTargetMonsterSummary(int targetId = -1);
+void BindSpellHotkey(int spellId, int spellType, int slotIdx);
+void QuickCastHotkey(int slotIdx);
+
 void InitGodotBridge(int width, int height);
 void ExportGodotFrame(const SDL_Surface *surface);
 void PollGodotBridgeInput();
@@ -173,10 +216,21 @@ enum class D1BridgeActionType : int {
 	SetSpellBookPage = 24,
 	SelectSpellBookEntry = 25,
 	// Zoom-scaled vision radius
-	SetZoomVisionRadius = 26
+	SetZoomVisionRadius = 26,
+	// Smart Potion & Spell Binding actions
+	UseSmartPotion = 27,
+	BindSpellHotkey = 28,
+	QuickCastHotkey = 29,
+	UseSmartTownPortal = 30,
+	SetActiveUiPanel = 31,
+	CloseAllUiPanels = 32
 };
 
 void PushBridgeAction(D1BridgeActionType type, int arg1 = 0, int arg2 = 0, int arg3 = 0, int arg4 = 0);
+
+void SetActiveUiPanel(int panel);
+void CloseAllUiPanels();
+int GetActiveUiPanel();
 
 void StartDevilutionXThread(const char *basePath);
 void PushDevilutionXInput(uint32_t type, uint32_t code, uint32_t state, int32_t x, int32_t y);
@@ -299,6 +353,7 @@ struct D1QuestEntry {
 	int idx = 0;
 	char name[64] = { 0 };
 	bool isFinished = false;
+	int level = 0;
 };
 
 std::vector<D1QuestEntry> GetQuestsInfo();
@@ -338,6 +393,21 @@ D1ItemIconRgba GetItemSpriteRgba(int cursId);
 void ClickInventorySlot(int slotType, int slotIdx, bool isShift = false, bool isCtrl = false);
 void UseInventorySlot(int slotType, int slotIdx);
 uint32_t GetInventoryVersion();
+
+// Equipment Durability Damage Warning Indicators
+struct D1DurabilityWarning {
+	int slotId = 0;       // 0=Head, 6=Chest, 4=HandLeft, 5=HandRight
+	int iconIdx = 0;      // 0=Shield, 1=Sword, 2=Chest, 3=Head, 4=Mace, 5=Axe, 6=Bow, 7=Staff
+	int frameIdx = 0;     // 0..7 for Red, 8..15 for Gold
+	int durability = 0;
+	int maxDurability = 0;
+	int status = 0;       // 1 = Gold Warning (<=5), 2 = Red Critical/Broken (<=2)
+	char name[64] = { 0 };
+};
+
+std::vector<D1DurabilityWarning> GetPlayerDurabilityWarnings();
+D1ItemIconRgba GetDurabilityIconRgba(int frameIdx);
+D1ItemIconRgba GetDurabilityCompositeIconRgba(int iconIdx, int durability);
 
 // Native Godot 3D Sandbox & Spatial Entity Tracking
 struct D1MonsterEntityData {

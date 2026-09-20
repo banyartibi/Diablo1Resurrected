@@ -42,7 +42,16 @@ func apply_localization(is_hu: bool) -> void:
 	if status_label:
 		status_label.text = "A beállítások automatikusan mentésre kerülnek a diablo.ini fájlba." if is_hungarian else "Settings are automatically saved to diablo.ini."
 
+const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
+
+func _apply_font_recursive(node: Node):
+	if node is Label or node is Button or node is LineEdit:
+		node.add_theme_font_override("font", FONT_EXOCET)
+	for child in node.get_children():
+		_apply_font_recursive(child)
+
 func _ready() -> void:
+	_apply_font_recursive(self)
 	if close_btn:
 		close_btn.pressed.connect(_on_close_pressed)
 	if close_x_btn:

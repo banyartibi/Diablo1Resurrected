@@ -172,7 +172,16 @@ func apply_localization(is_hu: bool) -> void:
 	_setup_class_buttons()
 	select_class(selected_class)
 
+const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
+
+func _apply_font_recursive(node: Node):
+	if node is Label or node is Button or node is LineEdit:
+		node.add_theme_font_override("font", FONT_EXOCET)
+	for child in node.get_children():
+		_apply_font_recursive(child)
+
 func _ready() -> void:
+	_apply_font_recursive(self)
 	random_name_btn.pressed.connect(_on_random_name_pressed)
 	create_btn.pressed.connect(_on_create_pressed)
 	cancel_btn.pressed.connect(_on_cancel_pressed)
@@ -193,6 +202,7 @@ func _setup_class_buttons() -> void:
 		var btn = Button.new()
 		btn.custom_minimum_size = Vector2(130, 46)
 		btn.text = data_list[class_idx]["name"]
+		btn.add_theme_font_override("font", FONT_EXOCET)
 		btn.add_theme_font_size_override("font_size", 15)
 		btn.set_meta("class_id", class_idx)
 		btn.pressed.connect(func(): select_class(class_idx))

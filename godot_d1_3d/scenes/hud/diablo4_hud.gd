@@ -16,21 +16,36 @@ const TEX_MANA = preload("res://assets/hud/potion_mana.png")
 const TEX_REJUV = preload("res://assets/hud/potion_rejuv.png")
 const TEX_SCROLL = preload("res://assets/hud/scroll.png")
 const TEX_OIL = preload("res://assets/hud/potion_oil.png")
+const TEX_PORTAL = preload("res://assets/hud/portal_icon.png")
+const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
+
+# Town Portal & Smart Potion Slots
+@onready var town_portal_slot: Control = $Root/HBox/TownPortalSlot
+@onready var hp_potion_slot: Control = $Root/HBox/HealthPotionSlot
+@onready var mana_potion_slot: Control = $Root/HBox/ManaPotionSlot
+@onready var rejuv_potion_slot: Control = $Root/HBox/RejuvPotionSlot
 
 # Action Bar
 @onready var action_bar: Control = $Root/HBox/CenterPanel/VBox/ActionBar
-@onready var potion_slots: Array[Control] = [
-	$Root/HBox/CenterPanel/VBox/ActionBar/Potion1,
-	$Root/HBox/CenterPanel/VBox/ActionBar/Potion2,
-	$Root/HBox/CenterPanel/VBox/ActionBar/Potion3,
-	$Root/HBox/CenterPanel/VBox/ActionBar/Potion4,
-	$Root/HBox/CenterPanel/VBox/ActionBar/Potion5,
-	$Root/HBox/CenterPanel/VBox/ActionBar/Potion6,
-	$Root/HBox/CenterPanel/VBox/ActionBar/Potion7,
-	$Root/HBox/CenterPanel/VBox/ActionBar/Potion8
+@onready var skill_slots: Array[Control] = [
+	$Root/HBox/CenterPanel/VBox/ActionBar/SkillSlot1,
+	$Root/HBox/CenterPanel/VBox/ActionBar/SkillSlot2,
+	$Root/HBox/CenterPanel/VBox/ActionBar/SkillSlot3,
+	$Root/HBox/CenterPanel/VBox/ActionBar/SkillSlot4
 ]
-@onready var secondary_slot: Control = $Root/HBox/CenterPanel/VBox/ActionBar/SecondarySlot
-@onready var secondary_icon: TextureRect = $Root/HBox/CenterPanel/VBox/ActionBar/SecondarySlot/Icon
+
+# Center Frame Node
+@onready var center_gothic_frame: Control = find_child("CenterGothicFrame", true, false)
+
+# Durability Warnings
+@onready var durability_container: HBoxContainer = $Root/DurabilityContainer
+@onready var durability_slots: Array[TextureRect] = [
+	$Root/DurabilityContainer/DurabilitySlot0,
+	$Root/DurabilityContainer/DurabilitySlot1,
+	$Root/DurabilityContainer/DurabilitySlot2,
+	$Root/DurabilityContainer/DurabilitySlot3
+]
+var durability_pulse_time: float = 0.0
 
 # XP & Level
 @onready var xp_bar: ProgressBar = find_child("XPBar", true, false)
@@ -43,21 +58,32 @@ const TEX_OIL = preload("res://assets/hud/potion_oil.png")
 @onready var item_divider: ColorRect = $ItemTooltip/Margin/VBox/Divider
 @onready var item_stats_label: Label = $ItemTooltip/Margin/VBox/StatsLabel
 
+# Enemy Health Bar (Top Center)
+@onready var enemy_health_bar: Control = $EnemyHealthBar
+@onready var enemy_name_label: Label = $EnemyHealthBar/VBox/MonsterName
+@onready var enemy_sub_label: Label = $EnemyHealthBar/VBox/SubTitle
+@onready var enemy_health_prog: ProgressBar = $EnemyHealthBar/VBox/BarCenter/BarContainer/HealthBar
+@onready var enemy_ghost_prog: ProgressBar = $EnemyHealthBar/VBox/BarCenter/BarContainer/GhostBar
+@onready var enemy_bar_frame: Panel = $EnemyHealthBar/VBox/BarCenter/BarContainer/BarFrame
+@onready var enemy_hp_label: Label = $EnemyHealthBar/VBox/BarCenter/BarContainer/HpLabel
+@onready var enemy_boss_crest: Label = $EnemyHealthBar/VBox/BarCenter/BarContainer/BossCrest
+
+var current_target_monster_id: int = -1
+var target_linger_timer: float = 0.0
+var target_ghost_ratio: float = 1.0
+var target_display_hp_ratio: float = 1.0
+var enemy_bar_alpha: float = 0.0
+
 # Skill Selector (Speedbook Ribbon)
 @onready var skill_selector: PanelContainer = $SkillSelector
 @onready var skill_list: HBoxContainer = $SkillSelector/Margin/SkillList
 
-# Character Panel, Quest Log, Inventory, Stash & SpellBook Frames
-const CHAR_PANEL_SCENE = preload("res://scenes/hud/diablo4_character_panel.tscn")
-const QUEST_LOG_SCENE = preload("res://scenes/hud/diablo4_quest_log.tscn")
-const INV_FRAME_SCENE = preload("res://scenes/hud/diablo4_inventory.tscn")
+# Unified Tabbed Menu (Character, Inventory, Spellbook, Quests) & Stash Frame
+const TABBED_MENU_SCENE = preload("res://scenes/hud/diablo4_tabbed_menu.tscn")
 const STASH_FRAME_SCENE = preload("res://scenes/hud/diablo4_stash.tscn")
-const SPELLBOOK_FRAME_SCENE = preload("res://scenes/hud/diablo4_spellbook.tscn")
-var char_panel: Control = null
-var quest_log: Control = null
-var inv_frame: Control = null
+var tabbed_menu: Control = null
 var stash_frame: Control = null
-var spellbook_frame: Control = null
+
 
 @onready var level_up_btn: Button = $Root/LevelUpBtn
 
@@ -65,6 +91,9 @@ var diablo_bridge = null
 var current_spell_id: int = -1
 var current_spell_type: int = -1
 var is_speedbook_showing: bool = false
+var hovered_speedbook_spell_id: int = -1
+var hovered_speedbook_spell_type: int = -1
+var quick_slot_spell_data: Array[Dictionary] = [{}, {}, {}, {}]
 var spell_icon_cache: Dictionary = {}
 var belt_icon_cache: Dictionary = {}
 var tooltip_style: StyleBoxFlat
@@ -86,7 +115,6 @@ const QUALITY_BORDER_COLORS = {
 # Cache materials
 var life_mat: ShaderMaterial
 var mana_mat: ShaderMaterial
-var secondary_slot_mat: ShaderMaterial
 
 # Smooth display values
 var display_hp: float = 100.0
@@ -166,8 +194,6 @@ func _ready():
 		life_mat = life_globe.material as ShaderMaterial
 	if mana_globe and mana_globe.material is ShaderMaterial:
 		mana_mat = mana_globe.material as ShaderMaterial
-	if secondary_slot and secondary_slot.material is ShaderMaterial:
-		secondary_slot_mat = secondary_slot.material as ShaderMaterial
 
 	if item_tooltip:
 		var base_sb = item_tooltip.get_theme_stylebox("panel")
@@ -175,26 +201,19 @@ func _ready():
 			tooltip_style = base_sb.duplicate()
 			item_tooltip.add_theme_stylebox_override("panel", tooltip_style)
 
-	# Instance Character Panel & Quest Log
-	char_panel = CHAR_PANEL_SCENE.instantiate()
-	char_panel.visible = false
-	add_child(char_panel)
-
-	quest_log = QUEST_LOG_SCENE.instantiate()
-	quest_log.visible = false
-	add_child(quest_log)
+	# Instance Unified Tabbed Menu & Stash
+	tabbed_menu = TABBED_MENU_SCENE.instantiate()
+	tabbed_menu.visible = false
+	add_child(tabbed_menu)
 
 	stash_frame = STASH_FRAME_SCENE.instantiate()
 	stash_frame.visible = false
 	add_child(stash_frame)
 
-	inv_frame = INV_FRAME_SCENE.instantiate()
-	inv_frame.visible = false
-	add_child(inv_frame)
+	if diablo_bridge:
+		set_bridge(diablo_bridge)
 
-	spellbook_frame = SPELLBOOK_FRAME_SCENE.instantiate()
-	spellbook_frame.visible = false
-	add_child(spellbook_frame)
+
 
 	# Ensure HUD root and popups start hidden until player is actually in-game
 	$Root.visible = false
@@ -202,11 +221,25 @@ func _ready():
 		item_tooltip.visible = false
 	if skill_selector:
 		skill_selector.visible = false
+	if enemy_health_bar:
+		enemy_health_bar.visible = false
 
 	# Disable all keyboard focus grabbing on HUD elements so TAB key always toggles automap!
 	_disable_focus_recursive(self)
 
+	_apply_font_recursive($Root)
+	if enemy_health_bar:
+		_apply_font_recursive(enemy_health_bar)
+
 	setup_button_events()
+
+func _apply_font_recursive(node: Node):
+	if node is Label:
+		node.add_theme_font_override("font", FONT_EXOCET)
+	elif node is Button:
+		node.add_theme_font_override("font", FONT_EXOCET)
+	for child in node.get_children():
+		_apply_font_recursive(child)
 
 func _disable_focus_recursive(node: Node):
 	if node is Control:
@@ -216,114 +249,87 @@ func _disable_focus_recursive(node: Node):
 
 func set_bridge(bridge):
 	diablo_bridge = bridge
-	if char_panel and char_panel.has_method("set_bridge"):
-		char_panel.set_bridge(bridge)
-	if quest_log and quest_log.has_method("set_bridge"):
-		quest_log.set_bridge(bridge)
+	if tabbed_menu and tabbed_menu.has_method("set_bridge"):
+		tabbed_menu.set_bridge(bridge)
+
 	if stash_frame and stash_frame.has_method("set_bridge"):
 		stash_frame.set_bridge(bridge)
-	if inv_frame and inv_frame.has_method("set_bridge"):
-		inv_frame.set_bridge(bridge)
-	if spellbook_frame and spellbook_frame.has_method("set_bridge"):
-		spellbook_frame.set_bridge(bridge)
+
+
 
 func setup_button_events():
-	# Potion 1-8 clicks
-	for i in range(potion_slots.size()):
-		var slot = potion_slots[i]
-		var idx = i
-		slot.mouse_filter = Control.MOUSE_FILTER_STOP
-		slot.gui_input.connect(func(event: InputEvent):
-			if event is InputEventMouseButton and event.pressed:
-				if event.button_index == MOUSE_BUTTON_LEFT:
-					# Left click: pick up / place / swap item (megfog és odébb rakhat)
-					if diablo_bridge and diablo_bridge.has_method("click_belt_slot"):
-						diablo_bridge.click_belt_slot(idx)
-				elif event.button_index == MOUSE_BUTTON_RIGHT:
-					# Right click: use item (jobb egér = use)
-					if diablo_bridge and diablo_bridge.has_method("use_belt_slot"):
-						diablo_bridge.use_belt_slot(idx)
-					else:
-						use_belt_slot(idx + 1)
+	# Town Portal Click
+	if town_portal_slot:
+		town_portal_slot.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				if diablo_bridge and diablo_bridge.has_method("use_smart_town_portal"):
+					diablo_bridge.use_smart_town_portal()
 		)
 
-	# RMB secondary slot click (opens native skill selector on LMB click only)
-	if secondary_slot:
-		secondary_slot.mouse_filter = Control.MOUSE_FILTER_STOP
-		secondary_slot.gui_input.connect(func(event: InputEvent):
+	# Smart Potion Clicks
+	if hp_potion_slot:
+		hp_potion_slot.gui_input.connect(func(event: InputEvent):
 			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-				toggle_speedbook()
+				if diablo_bridge and diablo_bridge.has_method("use_smart_potion"):
+					diablo_bridge.use_smart_potion(0)
 		)
+	if mana_potion_slot:
+		mana_potion_slot.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				if diablo_bridge and diablo_bridge.has_method("use_smart_potion"):
+					diablo_bridge.use_smart_potion(1)
+		)
+	if rejuv_potion_slot:
+		rejuv_potion_slot.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				if diablo_bridge and diablo_bridge.has_method("use_smart_potion"):
+					diablo_bridge.use_smart_potion(2)
+		)
+
+	# Quick Skill Slots 1-4 Clicks
+	for i in range(skill_slots.size()):
+		var slot = skill_slots[i]
+		var idx = i
+		if slot:
+			slot.gui_input.connect(func(event: InputEvent):
+				if event is InputEventMouseButton and event.pressed:
+					if event.button_index == MOUSE_BUTTON_LEFT:
+						var data = quick_slot_spell_data[idx] if idx < quick_slot_spell_data.size() else {}
+						if data.is_empty():
+							open_speedbook()
+						else:
+							if diablo_bridge and diablo_bridge.has_method("quick_cast_hotkey"):
+								diablo_bridge.quick_cast_hotkey(idx)
+					elif event.button_index == MOUSE_BUTTON_RIGHT:
+						var data = quick_slot_spell_data[idx] if idx < quick_slot_spell_data.size() else {}
+						if not data.is_empty():
+							var s_id = data.get("id", 0)
+							var s_type = data.get("type", 0)
+							if diablo_bridge and diablo_bridge.has_method("select_spell"):
+								diablo_bridge.select_spell(s_id, s_type)
+							update_quick_skills()
+						else:
+							open_speedbook()
+			)
 
 	# Level Up Button (opens character sheet)
 	if level_up_btn:
 		level_up_btn.focus_mode = Control.FOCUS_NONE
 		level_up_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		level_up_btn.pressed.connect(func():
-			if diablo_bridge and diablo_bridge.has_method("toggle_character_sheet"):
-				diablo_bridge.toggle_character_sheet()
-			else:
-				send_key(KEY_C)
+			if tabbed_menu:
+				tabbed_menu.open_tab(0)
 		)
 
-	# Quick utility buttons
-	var btn_char = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnChar
-	var btn_inv = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnInv
-	var btn_spells = $Root/HBox/CenterPanel/VBox/UtilityButtons.get_node_or_null("BtnSpells")
-	var btn_quest = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnQuest
-	var btn_map = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnMap
-	var btn_menu = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnMenu
+	# Durability Warning Slot Clicks (opens inventory)
+	for slot in durability_slots:
+		if slot:
+			slot.gui_input.connect(func(event: InputEvent):
+				if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+					if tabbed_menu:
+						tabbed_menu.open_tab(1)
+			)
 
-	if btn_char:
-		btn_char.focus_mode = Control.FOCUS_NONE
-		btn_char.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn_char.pressed.connect(func():
-			if diablo_bridge and diablo_bridge.has_method("toggle_character_sheet"):
-				diablo_bridge.toggle_character_sheet()
-			else:
-				send_key(KEY_C)
-		)
-	if btn_inv:
-		btn_inv.focus_mode = Control.FOCUS_NONE
-		btn_inv.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn_inv.pressed.connect(func():
-			if diablo_bridge and diablo_bridge.has_method("toggle_inventory"):
-				diablo_bridge.toggle_inventory()
-			else:
-				send_key(KEY_I)
-		)
-	if btn_spells:
-		btn_spells.focus_mode = Control.FOCUS_NONE
-		btn_spells.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn_spells.pressed.connect(func():
-			toggle_spell_book()
-		)
-	if btn_quest:
-		btn_quest.focus_mode = Control.FOCUS_NONE
-		btn_quest.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn_quest.pressed.connect(func():
-			if diablo_bridge and diablo_bridge.has_method("toggle_quest_log"):
-				diablo_bridge.toggle_quest_log()
-			else:
-				send_key(KEY_Q)
-		)
-	if btn_map:
-		btn_map.focus_mode = Control.FOCUS_NONE
-		btn_map.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn_map.pressed.connect(func(): send_key(KEY_TAB))
-	if btn_menu:
-		btn_menu.focus_mode = Control.FOCUS_NONE
-		btn_menu.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn_menu.pressed.connect(func(): send_key(KEY_ESCAPE))
-
-func use_belt_slot(slot_idx: int):
-	if not diablo_bridge:
-		return
-	if diablo_bridge.has_method("use_belt_slot"):
-		diablo_bridge.use_belt_slot(slot_idx - 1)
-	else:
-		var key = KEY_1 + (slot_idx - 1)
-		send_key(key)
 
 func _input(event: InputEvent):
 	if not visible:
@@ -341,17 +347,104 @@ func _input(event: InputEvent):
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
+		var kc = event.keycode
+
+		# Smart Health Potion (Key Q)
+		if kc == KEY_Q:
+			if diablo_bridge and diablo_bridge.has_method("use_smart_potion"):
+				diablo_bridge.use_smart_potion(0)
+			get_viewport().set_input_as_handled()
+			return
+		# Smart Mana Potion (Key W)
+		elif kc == KEY_W:
+			if diablo_bridge and diablo_bridge.has_method("use_smart_potion"):
+				diablo_bridge.use_smart_potion(1)
+			get_viewport().set_input_as_handled()
+			return
+		# Smart Rejuvenation Potion (Key E)
+		elif kc == KEY_E:
+			if diablo_bridge and diablo_bridge.has_method("use_smart_potion"):
+				diablo_bridge.use_smart_potion(2)
+			get_viewport().set_input_as_handled()
+			return
+		# Smart Town Portal (Key T)
+		elif kc == KEY_T:
+			if diablo_bridge and diablo_bridge.has_method("use_smart_town_portal"):
+				diablo_bridge.use_smart_town_portal()
+			get_viewport().set_input_as_handled()
+			return
+
+		# Number Keys 1 - 9: Speedbook binding OR Quick Cast
+		elif kc >= KEY_1 and kc <= KEY_9:
+			var slot_idx = kc - KEY_1
+			if is_speedbook_showing and hovered_speedbook_spell_id >= 0:
+				if diablo_bridge and diablo_bridge.has_method("bind_spell_hotkey"):
+					diablo_bridge.bind_spell_hotkey(hovered_speedbook_spell_id, hovered_speedbook_spell_type, slot_idx)
+				if diablo_bridge and diablo_bridge.has_method("select_spell"):
+					diablo_bridge.select_spell(hovered_speedbook_spell_id, hovered_speedbook_spell_type)
+				populate_speedbook()
+				update_quick_skills()
+				get_viewport().set_input_as_handled()
+				return
+			else:
+				if diablo_bridge and diablo_bridge.has_method("quick_cast_hotkey"):
+					diablo_bridge.quick_cast_hotkey(slot_idx)
+				get_viewport().set_input_as_handled()
+				return
+
+		# F1 - F12 Function Keys: Speedbook binding OR Quick Cast
+		elif kc >= KEY_F1 and kc <= KEY_F12:
+			var slot_idx = kc - KEY_F1
+			if is_speedbook_showing and hovered_speedbook_spell_id >= 0:
+				if diablo_bridge and diablo_bridge.has_method("bind_spell_hotkey"):
+					diablo_bridge.bind_spell_hotkey(hovered_speedbook_spell_id, hovered_speedbook_spell_type, slot_idx)
+				if diablo_bridge and diablo_bridge.has_method("select_spell"):
+					diablo_bridge.select_spell(hovered_speedbook_spell_id, hovered_speedbook_spell_type)
+				populate_speedbook()
+				update_quick_skills()
+				get_viewport().set_input_as_handled()
+				return
+			else:
+				if diablo_bridge and diablo_bridge.has_method("quick_cast_hotkey"):
+					diablo_bridge.quick_cast_hotkey(slot_idx)
+				get_viewport().set_input_as_handled()
+				return
+
 		# Speedbook ribbon / select spell (hotkey S)
-		if event.keycode == KEY_S:
+		elif kc == KEY_S:
 			toggle_speedbook()
 			get_viewport().set_input_as_handled()
 			return
 		# SpellBook grimoire window (hotkey B)
-		elif event.keycode == KEY_B:
-			toggle_spell_book()
+		elif kc == KEY_B:
+			if tabbed_menu:
+				tabbed_menu.toggle_tab(2)
 			get_viewport().set_input_as_handled()
 			return
-		elif event.keycode == KEY_ESCAPE:
+		# Character Panel (hotkey C)
+		elif kc == KEY_C:
+			if tabbed_menu:
+				tabbed_menu.toggle_tab(0)
+			get_viewport().set_input_as_handled()
+			return
+		# Inventory Panel (hotkey I)
+		elif kc == KEY_I:
+			if tabbed_menu:
+				tabbed_menu.toggle_tab(1)
+			get_viewport().set_input_as_handled()
+			return
+		# Quest Log / Journal (hotkey J by default)
+		elif kc == KEY_J:
+			if tabbed_menu:
+				tabbed_menu.toggle_tab(3)
+			get_viewport().set_input_as_handled()
+			return
+		# Automap (hotkey Tab)
+		elif kc == KEY_TAB:
+			send_key(KEY_TAB)
+			get_viewport().set_input_as_handled()
+			return
+		elif kc == KEY_ESCAPE:
 			if is_speedbook_showing:
 				close_speedbook()
 				get_viewport().set_input_as_handled()
@@ -362,35 +455,16 @@ func _input(event: InputEvent):
 				stash_frame.visible = false
 				get_viewport().set_input_as_handled()
 				return
-			if spellbook_frame and spellbook_frame.visible:
-				if diablo_bridge and diablo_bridge.has_method("toggle_spell_book"):
-					diablo_bridge.toggle_spell_book()
-				spellbook_frame.visible = false
+			if tabbed_menu and tabbed_menu.visible:
+				tabbed_menu.close_menu()
 				get_viewport().set_input_as_handled()
 				return
-			if char_panel and char_panel.visible:
-				if diablo_bridge and diablo_bridge.has_method("toggle_character_sheet"):
-					diablo_bridge.toggle_character_sheet()
-				char_panel.visible = false
-				get_viewport().set_input_as_handled()
-				return
-			if quest_log and quest_log.visible:
-				if diablo_bridge and diablo_bridge.has_method("toggle_quest_log"):
-					diablo_bridge.toggle_quest_log()
-				quest_log.visible = false
-				get_viewport().set_input_as_handled()
-				return
-			if inv_frame and inv_frame.visible:
-				if diablo_bridge and diablo_bridge.has_method("toggle_inventory"):
-					diablo_bridge.toggle_inventory()
-				inv_frame.visible = false
-				get_viewport().set_input_as_handled()
-				return
+
 
 	if event is InputEventMouseButton and event.pressed and is_speedbook_showing:
 		if skill_selector and skill_selector.visible:
 			if not skill_selector.get_global_rect().has_point(event.position):
-				if not secondary_slot.get_global_rect().has_point(event.position):
+				if action_bar and not action_bar.get_global_rect().has_point(event.position):
 					close_speedbook()
 
 func toggle_spell_book():
@@ -439,6 +513,8 @@ func open_speedbook():
 
 func close_speedbook():
 	is_speedbook_showing = false
+	hovered_speedbook_spell_id = -1
+	hovered_speedbook_spell_type = -1
 	if skill_selector:
 		skill_selector.visible = false
 
@@ -597,18 +673,27 @@ func populate_speedbook():
 			tip += "\n★ Currently Active (RMB)"
 		if hotkey != "":
 			tip += "\nHotkey: %s" % hotkey
+		tip += "\n[Hover + F1-F12] Bind Quick Cast Hotkey"
 		btn.tooltip_text = tip
+
+		# Classic mouse hover binding detection
+		btn.mouse_entered.connect(func():
+			hovered_speedbook_spell_id = s_id
+			hovered_speedbook_spell_type = s_type
+		)
+		btn.mouse_exited.connect(func():
+			if hovered_speedbook_spell_id == s_id and hovered_speedbook_spell_type == s_type:
+				hovered_speedbook_spell_id = -1
+				hovered_speedbook_spell_type = -1
+		)
 
 		btn.pressed.connect(func():
 			current_spell_id = s_id
 			current_spell_type = s_type
-			if secondary_icon and icon_tex:
-				secondary_icon.texture = icon_tex
-				secondary_icon.visible = true
 			if diablo_bridge and diablo_bridge.has_method("select_spell"):
 				diablo_bridge.select_spell(s_id, s_type)
 			close_speedbook()
-			update_secondary_spell()
+			update_quick_skills()
 		)
 
 		skill_list.add_child(btn)
@@ -645,25 +730,44 @@ func _process(delta: float):
 		$Root.visible = false
 		if item_tooltip: item_tooltip.visible = false
 		if skill_selector: skill_selector.visible = false
-		if char_panel: char_panel.visible = false
-		if quest_log: quest_log.visible = false
+		if tabbed_menu: tabbed_menu.visible = false
+		if stash_frame: stash_frame.visible = false
+		if enemy_health_bar: enemy_health_bar.visible = false
+		if durability_container: durability_container.visible = false
 		return
 
 	if diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
 		$Root.visible = false
 		if item_tooltip: item_tooltip.visible = false
 		if skill_selector: skill_selector.visible = false
-		if char_panel: char_panel.visible = false
-		if quest_log: quest_log.visible = false
+		if tabbed_menu: tabbed_menu.visible = false
+		if stash_frame: stash_frame.visible = false
+		if enemy_health_bar: enemy_health_bar.visible = false
+		if durability_container: durability_container.visible = false
+		return
+
+	var is_modern = true
+	if diablo_bridge.has_method("is_vanilla_hud_hidden"):
+		is_modern = diablo_bridge.is_vanilla_hud_hidden()
+
+	if not is_modern:
+		$Root.visible = false
+		if durability_container: durability_container.visible = false
+		if tabbed_menu: tabbed_menu.visible = false
+		if stash_frame: stash_frame.visible = false
+		if level_up_btn: level_up_btn.visible = false
 		return
 
 	$Root.visible = true
 
 	update_health_and_mana(delta)
 	update_xp_and_level()
-	update_secondary_spell()
-	update_belt_potions()
+	update_smart_town_portal()
+	update_smart_potions()
+	update_quick_skills()
+	update_enemy_health_bar(delta)
 	update_item_tooltip()
+	update_durability_warnings(delta)
 	update_panels()
 
 func update_health_and_mana(delta: float):
@@ -713,125 +817,259 @@ func update_xp_and_level():
 		xp_bar.value = ratio * 100.0
 		xp_bar.tooltip_text = "Experience: %s / %s (%d%%)" % [format_number(xp), format_number(next_xp), int(ratio * 100.0)]
 
-func update_secondary_spell():
-	if not diablo_bridge:
+func update_smart_town_portal():
+	if not diablo_bridge or not diablo_bridge.has_method("get_town_portal_summary"):
 		return
-	var spell_id = diablo_bridge.get_player_spell()
-	var spell_type = diablo_bridge.get_player_spell_type()
-
-	if spell_id <= 0:
-		current_spell_id = spell_id
-		current_spell_type = spell_type
-		if secondary_icon:
-			secondary_icon.texture = null
-			secondary_icon.visible = false
-		if secondary_slot:
-			secondary_slot.tooltip_text = "Select Skill / Spell [S]\nClick or press 'S' to open Speedbook."
+	if not town_portal_slot:
 		return
 
-	# If spell changed OR if secondary_icon doesn't have a valid texture yet:
-	if spell_id != current_spell_id or spell_type != current_spell_type or (secondary_icon and secondary_icon.texture == null):
-		var tex = get_cached_spell_icon(spell_id, spell_type)
-		if tex != null:
-			current_spell_id = spell_id
-			current_spell_type = spell_type
-			if secondary_icon:
-				secondary_icon.texture = tex
-				secondary_icon.visible = true
+	var summary = diablo_bridge.get_town_portal_summary()
+	var has_spell: bool = summary.get("has_spell", false)
+	var spell_mana: int = summary.get("spell_mana_cost", 0)
+	var can_cast: bool = summary.get("can_cast_spell", false)
+	var scroll_count: int = summary.get("scroll_count", 0)
+	var charge_count: int = summary.get("charge_count", 0)
+	var best_mode: int = summary.get("best_mode", 0)
 
-			var spell_name = SPELL_NAMES.get(spell_id, "Spell #%d" % spell_id)
-			var type_name = SPELL_TYPE_NAMES.get(spell_type, "Skill")
+	var icon = town_portal_slot.get_node_or_null("ItemIcon") as TextureRect
+	var count_lbl = town_portal_slot.get_node_or_null("CountLabel") as Label
 
-			if secondary_slot:
-				secondary_slot.tooltip_text = "%s (%s) [RMB]\nLeft-click or press 'S' to change active spell." % [spell_name, type_name]
+	var total_avail = scroll_count + charge_count
+	var is_available = (has_spell and can_cast) or (total_avail > 0)
+
+	if icon:
+		icon.texture = TEX_PORTAL
+		icon.visible = true
+		if is_available:
+			icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
 		else:
-			# Palette not ready yet: do not show a black box!
-			if secondary_icon and current_spell_id <= 0:
-				secondary_icon.texture = null
-				secondary_icon.visible = false
+			icon.modulate = Color(0.35, 0.35, 0.35, 0.5)
 
-func update_belt_potions():
-	var belt = diablo_bridge.get_belt_items()
-	for i in range(min(potion_slots.size(), belt.size())):
-		var item = belt[i]
-		var slot = potion_slots[i]
-		var type = item.get("type", 0)
-		var count = item.get("count", 0)
-		var item_name = item.get("name", "")
+	if count_lbl:
+		if has_spell and can_cast:
+			count_lbl.text = "∞"
+			count_lbl.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0, 1.0))
+		elif total_avail > 0:
+			count_lbl.text = str(total_avail)
+			count_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+		else:
+			count_lbl.text = "0"
+			count_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.8))
 
-		var icon = slot.get_node_or_null("ItemIcon") as TextureRect
-		var count_lbl = slot.get_node_or_null("CountLabel") as Label
+	var tip = "Town Portal [T]\n"
+	if best_mode == 1:
+		tip += "Mode: Spell (Cost: %d Mana)\n" % spell_mana
+		if scroll_count > 0: tip += "Backup Scrolls: %d\n" % scroll_count
+		tip += "[LMB / Key T] Cast Town Portal"
+	elif best_mode == 2:
+		tip += "Mode: Scroll of Town Portal\nRemaining Scrolls: %d\n" % scroll_count
+		if has_spell: tip += "(Insufficient mana for spell, using scroll)\n"
+		tip += "[LMB / Key T] Read Scroll"
+	elif best_mode == 3:
+		tip += "Mode: Staff / Item Charges\nRemaining Charges: %d\n" % charge_count
+		tip += "[LMB / Key T] Use Charge"
+	else:
+		if has_spell:
+			tip += "Mode: Spell (Needs %d Mana)\n(Not enough mana to cast)\n" % spell_mana
+		else:
+			tip += "(No Town Portal spell or scrolls available)\n"
+	town_portal_slot.tooltip_text = tip
 
+func update_smart_potions():
+	if not diablo_bridge or not diablo_bridge.has_method("get_potion_summary"):
+		return
+	var summary = diablo_bridge.get_potion_summary()
+	var hp_count: int = summary.get("hp_count", 0)
+	var hp_type: int = summary.get("hp_best_type", 0)
+	var mana_count: int = summary.get("mana_count", 0)
+	var mana_type: int = summary.get("mana_best_type", 0)
+	var rejuv_count: int = summary.get("rejuv_count", 0)
+	var rejuv_type: int = summary.get("rejuv_best_type", 0)
+
+	# Health Potion Slot (Q)
+	if hp_potion_slot:
+		var icon = hp_potion_slot.get_node_or_null("ItemIcon") as TextureRect
+		var count_lbl = hp_potion_slot.get_node_or_null("CountLabel") as Label
 		if icon:
-			var slot_tex: Texture2D = null
-			if item_name != "" and diablo_bridge and diablo_bridge.has_method("get_belt_item_texture"):
-				var cache_key = "%d_%s" % [i, item_name]
-				if belt_icon_cache.has(cache_key):
-					slot_tex = belt_icon_cache[cache_key]
-				else:
-					var engine_tex = diablo_bridge.get_belt_item_texture(i)
-					if engine_tex:
-						slot_tex = engine_tex
-						belt_icon_cache[cache_key] = slot_tex
-
-			if slot_tex:
-				icon.texture = slot_tex
+			if hp_type == 8: # Scroll of Healing
+				icon.texture = TEX_SCROLL
 				icon.visible = true
+				icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
+			elif hp_type > 0:
+				icon.texture = TEX_HEAL
+				icon.visible = true
+				icon.modulate = Color(1.2, 1.1, 1.1, 1.0) if hp_type == 2 else Color(1.0, 1.0, 1.0, 1.0)
 			else:
-				match type:
-					1, 2:
-						icon.texture = TEX_HEAL
-						icon.visible = true
-					3, 4:
-						icon.texture = TEX_MANA
-						icon.visible = true
-					5, 6:
-						icon.texture = TEX_REJUV
-						icon.visible = true
-					8:
-						icon.texture = TEX_SCROLL
-						icon.visible = true
-					9:
-						icon.texture = TEX_OIL
-						icon.visible = true
-					7:
-						icon.texture = TEX_REJUV
-						icon.visible = true
-					_:
-						icon.texture = null
-						icon.visible = false
+				icon.texture = TEX_HEAL
+				icon.visible = true
+				icon.modulate = Color(0.35, 0.35, 0.35, 0.5)
 
 		if count_lbl:
-			if count > 1:
-				count_lbl.text = "x%d" % count
-				count_lbl.visible = true
+			count_lbl.text = str(hp_count)
+			count_lbl.visible = true
+			if hp_count == 0:
+				count_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.8))
 			else:
-				count_lbl.text = ""
-				count_lbl.visible = false
+				count_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 
-		var tip = ""
-		if item_name != "":
-			var action_str = "Drink potion"
-			if type == 8: action_str = "Cast scroll"
-			elif type == 9: action_str = "Use oil"
-			elif type == 10: action_str = "Cast rune"
-			elif type == 7: action_str = "Drink elixir"
-			elif type == 11: action_str = "Use item"
-			tip = "%s (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] %s" % [item_name, i + 1, i + 1, action_str]
+		var tip_hp = "Health Potion [Q]\nRemaining: %d" % hp_count
+		if hp_count > 0:
+			if hp_type == 2: tip_hp += "\nBest: Potion of Full Healing"
+			elif hp_type == 1: tip_hp += "\nBest: Potion of Healing"
+			elif hp_type == 8: tip_hp += "\nBest: Scroll of Healing"
+			tip_hp += "\n[LMB / Key Q] Drink potion"
 		else:
-			match type:
-				1: tip = "Potion of Healing (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-				2: tip = "Potion of Full Healing (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-				3: tip = "Potion of Mana (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-				4: tip = "Potion of Full Mana (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-				5: tip = "Potion of Rejuvenation (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-				6: tip = "Potion of Full Rejuvenation (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink potion" % [i + 1, i + 1]
-				7: tip = "Elixir (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Drink elixir" % [i + 1, i + 1]
-				8: tip = "Scroll (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Cast scroll" % [i + 1, i + 1]
-				9: tip = "Oil (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Use oil" % [i + 1, i + 1]
-				10: tip = "Rune (Belt %d) [Key %d]\n[LMB] Pick up / Move\n[RMB] Cast rune" % [i + 1, i + 1]
-				_: tip = "Empty Belt Slot %d\n[LMB] Place item from cursor" % (i + 1)
-		slot.tooltip_text = tip
+			tip_hp += "\n(No healing potions or scrolls in inventory)"
+		hp_potion_slot.tooltip_text = tip_hp
+
+	# Mana Potion Slot (W)
+	if mana_potion_slot:
+		var icon = mana_potion_slot.get_node_or_null("ItemIcon") as TextureRect
+		var count_lbl = mana_potion_slot.get_node_or_null("CountLabel") as Label
+		if icon:
+			if mana_type > 0:
+				icon.texture = TEX_MANA
+				icon.visible = true
+				icon.modulate = Color(1.1, 1.1, 1.3, 1.0) if mana_type == 4 else Color(1.0, 1.0, 1.0, 1.0)
+			else:
+				icon.texture = TEX_MANA
+				icon.visible = true
+				icon.modulate = Color(0.35, 0.35, 0.35, 0.5)
+
+		if count_lbl:
+			count_lbl.text = str(mana_count)
+			count_lbl.visible = true
+			if mana_count == 0:
+				count_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.8))
+			else:
+				count_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+
+		var tip_mana = "Mana Potion [W]\nRemaining: %d" % mana_count
+		if mana_count > 0:
+			if mana_type == 4: tip_mana += "\nBest: Potion of Full Mana"
+			elif mana_type == 3: tip_mana += "\nBest: Potion of Mana"
+			tip_mana += "\n[LMB / Key W] Drink potion"
+		else:
+			tip_mana += "\n(No mana potions in inventory)"
+		mana_potion_slot.tooltip_text = tip_mana
+
+	# Rejuvenation Potion Slot (E)
+	if rejuv_potion_slot:
+		var icon = rejuv_potion_slot.get_node_or_null("ItemIcon") as TextureRect
+		var count_lbl = rejuv_potion_slot.get_node_or_null("CountLabel") as Label
+		if icon:
+			if rejuv_type > 0:
+				icon.texture = TEX_REJUV
+				icon.visible = true
+				icon.modulate = Color(1.2, 1.1, 1.3, 1.0) if rejuv_type == 6 else Color(1.0, 1.0, 1.0, 1.0)
+			else:
+				icon.texture = TEX_REJUV
+				icon.visible = true
+				icon.modulate = Color(0.35, 0.35, 0.35, 0.5)
+
+		if count_lbl:
+			count_lbl.text = str(rejuv_count)
+			count_lbl.visible = true
+			if rejuv_count == 0:
+				count_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.8))
+			else:
+				count_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+
+		var tip_rejuv = "Rejuvenation Potion [E]\nRemaining: %d" % rejuv_count
+		if rejuv_count > 0:
+			if rejuv_type == 6: tip_rejuv += "\nBest: Potion of Full Rejuvenation"
+			elif rejuv_type == 5: tip_rejuv += "\nBest: Potion of Rejuvenation"
+			tip_rejuv += "\n[LMB / Key E] Drink potion"
+		else:
+			tip_rejuv += "\n(No rejuvenation potions in inventory)"
+		rejuv_potion_slot.tooltip_text = tip_rejuv
+
+func update_quick_skills():
+	if not diablo_bridge or not diablo_bridge.has_method("get_available_spells"):
+		return
+	var spells = diablo_bridge.get_available_spells()
+	var cur_mana = diablo_bridge.get_player_mana() if diablo_bridge.has_method("get_player_mana") else 999
+	var active_spell_id: int = diablo_bridge.get_player_spell() if diablo_bridge.has_method("get_player_spell") else -1
+	var active_spell_type: int = diablo_bridge.get_player_spell_type() if diablo_bridge.has_method("get_player_spell_type") else -1
+	current_spell_id = active_spell_id
+	current_spell_type = active_spell_type
+
+	# Map hotkeys "F1", "F2", "F3", "F4" (which correspond to slots 1..4)
+	var bound_spells = {}
+	for sp in spells:
+		var hk = sp.get("hotkey", "")
+		if hk != "":
+			bound_spells[hk] = sp
+
+	for i in range(skill_slots.size()):
+		var slot = skill_slots[i]
+		if not slot: continue
+		var hk_tag = "F%d" % (i + 1)
+		var num_tag = "%d" % (i + 1)
+		var icon = slot.get_node_or_null("Icon") as TextureRect
+		var mana_badge = slot.get_node_or_null("ManaBadge") as Label
+		var active_border = slot.get_node_or_null("ActiveBorder") as Panel
+		var rmb_badge = slot.get_node_or_null("RmbBadge") as Label
+
+		if bound_spells.has(hk_tag):
+			var sp = bound_spells[hk_tag]
+			quick_slot_spell_data[i] = sp
+			var s_id: int = sp.get("id", 0)
+			var s_type: int = sp.get("type", 0)
+			var s_name: String = sp.get("name", "Spell")
+			var mana_cost: int = sp.get("mana_cost", 0)
+			var is_active = (s_id == active_spell_id and s_type == active_spell_type)
+
+			var tex = get_cached_spell_icon(s_id, s_type)
+			if icon:
+				icon.texture = tex
+				icon.visible = (tex != null)
+				if cur_mana < mana_cost and s_type != 2:
+					icon.modulate = Color(0.45, 0.45, 0.5, 0.75)
+				else:
+					icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
+
+			if active_border:
+				active_border.visible = is_active
+			if rmb_badge:
+				rmb_badge.visible = is_active
+
+			if mana_badge:
+				if mana_cost > 0 and s_type != 2:
+					mana_badge.text = str(mana_cost)
+					mana_badge.visible = true
+					if cur_mana < mana_cost:
+						mana_badge.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3, 1.0))
+					else:
+						mana_badge.add_theme_color_override("font_color", Color(0.4, 0.75, 1.0, 1.0))
+				elif s_type == 2:
+					mana_badge.text = "📜"
+					mana_badge.visible = true
+				else:
+					mana_badge.text = ""
+					mana_badge.visible = false
+
+			var type_name = SPELL_TYPE_NAMES.get(s_type, "Skill")
+			var tip = "%s (%s) [%s]\n" % [s_name, type_name, num_tag]
+			if is_active:
+				tip = "★ ACTIVE [RMB] SPELL ★\n" + tip
+			if mana_cost > 0:
+				tip += "Mana Cost: %d\n" % mana_cost
+			tip += "[LMB / Key %s] Quick Cast\n[RMB] Select as Active RMB Spell" % num_tag
+			slot.tooltip_text = tip
+		else:
+			quick_slot_spell_data[i] = {}
+			if icon:
+				icon.texture = null
+				icon.visible = false
+			if active_border:
+				active_border.visible = false
+			if rmb_badge:
+				rmb_badge.visible = false
+			if mana_badge:
+				mana_badge.text = ""
+				mana_badge.visible = false
+			slot.tooltip_text = "Quick Spell %d [%s]\n(Unassigned)\nPress 'S' to open Speedbook, hover over a skill and press %s to bind." % [i + 1, num_tag, num_tag]
 
 func format_item_stats(raw_stats: String) -> String:
 	if raw_stats.strip_edges() == "":
@@ -870,6 +1108,130 @@ func format_item_stats(raw_stats: String) -> String:
 
 	return "\n".join(result_lines)
 
+func update_enemy_health_bar(delta: float):
+	if not enemy_health_bar:
+		return
+
+	if not diablo_bridge or not diablo_bridge.has_method("get_target_monster_summary"):
+		enemy_health_bar.visible = false
+		return
+
+	# 1. Query if a monster is hovered right now
+	var hover_summary: Dictionary = diablo_bridge.get_target_monster_summary(-1)
+	var active_summary: Dictionary = {}
+
+	if hover_summary.get("has_target", false) and hover_summary.get("is_hovered", false):
+		var h_id = hover_summary.get("monster_id", -1)
+		if h_id != current_target_monster_id:
+			current_target_monster_id = h_id
+			var h_hp = hover_summary.get("hp", 0)
+			var h_max = max(1, hover_summary.get("max_hp", 1))
+			target_ghost_ratio = float(h_hp) / float(h_max)
+			target_display_hp_ratio = target_ghost_ratio
+		target_linger_timer = 2.5
+		active_summary = hover_summary
+	elif current_target_monster_id >= 0 and target_linger_timer > 0.0:
+		target_linger_timer -= delta
+		var live_summary: Dictionary = diablo_bridge.get_target_monster_summary(current_target_monster_id)
+		if live_summary.get("has_target", false):
+			active_summary = live_summary
+		else:
+			current_target_monster_id = -1
+	else:
+		current_target_monster_id = -1
+
+	# 2. Render active summary or fade out
+	if not active_summary.is_empty() and active_summary.get("has_target", false):
+		enemy_bar_alpha = move_toward(enemy_bar_alpha, 1.0, delta * 9.0)
+		enemy_health_bar.visible = true
+		enemy_health_bar.modulate.a = enemy_bar_alpha
+
+		var m_name: String = active_summary.get("name", "Monster")
+		var hp: int = active_summary.get("hp", 0)
+		var max_hp: int = max(1, active_summary.get("max_hp", 1))
+		var is_uniq: bool = active_summary.get("is_unique", false)
+		var is_champ: bool = active_summary.get("is_champion", false)
+		var m_class_name: String = active_summary.get("class_name", "")
+		var resists: String = active_summary.get("resists", "")
+		var immunes: String = active_summary.get("immunes", "")
+
+		# Name & Color
+		if enemy_name_label:
+			enemy_name_label.text = m_name
+			if is_uniq:
+				enemy_name_label.add_theme_color_override("font_color", Color(1.0, 0.84, 0.25, 1.0)) # Warm radiant gold
+				if enemy_boss_crest: enemy_boss_crest.visible = true
+			elif is_champ:
+				enemy_name_label.add_theme_color_override("font_color", Color(0.42, 0.72, 1.0, 1.0)) # Arcane blue
+				if enemy_boss_crest: enemy_boss_crest.visible = false
+			else:
+				enemy_name_label.add_theme_color_override("font_color", Color(0.92, 0.90, 0.86, 1.0)) # Crisp bone white
+				if enemy_boss_crest: enemy_boss_crest.visible = false
+
+		# Subtitle / Affixes / Resists
+		if enemy_sub_label:
+			var sub_parts: Array[String] = []
+			if m_class_name != "":
+				sub_parts.append(m_class_name)
+			if is_uniq:
+				sub_parts.append("Unique")
+			elif is_champ:
+				sub_parts.append("Champion")
+			if immunes != "":
+				if immunes.to_lower().begins_with("immune"):
+					sub_parts.append(immunes)
+				else:
+					sub_parts.append("Immune: " + immunes)
+			if resists != "":
+				if resists.to_lower().begins_with("resist"):
+					sub_parts.append(resists)
+				else:
+					sub_parts.append("Resists: " + resists)
+
+			if sub_parts.is_empty():
+				enemy_sub_label.visible = false
+			else:
+				enemy_sub_label.visible = true
+				enemy_sub_label.text = " • ".join(sub_parts)
+
+		# HP ratios
+		var actual_ratio: float = clampf(float(hp) / float(max_hp), 0.0, 1.0)
+		# Smooth primary health
+		target_display_hp_ratio = move_toward(target_display_hp_ratio, actual_ratio, delta * 3.0)
+		# Ghost damage lag
+		if actual_ratio < target_ghost_ratio:
+			target_ghost_ratio = move_toward(target_ghost_ratio, actual_ratio, delta * 0.45)
+		else:
+			target_ghost_ratio = actual_ratio
+
+		if enemy_health_prog:
+			enemy_health_prog.value = target_display_hp_ratio * 100.0
+		if enemy_ghost_prog:
+			enemy_ghost_prog.value = target_ghost_ratio * 100.0
+
+		if enemy_hp_label:
+			if hp <= 0:
+				enemy_hp_label.text = "DEAD"
+				target_linger_timer = minf(target_linger_timer, 0.7) # Fade out soon after kill
+			else:
+				enemy_hp_label.text = "%d / %d (%d%%)" % [hp, max_hp, int(round(actual_ratio * 100.0))]
+
+		# Frame border color: Gold for Unique, Antique Bronze for Normal
+		if enemy_bar_frame:
+			var sb: StyleBoxFlat = enemy_bar_frame.get_theme_stylebox("panel")
+			if sb:
+				if is_uniq:
+					sb.border_color = Color(0.95, 0.80, 0.25, 1.0)
+				else:
+					sb.border_color = Color(0.55, 0.46, 0.32, 1.0)
+	else:
+		enemy_bar_alpha = move_toward(enemy_bar_alpha, 0.0, delta * 5.0)
+		if enemy_bar_alpha <= 0.001:
+			enemy_health_bar.visible = false
+			current_target_monster_id = -1
+		else:
+			enemy_health_bar.modulate.a = enemy_bar_alpha
+
 func update_item_tooltip():
 	if not diablo_bridge or not diablo_bridge.has_method("has_hover_item"):
 		if item_tooltip and item_tooltip.visible:
@@ -884,6 +1246,10 @@ func update_item_tooltip():
 	var info = diablo_bridge.get_hover_item_info()
 	var is_inv: bool = info.get("is_inventory", false)
 	var is_monster: bool = info.get("is_monster", false)
+	if is_monster:
+		if item_tooltip and item_tooltip.visible:
+			item_tooltip.visible = false
+		return
 	var item_name: String = info.get("name", "")
 	if item_name.strip_edges() == "":
 		if item_tooltip and item_tooltip.visible:
@@ -982,80 +1348,29 @@ func update_panels():
 		is_modern = diablo_bridge.is_vanilla_hud_hidden()
 
 	if not is_modern:
-		if char_panel: char_panel.visible = false
-		if quest_log: quest_log.visible = false
+		if tabbed_menu: tabbed_menu.visible = false
 		if stash_frame: stash_frame.visible = false
-		if inv_frame: inv_frame.visible = false
-		if spellbook_frame: spellbook_frame.visible = false
 		if level_up_btn: level_up_btn.visible = false
 		return
 
-	# Geometry alignment: dock at the exact classic left panel position
 	var vp_size = get_viewport().get_visible_rect().size
-	var d1_w = float(diablo_bridge.get_frame_width()) if diablo_bridge.has_method("get_frame_width") else 640.0
-	var d1_h = float(diablo_bridge.get_frame_height()) if diablo_bridge.has_method("get_frame_height") else 480.0
-	if d1_w <= 0: d1_w = 640.0
-	if d1_h <= 0: d1_h = 480.0
 
-	var scale_x = vp_size.x / d1_w
-	var scale_y = vp_size.y / d1_h
+	# Geometry for Unified Tabbed Menu (Docked on Top-Right)
+	if tabbed_menu:
+		var menu_w = 544.0
+		var menu_h = min(vp_size.y - 40.0, 660.0)
+		var menu_x = vp_size.x - menu_w - 16.0
+		var menu_y = 16.0
+		tabbed_menu.position = Vector2(menu_x, menu_y)
+		tabbed_menu.size = Vector2(menu_w, menu_h)
 
-	var lp = diablo_bridge.get_left_panel_rect() if diablo_bridge.has_method("get_left_panel_rect") else Rect2(0, 0, 320, 352)
-	var pos_x = lp.position.x * scale_x
-	var pos_y = lp.position.y * scale_y
-	var size_w = 380.0 * scale_x
-	var panel_aspect = 1480.0 / 1120.0
-	var size_h = min(size_w * panel_aspect, vp_size.y - pos_y - 12.0)
-
-	if char_panel:
-		char_panel.position = Vector2(pos_x, pos_y)
-		char_panel.size = Vector2(size_w, size_h)
-		char_panel.custom_minimum_size = Vector2(size_w, size_h)
-
-	if quest_log:
-		quest_log.position = Vector2(pos_x, pos_y)
-		quest_log.size = Vector2(size_w, size_h)
-		quest_log.custom_minimum_size = Vector2(size_w, size_h)
-
+	# Geometry for Stash Frame (Docked on Left)
 	if stash_frame:
-		stash_frame.position = Vector2(pos_x, pos_y)
-		stash_frame.size = Vector2(size_w, size_h)
-		stash_frame.custom_minimum_size = Vector2(size_w, size_h)
+		var stash_w = clampf(vp_size.x * 0.28, 440.0, 520.0)
+		var stash_h = min(vp_size.y - 40.0, 740.0)
+		stash_frame.position = Vector2(16.0, 16.0)
+		stash_frame.size = Vector2(stash_w, stash_h)
 
-	# Right Panel (Native Inventory & SpellBook) geometry - symmetrical with left panel
-	var rpos_x = vp_size.x - size_w - pos_x
-	var rpos_y = pos_y
-	var rsize_w = size_w
-	var rsize_h = size_h
-
-	if inv_frame:
-		inv_frame.position = Vector2(rpos_x, rpos_y)
-		inv_frame.size = Vector2(rsize_w, rsize_h)
-		inv_frame.custom_minimum_size = Vector2(rsize_w, rsize_h)
-
-	if spellbook_frame:
-		spellbook_frame.position = Vector2(rpos_x, rpos_y)
-		spellbook_frame.size = Vector2(rsize_w, rsize_h)
-		spellbook_frame.custom_minimum_size = Vector2(rsize_w, rsize_h)
-
-	# Character Panel sync
-	if char_panel:
-		var char_open = diablo_bridge.is_character_open() if diablo_bridge.has_method("is_character_open") else false
-		if char_panel.visible != char_open:
-			char_panel.visible = char_open
-		if char_open:
-			char_panel.update_stats()
-
-	# Quest Log sync
-	if quest_log:
-		var quest_open = diablo_bridge.is_quest_log_open() if diablo_bridge.has_method("is_quest_log_open") else false
-		if quest_log.visible != quest_open:
-			quest_log.visible = quest_open
-		if quest_open:
-			quest_log.update_quests()
-
-	# Stash sync
-	if stash_frame:
 		var stash_open = diablo_bridge.is_stash_open() if diablo_bridge.has_method("is_stash_open") else false
 		if stash_frame.visible != stash_open:
 			stash_frame.visible = stash_open
@@ -1064,25 +1379,18 @@ func update_panels():
 		elif stash_open and stash_frame.has_method("check_and_update"):
 			stash_frame.check_and_update()
 
-	# Inventory sync
-	if inv_frame:
-		var inv_open = diablo_bridge.is_inventory_open() if diablo_bridge.has_method("is_inventory_open") else false
-		if inv_frame.visible != inv_open:
-			inv_frame.visible = inv_open
-			if inv_open and inv_frame.has_method("update_inventory"):
-				inv_frame.update_inventory()
-		elif inv_open and inv_frame.has_method("check_and_update"):
-			inv_frame.check_and_update()
+	# Engine bridge sync for Tabbed Menu:
+	if tabbed_menu:
+		if diablo_bridge.has_method("get_active_ui_panel"):
+			var active_engine_panel = diablo_bridge.get_active_ui_panel()
+			if active_engine_panel >= 0:
+				if not tabbed_menu.visible or tabbed_menu.get_current_tab() != active_engine_panel:
+					tabbed_menu.open_tab(active_engine_panel)
+			elif active_engine_panel == -1 and tabbed_menu.visible:
+				tabbed_menu.visible = false
 
-	# SpellBook sync
-	if spellbook_frame:
-		var sb_open = diablo_bridge.is_spell_book_open() if diablo_bridge.has_method("is_spell_book_open") else false
-		if spellbook_frame.visible != sb_open:
-			spellbook_frame.visible = sb_open
-			if sb_open and spellbook_frame.has_method("update_spellbook"):
-				spellbook_frame.update_spellbook()
-		elif sb_open and spellbook_frame.has_method("check_and_update"):
-			spellbook_frame.check_and_update()
+		if tabbed_menu.visible and tabbed_menu.has_method("check_and_update"):
+			tabbed_menu.check_and_update()
 
 	# Level-up indicator on HUD & BtnChar
 	var stat_pts = 0
@@ -1099,11 +1407,66 @@ func update_panels():
 		else:
 			level_up_btn.visible = false
 
-	var btn_char = $Root/HBox/CenterPanel/VBox/UtilityButtons/BtnChar
-	if btn_char:
-		if stat_pts > 0:
-			var pulse = 0.8 + 0.4 * sin(Time.get_ticks_msec() * 0.006)
-			btn_char.modulate = Color(1.0 + pulse * 0.4, 0.8 + pulse * 0.5, 0.2 + pulse * 0.4, 1.0)
+func update_durability_warnings(delta: float):
+	if not durability_container:
+		return
+
+	if not diablo_bridge or not diablo_bridge.has_method("get_player_durability_warnings"):
+		durability_container.visible = false
+		return
+
+	var warnings = diablo_bridge.get_player_durability_warnings()
+	if warnings.is_empty():
+		durability_container.visible = false
+		for slot in durability_slots:
+			if slot:
+				slot.visible = false
+		return
+
+	durability_pulse_time += delta
+	durability_container.visible = true
+
+	var pulse = 0.7 + 0.3 * sin(durability_pulse_time * 6.0)
+
+	for i in range(durability_slots.size()):
+		var slot = durability_slots[i]
+		if not slot:
+			continue
+		if i < warnings.size():
+			var w = warnings[i]
+			var icon_idx = w.get("icon_idx", 0)
+			var cur_dur = w.get("durability", 0)
+			var max_dur = w.get("max_durability", 0)
+			var status = w.get("status", 1)
+			var item_name = w.get("name", "Equipped Item")
+
+			var tex = null
+			if diablo_bridge.has_method("get_durability_icon_composite"):
+				tex = diablo_bridge.get_durability_icon_composite(icon_idx, cur_dur)
+			if tex == null and diablo_bridge.has_method("get_durability_icon"):
+				tex = diablo_bridge.get_durability_icon(w.get("frame_idx", 0))
+
+			slot.texture = tex
+			slot.visible = (tex != null)
+
+			var status_str = "Damaged"
+			if cur_dur <= 0:
+				status_str = "Broken"
+			elif status == 2:
+				status_str = "Critically Damaged"
+
+			slot.tooltip_text = "%s\nDurability: %d / %d (%s)\n[LMB] Open Inventory" % [
+				item_name, cur_dur, max_dur, status_str
+			]
+
+			# Subtle pulse effect for critical/broken items (status 2)
+			if status == 2 or cur_dur <= 0:
+				slot.modulate = Color(1.0, pulse, pulse, 1.0)
+			else:
+				slot.modulate = Color(1.0, 1.0, 1.0, 1.0)
 		else:
-			btn_char.modulate = Color(1.0, 1.0, 1.0, 1.0)
+			slot.visible = false
+
+
+
 

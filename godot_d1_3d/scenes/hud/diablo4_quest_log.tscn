@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scenes/hud/diablo4_quest_log.gd" id="1_ql"]
 [ext_resource type="Texture2D" path="res://assets/hud/gothic_char_panel.png" id="2_bg"]
+[ext_resource type="FontFile" uid="uid://bmpcd7fayhogn" path="res://assets/fonts/Exocet.ttf" id="3_font"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close_btn"]
 bg_color = Color(0.11, 0.09, 0.12, 0.92)
@@ -18,12 +19,13 @@ shadow_color = Color(0, 0, 0, 0.85)
 shadow_size = 4
 
 [node name="QuestLog" type="Control"]
-custom_minimum_size = Vector2(320, 352)
-offset_right = 500.0
-offset_bottom = 550.0
+custom_minimum_size = Vector2(428, 520)
+offset_right = 428.0
+offset_bottom = 520.0
 script = ExtResource("1_ql")
 
 [node name="Background" type="TextureRect" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -38,16 +40,15 @@ stretch_mode = 0
 [node name="Content" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
-anchor_left = 0.17
-anchor_top = 0.24
-anchor_right = 0.83
-anchor_bottom = 0.88
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+mouse_filter = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
 
 [node name="VBox" type="VBoxContainer" parent="Content"]
 layout_mode = 2
@@ -64,6 +65,7 @@ theme_override_constants/separation = 1
 
 [node name="TitleLabel" type="Label" parent="Content/VBox/HeaderRow/TitleVBox"]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("3_font")
 theme_override_colors/font_color = Color(1, 0.88, 0.4, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 3
@@ -72,6 +74,7 @@ text = "QUEST LOG"
 
 [node name="SubTitleLabel" type="Label" parent="Content/VBox/HeaderRow/TitleVBox"]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("3_font")
 theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
 theme_override_constants/shadow_outline_size = 2
@@ -87,6 +90,7 @@ color = Color(0.65, 0.52, 0.25, 0.6)
 visible = false
 layout_mode = 2
 size_flags_vertical = 6
+theme_override_fonts/font = ExtResource("3_font")
 theme_override_colors/font_color = Color(0.65, 0.6, 0.55, 1)
 theme_override_font_sizes/font_size = 12
 text = "No active quests recorded."
@@ -103,6 +107,7 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
 [node name="CloseBtnContainer" type="Control" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_left = 0.35

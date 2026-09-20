@@ -1421,7 +1421,8 @@ void DrawView(const Surface &out, Point startPosition)
 			DrawSpellBook(out);
 	}
 
-	DrawDurIcon(out);
+	if (!gbHideVanillaHUD)
+		DrawDurIcon(out);
 
 	if (chrflag) {
 		if (!gbHideVanillaHUD)

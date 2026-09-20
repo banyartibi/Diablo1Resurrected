@@ -11,16 +11,18 @@ const EQUIP_HAND_LEFT = 4
 const EQUIP_HAND_RIGHT = 5
 const EQUIP_CHEST = 6
 
-# Quality border & text colors
-const COLOR_NORMAL = Color(0.75, 0.70, 0.60, 1.0)
-const COLOR_MAGIC = Color(0.35, 0.60, 1.0, 1.0)
-const COLOR_UNIQUE = Color(1.0, 0.82, 0.25, 1.0)
-const COLOR_UNUSABLE = Color(1.0, 0.35, 0.35, 1.0)
+const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
 
-# Cell dimensions for backpack grid
-const CELL_SIZE = 24.0
-const CELL_GAP = 1.0
-const CELL_STEP = CELL_SIZE + CELL_GAP # 25.0
+# Quality border & text colors
+const COLOR_NORMAL = Color(0.85, 0.82, 0.75, 1.0)
+const COLOR_MAGIC = Color(0.45, 0.70, 1.0, 1.0)
+const COLOR_UNIQUE = Color(1.0, 0.85, 0.35, 1.0)
+const COLOR_UNUSABLE = Color(0.85, 0.28, 0.28, 1.0)
+
+# Cell dimensions for backpack grid - enlarged to 40px to fill the window
+const CELL_SIZE = 40.0
+const CELL_GAP = 2.0
+const CELL_STEP = CELL_SIZE + CELL_GAP # 42.0
 
 # Node references
 @onready var gold_label: Label = find_child("GoldLabel", true, false)
@@ -39,11 +41,25 @@ const CELL_STEP = CELL_SIZE + CELL_GAP # 25.0
 @onready var grid_cells: GridContainer = find_child("GridCells", true, false)
 @onready var items_overlay: Control = find_child("ItemsOverlay", true, false)
 
+# Textures
+const TEX_HEAL = preload("res://assets/hud/potion_heal.png")
+const TEX_MANA = preload("res://assets/hud/potion_mana.png")
+const TEX_REJUV = preload("res://assets/hud/potion_rejuv.png")
+const TEX_SCROLL = preload("res://assets/hud/scroll.png")
+const TEX_OIL = preload("res://assets/hud/potion_oil.png")
+const TEX_SLOT_FRAME = preload("res://assets/hud/slot_frame.png")
+const TEX_SLOT_9PATCH = preload("res://assets/hud/gothic_slot_9patch.png")
+const TEX_SOCKET_LOCKED = preload("res://assets/hud/gothic_socket_locked.png")
+
 # Dedicated Item Tooltip
 @onready var tooltip: PanelContainer = $Tooltip
 @onready var tooltip_title: Label = $Tooltip/Margin/VBox/TitleLabel
 @onready var tooltip_divider: ColorRect = $Tooltip/Margin/VBox/Divider
 @onready var tooltip_stats: Label = $Tooltip/Margin/VBox/StatsLabel
+
+# Belt nodes (8 active sockets with 2 decorative disabled sockets on outer ends)
+@onready var belt_cells: HBoxContainer = find_child("BeltCells", true, false)
+var belt_slot_nodes: Array[Control] = []
 
 var equip_slots_map: Dictionary = {}
 var hovered_item_data = null
@@ -68,6 +84,7 @@ func _ready():
 		)
 
 	_init_equipment_slots()
+	_init_belt_cells()
 	_init_backpack_cells()
 	if tooltip:
 		tooltip.visible = false
@@ -91,6 +108,92 @@ func _init_equipment_slots():
 				_on_item_mouse_exited()
 			)
 
+func _init_belt_cells():
+	if not belt_cells:
+		return
+	for child in belt_cells.get_children():
+		child.queue_free()
+	belt_slot_nodes.clear()
+
+	for col in range(10):
+		var cell = Control.new()
+		cell.custom_minimum_size = Vector2(CELL_SIZE, CELL_SIZE)
+		cell.size = Vector2(CELL_SIZE, CELL_SIZE)
+
+		if col == 0 or col == 9:
+			# Inactive / locked decorative sockets on outer edges
+			cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var lock_tex = TextureRect.new()
+			lock_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
+			lock_tex.texture = TEX_SOCKET_LOCKED
+			lock_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			lock_tex.stretch_mode = TextureRect.STRETCH_SCALE
+			lock_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cell.add_child(lock_tex)
+		else:
+			# Active Belt slot 0..7
+			var belt_idx = col - 1
+			cell.mouse_filter = Control.MOUSE_FILTER_STOP
+			var frame_tex = TextureRect.new()
+			frame_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
+			frame_tex.texture = TEX_SLOT_FRAME
+			frame_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			frame_tex.stretch_mode = TextureRect.STRETCH_SCALE
+			frame_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cell.add_child(frame_tex)
+
+			# Slot number indicator badge (1..8)
+			var num_lbl = Label.new()
+			num_lbl.text = str(belt_idx + 1)
+			num_lbl.position = Vector2(4, 2)
+			num_lbl.add_theme_font_override("font", FONT_EXOCET)
+			num_lbl.add_theme_font_size_override("font_size", 10)
+			num_lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.45, 1.0))
+			num_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1.0))
+			num_lbl.add_theme_constant_override("shadow_outline_size", 3)
+			num_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cell.add_child(num_lbl)
+
+			# Item Icon TextureRect
+			var icon_rect = TextureRect.new()
+			icon_rect.name = "ItemIcon"
+			icon_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+			icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			icon_rect.visible = false
+			cell.add_child(icon_rect)
+
+			# Count Label
+			var count_lbl = Label.new()
+			count_lbl.name = "CountLabel"
+			count_lbl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+			count_lbl.offset_left = -18.0
+			count_lbl.offset_top = -16.0
+			count_lbl.add_theme_font_override("font", FONT_EXOCET)
+			count_lbl.add_theme_font_size_override("font_size", 10)
+			count_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+			count_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1))
+			count_lbl.add_theme_constant_override("shadow_outline_size", 2)
+			count_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			count_lbl.visible = false
+			cell.add_child(count_lbl)
+
+			# Event handling
+			cell.gui_input.connect(func(event: InputEvent):
+				_on_belt_slot_gui_input(belt_idx, event)
+			)
+			cell.mouse_entered.connect(func():
+				_on_belt_slot_mouse_entered(belt_idx, cell.global_position)
+			)
+			cell.mouse_exited.connect(func():
+				_on_item_mouse_exited()
+			)
+
+			belt_slot_nodes.append(cell)
+
+		belt_cells.add_child(cell)
+
 func _init_backpack_cells():
 	if not grid_cells:
 		return
@@ -101,17 +204,13 @@ func _init_backpack_cells():
 		var cell = Panel.new()
 		cell.custom_minimum_size = Vector2(CELL_SIZE, CELL_SIZE)
 		cell.mouse_filter = Control.MOUSE_FILTER_STOP
-		var cell_style = StyleBoxFlat.new()
-		cell_style.bg_color = Color(0.08, 0.07, 0.09, 0.85)
-		cell_style.border_color = Color(0.25, 0.20, 0.16, 0.6)
-		cell_style.border_width_left = 1
-		cell_style.border_width_top = 1
-		cell_style.border_width_right = 1
-		cell_style.border_width_bottom = 1
-		cell_style.corner_radius_top_left = 1
-		cell_style.corner_radius_top_right = 1
-		cell_style.corner_radius_bottom_right = 1
-		cell_style.corner_radius_bottom_left = 1
+		var cell_style = StyleBoxTexture.new()
+		cell_style.texture = TEX_SLOT_9PATCH
+		cell_style.texture_margin_left = 6
+		cell_style.texture_margin_top = 6
+		cell_style.texture_margin_right = 6
+		cell_style.texture_margin_bottom = 6
+		cell_style.modulate_color = Color(0.55, 0.52, 0.48, 0.45)
 		cell.add_theme_stylebox_override("panel", cell_style)
 
 		var cell_idx = i
@@ -143,8 +242,54 @@ func update_inventory():
 	# 2. Update Equipment Paperdoll
 	_update_equipment()
 
-	# 3. Update Backpack Items
+	# 3. Update Belt Sockets
+	_update_belt()
+
+	# 4. Update Backpack Items
 	_update_backpack()
+
+func _update_belt():
+	if not diablo_bridge or not diablo_bridge.has_method("get_belt_items"):
+		return
+	var belt = diablo_bridge.get_belt_items()
+	for i in range(min(belt_slot_nodes.size(), belt.size())):
+		var slot_node = belt_slot_nodes[i]
+		var item = belt[i]
+		var type = item.get("type", 0)
+		var count = item.get("count", 0)
+		var item_name = item.get("name", "")
+
+		var icon = slot_node.get_node_or_null("ItemIcon") as TextureRect
+		var count_lbl = slot_node.get_node_or_null("CountLabel") as Label
+
+		if type != 0 and item_name != "":
+			slot_node.set_meta("belt_item", item)
+			var slot_tex: Texture2D = null
+			if diablo_bridge.has_method("get_belt_item_texture"):
+				slot_tex = diablo_bridge.get_belt_item_texture(i)
+			if not slot_tex:
+				match type:
+					1, 2: slot_tex = TEX_HEAL
+					3, 4: slot_tex = TEX_MANA
+					5, 6, 7: slot_tex = TEX_REJUV
+					8: slot_tex = TEX_SCROLL
+					9: slot_tex = TEX_OIL
+			if icon:
+				icon.texture = slot_tex
+				icon.visible = (slot_tex != null)
+			if count_lbl:
+				if count > 1:
+					count_lbl.text = "x%d" % count
+					count_lbl.visible = true
+				else:
+					count_lbl.visible = false
+		else:
+			slot_node.remove_meta("belt_item")
+			if icon:
+				icon.texture = null
+				icon.visible = false
+			if count_lbl:
+				count_lbl.visible = false
 
 func _update_equipment():
 	if not diablo_bridge or not diablo_bridge.has_method("get_player_equipment"):
@@ -239,25 +384,23 @@ func _update_backpack():
 		var panel = Panel.new()
 		panel.set_anchors_preset(PRESET_FULL_RECT)
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.12, 0.10, 0.14, 0.88)
-		var bcol = COLOR_NORMAL
-		if quality == 1: bcol = COLOR_MAGIC
-		elif quality == 2: bcol = COLOR_UNIQUE
-		if not can_use:
-			bcol = COLOR_UNUSABLE
-			sb.bg_color = Color(0.25, 0.06, 0.06, 0.90)
-
-		sb.border_color = bcol
-		sb.border_width_left = 1
-		sb.border_width_top = 1
-		sb.border_width_right = 1
-		sb.border_width_bottom = 1
-		sb.corner_radius_top_left = 2
-		sb.corner_radius_top_right = 2
-		sb.corner_radius_bottom_right = 2
-		sb.corner_radius_bottom_left = 2
+		var sb = StyleBoxTexture.new()
+		sb.texture = TEX_SLOT_9PATCH
+		sb.texture_margin_left = 11
+		sb.texture_margin_top = 11
+		sb.texture_margin_right = 11
+		sb.texture_margin_bottom = 11
 		panel.add_theme_stylebox_override("panel", sb)
+
+		if quality == 1:
+			panel.modulate = Color(0.55, 0.75, 1.0, 0.85)
+		elif quality == 2:
+			panel.modulate = Color(1.05, 0.92, 0.55, 0.90)
+		elif not can_use:
+			panel.modulate = Color(0.95, 0.45, 0.45, 0.85)
+		else:
+			panel.modulate = Color(0.85, 0.82, 0.78, 0.80)
+
 		item_ctrl.add_child(panel)
 
 		# Item Sprite Texture
@@ -288,11 +431,14 @@ func _update_backpack():
 
 func _set_slot_border_color(panel: Panel, col: Color):
 	if not panel: return
-	var sb = panel.get_theme_stylebox("panel")
-	if sb is StyleBoxFlat:
-		var dupe = sb.duplicate()
-		dupe.border_color = col
-		panel.add_theme_stylebox_override("panel", dupe)
+	if col == COLOR_MAGIC:
+		panel.modulate = Color(0.55, 0.75, 1.0, 0.85)
+	elif col == COLOR_UNIQUE:
+		panel.modulate = Color(1.05, 0.92, 0.55, 0.90)
+	elif col == COLOR_UNUSABLE:
+		panel.modulate = Color(0.95, 0.45, 0.45, 0.85)
+	else:
+		panel.modulate = Color(0.85, 0.82, 0.78, 0.75)
 
 func _on_equip_slot_gui_input(slot_idx: int, event: InputEvent):
 	if not (event is InputEventMouseButton) or not event.pressed:
@@ -340,6 +486,28 @@ func _on_backpack_item_gui_input(cell_idx: int, inv_list_idx: int, event: InputE
 			update_inventory()
 			_on_item_mouse_exited()
 
+func _on_belt_slot_gui_input(belt_idx: int, event: InputEvent):
+	if not (event is InputEventMouseButton) or not event.pressed:
+		return
+	var mb = event as InputEventMouseButton
+	if mb.button_index == MOUSE_BUTTON_LEFT:
+		if diablo_bridge and diablo_bridge.has_method("click_belt_slot"):
+			diablo_bridge.click_belt_slot(belt_idx)
+			update_inventory()
+			_on_item_mouse_exited()
+	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if diablo_bridge and diablo_bridge.has_method("use_belt_slot"):
+			diablo_bridge.use_belt_slot(belt_idx)
+			update_inventory()
+			_on_item_mouse_exited()
+
+func _on_belt_slot_mouse_entered(belt_idx: int, pos: Vector2):
+	if belt_idx >= 0 and belt_idx < belt_slot_nodes.size():
+		var slot_node = belt_slot_nodes[belt_idx]
+		if slot_node.has_meta("belt_item"):
+			var it = slot_node.get_meta("belt_item")
+			_show_item_tooltip(it, pos)
+
 func _on_equip_slot_mouse_entered(slot_idx: int):
 	var slot_node: Control = equip_slots_map.get(slot_idx)
 	if slot_node and slot_node.has_meta("item_data"):
@@ -359,6 +527,24 @@ func _show_item_tooltip(item: Dictionary, global_pos: Vector2):
 	if iname.strip_edges() == "":
 		tooltip.visible = false
 		return
+
+	if stats.strip_edges() == "":
+		var t = item.get("type", 0)
+		match t:
+			1: stats = "Restores partial Life\n[Right Click] Drink"
+			2: stats = "Restores all Life\n[Right Click] Drink"
+			3: stats = "Restores partial Mana\n[Right Click] Drink"
+			4: stats = "Restores all Mana\n[Right Click] Drink"
+			5: stats = "Restores partial Life & Mana\n[Right Click] Drink"
+			6, 7: stats = "Restores all Life & Mana\n[Right Click] Drink"
+			8: stats = "Single use spell scroll\n[Right Click] Cast"
+			9: stats = "Oil\n[Right Click] Apply"
+			10: stats = "Rune\n[Right Click] Cast"
+			_:
+				if "Potion of Healing" in iname: stats = "Restores Life\n[Right Click] Drink"
+				elif "Potion of Mana" in iname: stats = "Restores Mana\n[Right Click] Drink"
+				elif "Rejuvenation" in iname: stats = "Restores Life & Mana\n[Right Click] Drink"
+				elif "Scroll of" in iname: stats = "Spell scroll\n[Right Click] Cast"
 
 	tooltip_title.text = iname
 	var title_col = COLOR_NORMAL

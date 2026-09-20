@@ -48,6 +48,17 @@ var object_textures: Dictionary = {} # String ("type_frame") -> ImageTexture
 var item_nodes: Dictionary = {} # int (id) -> Node2D
 var item_textures: Dictionary = {} # int (id) -> ImageTexture
 
+# Ground loot typography & Diablo IV loot beams
+const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
+const TEX_LOOT_BEAM = preload("res://assets/hud/loot_beam_gradient.png")
+const TEX_LOOT_FLARE = preload("res://assets/hud/loot_flare_disc.png")
+
+const COLOR_NORMAL = Color(0.85, 0.82, 0.75, 1.0)
+const COLOR_MAGIC = Color(0.45, 0.70, 1.0, 1.0)
+const COLOR_UNIQUE = Color(1.0, 0.85, 0.35, 1.0)
+
+var loot_beam_material: CanvasItemMaterial = null
+
 # Milestone 4: Corpses (Fallen monsters & skeletons)
 var corpse_sprites: Dictionary = {} # Vector2i -> Sprite2D
 var corpse_textures: Dictionary = {} # String ("corpseIdx_dir") -> ImageTexture
@@ -1328,7 +1339,7 @@ func update_objects():
 
 # Milestone 4: Ground Items & Loot with Authentic Labels
 func update_ground_items():
-	if not diablo_bridge or not diablo_bridge.has_method("get_active_items"):
+	if not diablo_bridge or not diablo_bridge.has_method("get_active_items") or world_root == null:
 		return
 
 	var items: Array = diablo_bridge.get_active_items()
@@ -1366,21 +1377,10 @@ func update_ground_items():
 			lbl.name = "Label"
 			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			lbl.add_theme_font_size_override("font_size", 11)
+			lbl.add_theme_font_override("font", FONT_EXOCET)
+			lbl.add_theme_font_size_override("font_size", 12)
 			lbl.z_as_relative = false
 			lbl.z_index = 20
-
-			var style = StyleBoxFlat.new()
-			style.bg_color = Color(0.0, 0.0, 0.0, 0.75)
-			style.corner_radius_top_left = 3
-			style.corner_radius_top_right = 3
-			style.corner_radius_bottom_left = 3
-			style.corner_radius_bottom_right = 3
-			style.content_margin_left = 6.0
-			style.content_margin_right = 6.0
-			style.content_margin_top = 2.0
-			style.content_margin_bottom = 2.0
-			lbl.add_theme_stylebox_override("normal", style)
 			node.add_child(lbl)
 
 			item_nodes[i_id] = node
@@ -1433,21 +1433,130 @@ func update_ground_items():
 			else:
 				node.visible = true
 
+		# Diablo IV Style Loot Beam (Magic & Unique/Legendary)
+		var beam_node = node.get_node_or_null("LootBeam")
+		if quality >= 1:
+			if beam_node == null:
+				beam_node = Node2D.new()
+				beam_node.name = "LootBeam"
+				beam_node.z_as_relative = false
+				beam_node.z_index = 10 # Above floor and item sprite, below label
+				node.add_child(beam_node)
+
+				if loot_beam_material == null:
+					loot_beam_material = CanvasItemMaterial.new()
+					loot_beam_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+
+				# 1. Ground flare disc on the floor
+				var flare = Sprite2D.new()
+				flare.name = "GroundFlare"
+				flare.texture = TEX_LOOT_FLARE
+				flare.centered = true
+				flare.position = Vector2(0, 4)
+				flare.material = loot_beam_material
+				beam_node.add_child(flare)
+
+				# 2. Vertical luminous light pillar (64x256)
+				var pillar = Sprite2D.new()
+				pillar.name = "Pillar"
+				pillar.texture = TEX_LOOT_BEAM
+				pillar.centered = false
+				pillar.offset = Vector2(-32, -256) # Bottom-centered on origin
+				pillar.position = Vector2(0, 4)
+				pillar.material = loot_beam_material
+				beam_node.add_child(pillar)
+
+				# 3. Rising luminous sparks / motes
+				var particles = CPUParticles2D.new()
+				particles.name = "Particles"
+				particles.material = loot_beam_material
+				particles.amount = 14
+				particles.lifetime = 1.3
+				particles.preprocess = 0.5
+				particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+				particles.emission_rect_extents = Vector2(8, 2)
+				particles.direction = Vector2(0, -1)
+				particles.spread = 4.0
+				particles.gravity = Vector2(0, -18)
+				particles.initial_velocity_min = 40.0
+				particles.initial_velocity_max = 85.0
+				particles.scale_amount_min = 1.5
+				particles.scale_amount_max = 3.0
+				particles.position = Vector2(0, 4)
+				beam_node.add_child(particles)
+
+				# Breathing pulse animations
+				var tw = beam_node.create_tween().set_loops()
+				tw.tween_property(pillar, "scale", Vector2(0.85, 0.95), 0.9).set_trans(Tween.TRANS_SINE)
+				tw.parallel().tween_property(pillar, "modulate:a", 0.70, 0.9).set_trans(Tween.TRANS_SINE)
+				tw.tween_property(pillar, "scale", Vector2(1.05, 1.0), 0.9).set_trans(Tween.TRANS_SINE)
+				tw.parallel().tween_property(pillar, "modulate:a", 0.95, 0.9).set_trans(Tween.TRANS_SINE)
+
+				var tw_f = flare.create_tween().set_loops()
+				tw_f.tween_property(flare, "scale", Vector2(1.3, 1.3), 1.1).set_trans(Tween.TRANS_SINE)
+				tw_f.tween_property(flare, "scale", Vector2(0.9, 0.9), 1.1).set_trans(Tween.TRANS_SINE)
+
+			# Color modulate based on quality
+			var beam_col = COLOR_MAGIC if quality == 1 else COLOR_UNIQUE
+			var flare_sprite = beam_node.get_node_or_null("GroundFlare") as Sprite2D
+			var pillar_sprite = beam_node.get_node_or_null("Pillar") as Sprite2D
+			var parts = beam_node.get_node_or_null("Particles") as CPUParticles2D
+			if flare_sprite:
+				flare_sprite.self_modulate = beam_col
+			if pillar_sprite:
+				pillar_sprite.self_modulate = beam_col
+			if parts:
+				parts.color = beam_col
+				parts.emitting = true
+			beam_node.visible = true
+		else:
+			if beam_node != null:
+				beam_node.visible = false
+				var parts = beam_node.get_node_or_null("Particles") as CPUParticles2D
+				if parts:
+					parts.emitting = false
+
 		# Ground item label
 		var lbl = node.get_node_or_null("Label") as Label
 		if lbl and iname != "":
 			lbl.text = iname
+			lbl.add_theme_font_override("font", FONT_EXOCET)
+			lbl.add_theme_font_size_override("font_size", 12)
+
+			var quality_col: Color
 			if quality == 1:
-				lbl.modulate = Color(0.40, 0.65, 1.0) # Magic Blue
-			elif quality == 2:
-				lbl.modulate = Color(1.0, 0.88, 0.35) # Unique Gold
+				quality_col = COLOR_MAGIC # Magic Blue
+			elif quality >= 2:
+				quality_col = COLOR_UNIQUE # Unique Gold
 			else:
-				lbl.modulate = Color(0.95, 0.95, 0.95) # Normal White
+				quality_col = COLOR_NORMAL # Normal White / Slate
+
+			lbl.add_theme_color_override("font_color", quality_col)
+			lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.95))
+			lbl.add_theme_constant_override("shadow_outline_size", 2)
+
+			var style = StyleBoxFlat.new()
+			style.bg_color = Color(0.06, 0.05, 0.08, 0.88)
+			style.border_width_left = 1
+			style.border_width_top = 1
+			style.border_width_right = 1
+			style.border_width_bottom = 1
+			style.border_color = quality_col.lerp(Color(0.25, 0.22, 0.20, 0.8), 0.35)
+			style.corner_radius_top_left = 3
+			style.corner_radius_top_right = 3
+			style.corner_radius_bottom_left = 3
+			style.corner_radius_bottom_right = 3
+			style.content_margin_left = 7.0
+			style.content_margin_right = 7.0
+			style.content_margin_top = 3.0
+			style.content_margin_bottom = 3.0
+			lbl.add_theme_stylebox_override("normal", style)
+
 			lbl.reset_size()
 			var sz = lbl.get_combined_minimum_size()
 
 			# Anchor the label directly above the floor diamond and ground item sprite (matching DevilutionX Mode 0)
-			lbl.position = Vector2(-sz.x * 0.5, -32.0 - sz.y)
+			lbl.position = Vector2(-sz.x * 0.5, -34.0 - sz.y)
 			lbl.z_as_relative = false
 			lbl.z_index = 20
 			var show_labels = diablo_bridge.is_item_label_highlight_enabled() if diablo_bridge.has_method("is_item_label_highlight_enabled") else true

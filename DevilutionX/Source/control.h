@@ -58,6 +58,7 @@ bool IsLeftPanelOpen();
 bool IsRightPanelOpen();
 extern std::optional<OwnedSurface> pBtmBuff;
 extern OptionalOwnedClxSpriteList pGBoxBuff;
+extern OptionalOwnedClxSpriteList pDurIcons;
 extern SDL_Rect PanBtnPos[8];
 
 void CalculatePanelAreas();

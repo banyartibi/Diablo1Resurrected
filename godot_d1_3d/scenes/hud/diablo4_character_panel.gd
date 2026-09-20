@@ -46,7 +46,11 @@ const CLASS_NAMES = {
 	5: "Barbarian"
 }
 
+const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
+
 func _ready():
+	_apply_exocet_font(self)
+
 	if close_btn:
 		close_btn.pressed.connect(func():
 			if diablo_bridge and diablo_bridge.has_method("toggle_character_sheet"):
@@ -62,6 +66,14 @@ func _ready():
 		add_dex_btn.pressed.connect(func(): _allocate_stat(2))
 	if add_vit_btn:
 		add_vit_btn.pressed.connect(func(): _allocate_stat(3))
+
+func _apply_exocet_font(node: Node):
+	if node is Label:
+		node.add_theme_font_override("font", FONT_EXOCET)
+	elif node is Button:
+		node.add_theme_font_override("font", FONT_EXOCET)
+	for child in node.get_children():
+		_apply_exocet_font(child)
 
 func _process(_delta: float):
 	if level_up_banner and level_up_banner.visible:
@@ -170,10 +182,10 @@ func update_stats():
 	if res_lightning_val_label: res_lightning_val_label.text = "Lightning: %d%%" % res_lgt
 
 	# Vitals
-	var hp = info.get("hp", 0)
-	var max_hp = info.get("max_hp", 0)
-	var mana = info.get("mana", 0)
-	var max_mana = info.get("max_mana", 0)
+	var hp = info.get("hp", info.get("life_now", 0))
+	var max_hp = info.get("max_hp", info.get("life_max", 0))
+	var mana = info.get("mana", info.get("mana_now", 0))
+	var max_mana = info.get("max_mana", info.get("mana_max", 0))
 
 	if life_val_label: life_val_label.text = "Life: %d / %d" % [hp, max_hp]
 	if mana_val_label: mana_val_label.text = "Mana: %d / %d" % [mana, max_mana]

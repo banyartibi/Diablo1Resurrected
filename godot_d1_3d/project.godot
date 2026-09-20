@@ -30,3 +30,7 @@ scaling_3d/mode=2
 scaling_3d/fsr_sharpness=1.0
 environment/defaults/default_clear_color=Color(0.01, 0.01, 0.01, 1)
 anti_aliasing/quality/screen_space_aa=1
+
+[gui]
+
+theme/custom_font="res://assets/fonts/Exocet.ttf"

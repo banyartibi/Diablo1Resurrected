@@ -44,6 +44,9 @@ var is_hungarian: bool = false
 @onready var back_button: Button = %BackButton
 
 @onready var delete_confirm_dialog: ConfirmationDialog = %DeleteConfirmDialog
+@onready var left_panel: Control = $LeftPanel
+@onready var content_margin: MarginContainer = $LeftPanel/ContentMargin
+@onready var right_panel: PanelContainer = $RightInfoPanel
 
 const CLASS_NAMES_HU = ["Harcos", "Íjásznő", "Varázsló", "Szerzetes", "Bárd", "Barbár"]
 const CLASS_NAMES_EN = ["Warrior", "Rogue", "Sorcerer", "Monk", "Bard", "Barbarian"]
@@ -103,7 +106,18 @@ func apply_localization(is_hu: bool) -> void:
 		if hero_name_label: hero_name_label.text = "Nincs mentett hős" if is_hungarian else "No Hero Found"
 		if hero_class_level: hero_class_level.text = "Hozz létre egy új karaktert!" if is_hungarian else "Create a new hero to begin!"
 
+const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
+
+func _apply_font_recursive(node: Node):
+	if node is Label or node is Button or node is LineEdit:
+		node.add_theme_font_override("font", FONT_EXOCET)
+	for child in node.get_children():
+		_apply_font_recursive(child)
+
+@onready var scroll_container: ScrollContainer = $LeftPanel/ContentMargin/VBox/Scroll
+
 func _ready() -> void:
+	_apply_font_recursive(self)
 	play_button.pressed.connect(_on_play_pressed)
 	create_button.pressed.connect(_on_create_pressed)
 	delete_button.pressed.connect(_on_delete_pressed)
@@ -115,6 +129,93 @@ func _ready() -> void:
 	_set_difficulty(0)
 	apply_localization(is_hungarian)
 
+	_style_scrollbar()
+
+	get_viewport().size_changed.connect(_on_viewport_resized)
+	_on_viewport_resized()
+
+func _style_scrollbar() -> void:
+	if not scroll_container:
+		return
+	var v_scroll = scroll_container.get_v_scroll_bar()
+	if not v_scroll:
+		return
+	v_scroll.custom_minimum_size = Vector2(8, 0)
+
+	var grabber_sb = StyleBoxFlat.new()
+	grabber_sb.bg_color = Color(0.85, 0.70, 0.28, 0.9)
+	grabber_sb.border_width_left = 1
+	grabber_sb.border_width_top = 1
+	grabber_sb.border_width_right = 1
+	grabber_sb.border_width_bottom = 1
+	grabber_sb.border_color = Color(1.0, 0.88, 0.45, 1.0)
+	grabber_sb.corner_radius_top_left = 3
+	grabber_sb.corner_radius_top_right = 3
+	grabber_sb.corner_radius_bottom_right = 3
+	grabber_sb.corner_radius_bottom_left = 3
+
+	var grabber_hl = StyleBoxFlat.new()
+	grabber_hl.bg_color = Color(1.0, 0.88, 0.40, 1.0)
+	grabber_hl.corner_radius_top_left = 3
+	grabber_hl.corner_radius_top_right = 3
+	grabber_hl.corner_radius_bottom_right = 3
+	grabber_hl.corner_radius_bottom_left = 3
+
+	var scroll_bg = StyleBoxFlat.new()
+	scroll_bg.bg_color = Color(0.04, 0.04, 0.06, 0.75)
+	scroll_bg.border_width_left = 1
+	scroll_bg.border_width_right = 1
+	scroll_bg.border_color = Color(0.35, 0.28, 0.15, 0.6)
+	scroll_bg.corner_radius_top_left = 3
+	scroll_bg.corner_radius_top_right = 3
+	scroll_bg.corner_radius_bottom_right = 3
+	scroll_bg.corner_radius_bottom_left = 3
+
+	v_scroll.add_theme_stylebox_override("grabber", grabber_sb)
+	v_scroll.add_theme_stylebox_override("grabber_highlight", grabber_hl)
+	v_scroll.add_theme_stylebox_override("grabber_pressed", grabber_hl)
+	v_scroll.add_theme_stylebox_override("scroll", scroll_bg)
+	v_scroll.add_theme_stylebox_override("scroll_focus", scroll_bg)
+
+func _on_viewport_resized() -> void:
+	var vp_size = get_viewport_rect().size
+	if vp_size.y <= 0 or vp_size.x <= 0:
+		return
+
+	# Panel spans nearly from top to bottom
+	var pad_y = clampf(vp_size.y * 0.02, 16.0, 32.0)
+	var pad_x = clampf(vp_size.x * 0.025, 24.0, 60.0)
+
+	var target_h = vp_size.y - (2.0 * pad_y)
+	# Maintain texture aspect ratio: 1120 / 1480 = 0.75676
+	var target_w = target_h * (1120.0 / 1480.0)
+
+	# Cap at 48% of screen width so hero 3D model and info panel remain unobstructed
+	var max_w = vp_size.x * 0.48
+	if target_w > max_w:
+		target_w = max_w
+		target_h = target_w * (1480.0 / 1120.0)
+
+	var scale_factor = target_h / 1480.0
+
+	if left_panel:
+		left_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		left_panel.size = Vector2(target_w, target_h)
+		left_panel.position = Vector2(pad_x, pad_y)
+
+	if content_margin:
+		content_margin.add_theme_constant_override("margin_left", int(round(232.0 * scale_factor)))
+		content_margin.add_theme_constant_override("margin_right", int(round(232.0 * scale_factor)))
+		content_margin.add_theme_constant_override("margin_top", int(round(365.0 * scale_factor)))
+		content_margin.add_theme_constant_override("margin_bottom", int(round(175.0 * scale_factor)))
+
+	if right_panel:
+		var right_w = clampf(vp_size.x * 0.22, 380.0, 520.0)
+		var right_h = clampf(target_h * 0.68, 480.0, 720.0)
+		right_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		right_panel.size = Vector2(right_w, right_h)
+		right_panel.position = Vector2(vp_size.x - right_w - pad_x, (vp_size.y - right_h) / 2.0)
+
 func _create_hero_card_style(is_selected: bool) -> StyleBoxFlat:
 	var s = StyleBoxFlat.new()
 	if is_selected:
@@ -125,8 +226,8 @@ func _create_hero_card_style(is_selected: bool) -> StyleBoxFlat:
 		s.border_width_right = 2
 		s.border_width_bottom = 2
 	else:
-		s.bg_color = Color(0.08, 0.07, 0.10, 0.80)
-		s.border_color = Color(0.50, 0.42, 0.22, 0.6)
+		s.bg_color = Color(0.06, 0.05, 0.07, 0.52)
+		s.border_color = Color(0.50, 0.42, 0.22, 0.55)
 		s.border_width_left = 1
 		s.border_width_top = 1
 		s.border_width_right = 1
@@ -135,10 +236,10 @@ func _create_hero_card_style(is_selected: bool) -> StyleBoxFlat:
 	s.corner_radius_top_right = 4
 	s.corner_radius_bottom_right = 4
 	s.corner_radius_bottom_left = 4
-	s.content_margin_left = 14
-	s.content_margin_right = 14
-	s.content_margin_top = 8
-	s.content_margin_bottom = 8
+	s.content_margin_left = 18
+	s.content_margin_right = 18
+	s.content_margin_top = 10
+	s.content_margin_bottom = 10
 	return s
 
 func refresh_hero_list() -> void:
@@ -187,7 +288,7 @@ func refresh_hero_list() -> void:
 		var c_name = get_localized_class_name(c_id)
 		var lvl = int(h.get("level", 1))
 		var btn = Button.new()
-		btn.custom_minimum_size = Vector2(0, 52)
+		btn.custom_minimum_size = Vector2(0, 56)
 		if is_hungarian:
 			btn.text = "%s - %d. szint %s" % [h.get("name", "Unknown"), lvl, c_name]
 		else:
