@@ -89,6 +89,16 @@ var pbr_occluders_cache: Dictionary = {} # String -> Dictionary (points, type)
 var tile_occluders: Dictionary = {} # Vector2i -> LightOccluder2D
 var monster_shadow_materials: Dictionary = {} # int -> ShaderMaterial
 
+# Resurrected visual settings (pause-menu driven)
+var hero_torchlight_enabled: bool = false
+var current_fog_mode: int = 0
+var fog_layer: CanvasLayer = null
+var fog_rect: ColorRect = null
+var fog_material: ShaderMaterial = null
+var current_upscaler_mode: int = 3
+var current_relief_mode: int = 3
+var wet_floor: bool = true
+
 # Continuous 2.5D GPU Isometric Lightmap & Shared Tile PBR Material
 var d2r_pbr_shader = preload("res://shaders/d2r_25d_pbr.gdshader")
 var dungeon_tile_material: ShaderMaterial = null
@@ -135,6 +145,8 @@ func setup_scene_hierarchy():
 	dungeon_tile_material.shader = d2r_pbr_shader
 	dungeon_tile_material.set_shader_parameter("light_map", light_map_texture)
 	dungeon_tile_material.set_shader_parameter("is_town", false)
+	dungeon_tile_material.set_shader_parameter("relief_mode", current_relief_mode)
+	dungeon_tile_material.set_shader_parameter("wet_floor", wet_floor)
 
 	# Smooth 144Hz Camera2D
 	camera = Camera2D.new()
@@ -145,14 +157,30 @@ func setup_scene_hierarchy():
 	add_child(camera)
 	_apply_zoom_vision(z)
 
-	# Entity Neural Super-Resolution & CAS Shader Material
+	# Entity Neural Super-Resolution & Multi-Upscaler Shader Material
 	entity_hd_material = ShaderMaterial.new()
 	entity_hd_material.shader = entity_hd_shader
 	entity_hd_material.set_shader_parameter("hd_enabled", hd_graphics_enabled)
-	entity_hd_material.set_shader_parameter("gamma", 1.55)
-	entity_hd_material.set_shader_parameter("brightness", 1.45)
+	entity_hd_material.set_shader_parameter("upscaler_mode", current_upscaler_mode)
+	entity_hd_material.set_shader_parameter("gamma", 1.95)
+	entity_hd_material.set_shader_parameter("brightness", 1.65)
 	player_hd_material = entity_hd_material
 	monster_hd_material = entity_hd_material
+
+	# 2D Atmospheric Fog Layer (Crypt Mist & Dense Drift)
+	fog_layer = CanvasLayer.new()
+	fog_layer.name = "AtmosphericFogLayer"
+	fog_layer.layer = 5
+	add_child(fog_layer)
+	fog_rect = ColorRect.new()
+	fog_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fog_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fog_material = ShaderMaterial.new()
+	fog_material.shader = preload("res://shaders/atmospheric_fog_2d.gdshader")
+	fog_material.set_shader_parameter("fog_mode", current_fog_mode)
+	fog_rect.material = fog_material
+	fog_layer.add_child(fog_rect)
+	_update_fog()
 
 	# Player Entity (participates in Y-sorting under world_root)
 	setup_player_node()
@@ -186,7 +214,10 @@ func set_hd_graphics_enabled(enabled: bool) -> void:
 
 func _apply_texture_filtering() -> void:
 	if world_root:
-		world_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if hd_graphics_enabled else CanvasItem.TEXTURE_FILTER_NEAREST
+		if not hd_graphics_enabled or current_upscaler_mode == 4:
+			world_root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		else:
+			world_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 
 func get_or_create_shadow_texture() -> ImageTexture:
 	if shadow_texture != null:
@@ -271,6 +302,51 @@ func create_radial_light_texture(size: int) -> GradientTexture2D:
 	tex.height = size
 	return tex
 
+# --- Resurrected Settings (Pause-menu driven) ---
+
+func set_soft_torchlight(enabled: bool) -> void:
+	hero_torchlight_enabled = enabled
+	if player_light:
+		var is_town = (last_level_idx == 0)
+		player_light.enabled = (not is_town) and hero_torchlight_enabled
+
+func set_atmospheric_fog(mode: int) -> void:
+	current_fog_mode = mode
+	_update_fog()
+
+func _update_fog() -> void:
+	if not fog_layer or not fog_material:
+		return
+	var is_town = (last_level_idx == 0)
+	if not is_active or is_town or current_fog_mode == 0:
+		fog_layer.visible = false
+	else:
+		fog_layer.visible = true
+		fog_material.set_shader_parameter("fog_mode", current_fog_mode)
+
+func set_upscaler_mode(mode: int) -> void:
+	current_upscaler_mode = mode
+	if entity_hd_material:
+		entity_hd_material.set_shader_parameter("upscaler_mode", mode)
+	_apply_texture_filtering()
+
+func set_relief_mode(mode: int) -> void:
+	current_relief_mode = mode
+	if dungeon_tile_material:
+		dungeon_tile_material.set_shader_parameter("relief_mode", mode)
+
+func set_wet_floor(enabled: bool) -> void:
+	wet_floor = enabled
+	if dungeon_tile_material:
+		dungeon_tile_material.set_shader_parameter("wet_floor", enabled)
+
+func apply_all_resurrected_settings(torch: bool, fog: int, upscaler: int, relief: int, wet: bool) -> void:
+	set_soft_torchlight(torch)
+	set_atmospheric_fog(fog)
+	set_upscaler_mode(upscaler)
+	set_relief_mode(relief)
+	set_wet_floor(wet)
+
 func activate():
 	is_active = true
 	visible = true
@@ -279,12 +355,15 @@ func activate():
 		camera.make_current()
 	if tile_sprites.is_empty():
 		pending_dungeon_rebuild = true
+	_update_fog()
 	print("[Native 2.5D View] Activated (144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)")
 
 func deactivate():
 	is_active = false
 	visible = false
 	set_process(false)
+	if fog_layer:
+		fog_layer.visible = false
 	print("[Native 2.5D View] Deactivated")
 
 func _process(delta: float):
@@ -299,6 +378,7 @@ func _process(delta: float):
 			pending_dungeon_rebuild = true
 			level_stabilize_frames = 6
 			pending_secondary_rebuild = false
+			_update_fog()
 
 	# Gamma changed (options slider) -> palette-baked textures are stale. Invalidate all of them so the
 	# whole scene re-renders with the new palette, matching legacy behaviour where gamma affects the entire
@@ -378,6 +458,9 @@ func _process(delta: float):
 			print("[Native 2.5D View] Post-load stabilization rebuild completed (100% assets verified)")
 
 	time_accum += delta
+
+	if fog_layer and fog_layer.visible and fog_material and camera:
+		fog_material.set_shader_parameter("camera_offset", camera.position)
 
 	update_player(delta)
 	update_monsters(delta)
@@ -1000,7 +1083,7 @@ func update_player(delta: float):
 	var is_town = (last_level_idx == 0)
 
 	if player_light:
-		if is_town:
+		if is_town or not hero_torchlight_enabled:
 			player_light.enabled = false
 		else:
 			player_light.enabled = true

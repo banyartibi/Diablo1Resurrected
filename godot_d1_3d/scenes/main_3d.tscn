@@ -72,6 +72,7 @@ world_env = NodePath("GameView/WorldEnvironment")
 
 [node name="GameView" type="SubViewport" parent="."]
 size = Vector2i(2560, 1440)
+use_hdr_2d = true
 render_target_update_mode = 4
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="GameView"]

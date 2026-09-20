@@ -465,7 +465,7 @@ func _refresh_option_values() -> void:
 	_options_refreshing = true
 	var mv := OPT_VOLUME_MIN
 	var sv := OPT_VOLUME_MIN
-	var g := (OPT_GAMMA_MIN + OPT_GAMMA_MAX) / 2
+	var g := 70
 	var s := OPT_SPEED_MIN
 	if diablo_bridge.has_method("get_music_volume"):
 		mv = int(diablo_bridge.get_music_volume())
@@ -486,7 +486,7 @@ func _refresh_option_values() -> void:
 	_opt_gamma_value.text = "%d%%" % g
 	_opt_speed_slider.value = float(s)
 	_opt_speed_value.text = _speed_label(s)
-	var b := 100
+	var b := 120
 	if brightness_host and brightness_host.has_method("get_brightness"):
 		b = clampi(int(brightness_host.get_brightness()), OPT_BRIGHTNESS_MIN, OPT_BRIGHTNESS_MAX)
 	_opt_brightness_slider.value = float(b)

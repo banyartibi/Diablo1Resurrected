@@ -33,7 +33,7 @@ var hero_light_enabled: bool = false    # Default: DISABLED (pause-menu driven)
 @onready var dungeon_embers: GPUParticles3D = get_node_or_null("GameView/DungeonEmbers3D")
 
 # Godot-native global Brightness (SubViewport post-process). Independent of the C++/palette gamma pipeline.
-var current_brightness_pct := 100        # Default: 100% (neutral)
+var current_brightness_pct := 120        # Default: 120% (balanced contrast)
 var brightness_material: ShaderMaterial = null
 var composite_rect: TextureRect = null
 
@@ -137,7 +137,7 @@ var color_names = [
 
 var fog_names = [
 	"Atmospheric Fog: OFF (Default)",
-	"Atmospheric Fog: Crypt Mist (Subtle Dungeon Pára)",
+	"Atmospheric Fog: Crypt Mist (Subtle Dungeon Haze)",
 	"Atmospheric Fog: Dense Drift (Hellfire Smoke)"
 ]
 
@@ -257,6 +257,14 @@ func _ready():
 	native_25d_instance = native_25d_scene.instantiate()
 	game_view.add_child(native_25d_instance)
 	native_25d_instance.diablo_bridge = diablo_bridge
+	if native_25d_instance.has_method("apply_all_resurrected_settings"):
+		native_25d_instance.apply_all_resurrected_settings(
+			hero_light_enabled,
+			current_fog_mode,
+			current_upscaler_mode,
+			current_relief_mode,
+			wet_floor
+		)
 	native_25d_instance.deactivate()
 
 	# Initialize Native 3D Sandbox (Mode 2)
@@ -357,13 +365,15 @@ func setup_modal_overlay():
 
 func update_torch_light():
 	if hero_light:
-		hero_light.visible = hero_light_enabled
+		hero_light.visible = hero_light_enabled and current_display_mode == DisplayMode.ORIGINAL_25D
 		hero_light.light_color = Color(1.0, 0.75, 0.42, 1.0) # Warm gothic amber candlelight
 		hero_light.light_energy = 0.55
 		hero_light.light_specular = 0.0 # Pure diffuse, zero sharp directional glints!
 		hero_light.omni_range = 3.2
 		hero_light.omni_attenuation = 1.4 # Soft, even 360-degree ambient falloff
 		hero_light.shadow_enabled = false
+	if native_25d_instance and native_25d_instance.has_method("set_soft_torchlight"):
+		native_25d_instance.set_soft_torchlight(hero_light_enabled)
 
 func show_osd(text: String, duration: float = 2.5):
 	if osd_label:
@@ -390,25 +400,34 @@ func apply_upscaler_mode():
 	var vp = game_view if game_view else get_viewport()
 	if not vp: return
 	
-	if current_upscaler_mode == 0:
-		# AMD FidelityFX CAS Super-Resolution
-		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
-		vp.scaling_3d_scale = 1.0
-		vp.fsr_sharpness = 1.2
-	elif current_upscaler_mode in [1, 2]:
-		# Anime4K Neural Edge / Ultra Thin Lines
+	if current_display_mode != DisplayMode.ORIGINAL_25D:
+		# Mode 1 (Native 2.5D) and Mode 2 (Pure 3D Sandbox) use native Godot 2D/3D pipelines.
+		# Mode 1 runs in 2D and must ALWAYS use BILINEAR on the SubViewport to prevent FSR2 edge artifacts / grid seams.
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		vp.scaling_3d_scale = 1.0
-	elif current_upscaler_mode == 3:
-		# 8K Catmull-Rom Bicubic Spline (Default)
-		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
-		vp.scaling_3d_scale = 1.0
-		vp.fsr_sharpness = 1.0
-	elif current_upscaler_mode == 4:
-		# Native 1:1 Direct Pixel-Art
-		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
-		vp.scaling_3d_scale = 1.0
-		
+	else:
+		if current_upscaler_mode == 0:
+			# AMD FidelityFX CAS Super-Resolution
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+			vp.scaling_3d_scale = 1.0
+			vp.fsr_sharpness = 1.2
+		elif current_upscaler_mode in [1, 2]:
+			# Anime4K Neural Edge / Ultra Thin Lines
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+			vp.scaling_3d_scale = 1.0
+		elif current_upscaler_mode == 3:
+			# 8K Catmull-Rom Bicubic Spline (Default)
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
+			vp.scaling_3d_scale = 1.0
+			vp.fsr_sharpness = 1.0
+		elif current_upscaler_mode == 4:
+			# Native 1:1 Direct Pixel-Art
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+			vp.scaling_3d_scale = 1.0
+
+	if native_25d_instance and native_25d_instance.has_method("set_upscaler_mode"):
+		native_25d_instance.set_upscaler_mode(current_upscaler_mode)
+
 	update_shader_params()
 
 # --- GameView SubViewport + global Brightness composite ----------------------
@@ -421,6 +440,7 @@ func _setup_game_view():
 	var vp_size = get_viewport().get_visible_rect().size
 	game_view.size = Vector2i(vp_size) if (vp_size.x > 0 and vp_size.y > 0) else Vector2i(2560, 1440)
 	game_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	game_view.use_hdr_2d = true
 	# Mirror the project rendering settings onto GameView (they only apply to the root window by default).
 	game_view.msaa_3d = 2
 	game_view.screen_space_aa = 1
@@ -448,6 +468,7 @@ func _setup_game_view():
 	if shd:
 		brightness_material.shader = shd
 	brightness_material.set_shader_parameter("brightness", float(current_brightness_pct) / 100.0)
+	brightness_material.set_shader_parameter("color_profile", current_color_profile if current_display_mode != DisplayMode.ORIGINAL_25D else 0)
 	composite_rect.material = brightness_material
 
 	composite_rect.texture = game_view.get_texture()
@@ -498,13 +519,29 @@ func update_shader_params():
 			shader_material.set_shader_parameter("right_panel_rect", Vector4(rp.position.x, rp.position.y, rp.size.x, rp.size.y))
 		shader_material.set_shader_parameter("hide_vanilla_hud", modern_hud_enabled and last_is_ingame)
 
+	if brightness_material:
+		brightness_material.set_shader_parameter("color_profile", current_color_profile if current_display_mode != DisplayMode.ORIGINAL_25D else 0)
+
+	if world_env and world_env.environment:
+		if current_display_mode == DisplayMode.NATIVE_25D:
+			world_env.environment.glow_enabled = (current_hdr_level > 0)
+			if current_hdr_level > 0:
+				world_env.environment.glow_intensity = 0.85 * hdr_multipliers[current_hdr_level]
+				world_env.environment.glow_bloom = 0.35 * hdr_multipliers[current_hdr_level]
+
+	if native_25d_instance:
+		if native_25d_instance.has_method("set_relief_mode"):
+			native_25d_instance.set_relief_mode(current_relief_mode)
+		if native_25d_instance.has_method("set_wet_floor"):
+			native_25d_instance.set_wet_floor(wet_floor)
+
 func update_fog_mode():
 	if world_env and world_env.environment:
 		var env = world_env.environment
 		if current_fog_mode == 0:
 			env.volumetric_fog_enabled = false
 		elif current_fog_mode == 1:
-			# Crypt Mist (Subtle atmospheric dungeon pára - Default)
+			# Crypt Mist (Subtle atmospheric dungeon haze - Default)
 			env.volumetric_fog_enabled = true
 			env.volumetric_fog_density = 0.016
 			env.volumetric_fog_emission = Color(0.02, 0.02, 0.02, 1)
@@ -515,6 +552,9 @@ func update_fog_mode():
 			env.volumetric_fog_density = 0.038
 			env.volumetric_fog_emission = Color(0.06, 0.03, 0.015, 1)
 			env.volumetric_fog_emission_energy = 0.35
+
+	if native_25d_instance and native_25d_instance.has_method("set_atmospheric_fog"):
+		native_25d_instance.set_atmospheric_fog(current_fog_mode)
 
 # --- DEBUG (dev only): external screenshot + state dump trigger --------------
 # Touch /tmp/d1_dbg_shot_req to capture a viewport PNG and log the current
@@ -913,6 +953,8 @@ func apply_display_mode():
 		if world_env and world_env.environment:
 			world_env.environment.glow_enabled = true
 			update_fog_mode()
+		if brightness_material:
+			brightness_material.set_shader_parameter("color_profile", 0)
 		if camera:
 			camera.make_current()
 		show_osd("Display Mode 1/3: Classic 2.5D Blit (Vanilla + 3D Relief Shader)", 3.5)
@@ -938,10 +980,23 @@ func apply_display_mode():
 			dungeon_embers.visible = false
 		if world_env and world_env.environment:
 			world_env.environment.volumetric_fog_enabled = false
-			world_env.environment.glow_enabled = false
+			world_env.environment.glow_enabled = (current_hdr_level > 0)
+			if current_hdr_level > 0:
+				world_env.environment.glow_intensity = 0.85 * hdr_multipliers[current_hdr_level]
+				world_env.environment.glow_bloom = 0.35 * hdr_multipliers[current_hdr_level]
+		if brightness_material:
+			brightness_material.set_shader_parameter("color_profile", current_color_profile)
 		if modal_layer and diablo_bridge and diablo_bridge.has_method("is_modal_active"):
 			modal_layer.visible = diablo_bridge.is_modal_active()
 		if native_25d_instance:
+			if native_25d_instance.has_method("apply_all_resurrected_settings"):
+				native_25d_instance.apply_all_resurrected_settings(
+					hero_light_enabled,
+					current_fog_mode,
+					current_upscaler_mode,
+					current_relief_mode,
+					wet_floor
+				)
 			native_25d_instance.activate()
 		show_osd("Display Mode 2/3: Native Godot 2.5D Engine (144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)", 3.5)
 
@@ -967,11 +1022,15 @@ func apply_display_mode():
 		if world_env and world_env.environment:
 			world_env.environment.volumetric_fog_enabled = false
 			world_env.environment.glow_enabled = false
+		if brightness_material:
+			brightness_material.set_shader_parameter("color_profile", current_color_profile)
 		if modal_layer and diablo_bridge and diablo_bridge.has_method("is_modal_active"):
 			modal_layer.visible = diablo_bridge.is_modal_active()
 		if sandbox_instance:
 			sandbox_instance.activate()
 		show_osd("Display Mode 3/3: Native 3D Sandbox (Real 3D Geometry, Billboard Sprites, Q/E Orbit, PgUp/PgDn Tilt)", 3.5)
+
+	apply_upscaler_mode()
 
 func switch_display_mode(new_mode: int):
 	current_display_mode = new_mode
