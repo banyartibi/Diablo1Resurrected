@@ -392,7 +392,7 @@ func _input(event: InputEvent):
 				get_viewport().set_input_as_handled()
 				return
 
-		# F1 - F12 Function Keys: Speedbook binding OR Quick Cast
+		# F1 - F4 Function Keys: Speedbook binding OR Quick Cast for HUD skill slots
 		elif kc >= KEY_F1 and kc <= KEY_F12:
 			var slot_idx = kc - KEY_F1
 			if is_speedbook_showing and hovered_speedbook_spell_id >= 0:

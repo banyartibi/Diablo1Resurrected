@@ -85,20 +85,21 @@ Ahelyett, hogy a Diablo 1 több százezer soros játéklogikáját és véletlen
 
 ## 3. 🎮 A Három Megjelenítési Mód (3-Mode Architecture)
 
-A játékos menet közben bármikor az **[F3]** gomb megnyomásával válthat a 3 renderelési mód között:
+A játékos menet közben bármikor a **Pause Menüből (Esc → Settings → Display Mode)** válthat a 3 renderelési mód között:
 
 ### 3.1 Mode 0: Classic 2.5D Blit (Vanilla + 3D PBR Relief Shader)
 * **Megvalósítás:** `bridge_receiver.gd` + `shaders/d1_3d_material.gdshader` + `QuadMesh`.
 * **Működési elv:** A DevilutionX 2560x1440-es felbontásban rendereli a játék képét a memóriába. A Godot minden képkockánál frissíti az `ImageTexture`-t a 3D világban elhelyezett síkon.
 * **Grafikai extrák a shaderben:**
   * **Valódi 3D felületi relief (Surface Relief / Tangent-space Normal Mapping):** A textúra luminancia-gradienséből számított PBR normáltérkép, amely fizikai mélységet ad a köveknek, padlólapoknak és boltíveknek.
-  * **Folyékony nedves padló (Wet & Reflective Cobblestone [F12]):** PBR érdesség és tükröződés fényes pocsolyákkal.
-  * **Szuperfelbontású felskálázók ([F7]):**
+  * **Folyékony nedves padló (Wet & Reflective Cobblestone):** PBR érdesség és tükröződés fényes pocsolyákkal.
+  * **Szuperfelbontású felskálázók:**
     * AMD FidelityFX Contrast Adaptive Sharpening (CAS).
     * Anime4K / Neural Edge Push (élek rekonstrukciója).
     * 16-tap Catmull-Rom 8K bikubikus spline simítás.
-  * **HDR Glow & Bloom ([F5]):** Valós idejű izzó fáklyafények.
-  * **Volumetrikus köd ([F9]) & Színprofilok ([F10]):** Dark Gothic OLED, Hellish Crimson, Crypt Cyan, Desaturated Noir.
+  * **HDR Glow & Bloom:** Valós idejű izzó fáklyafények.
+  * **Volumetrikus köd & Színprofilok:** Dark Gothic OLED, Hellish Crimson, Crypt Cyan, Desaturated Noir.
+  > *Minden vizuális beállítás a Pause Menüből (Esc → Settings) konfigurálható.*
 
 ### 3.2 Mode 1: Native Godot 2.5D Engine (144Hz Smooth Engine)
 * **Megvalósítás:** `scenes/views/native_25d_view.tscn` és `scripts/native_25d_view.gd`.
@@ -291,20 +292,12 @@ A játék hangzásáért a Godot 4.7 natív hangmotorja felel, amely lehallgatja
 
 ## 8. ⌨️ Billentyűzet & Irányítási Segédlet
 
+> **Megjegyzés:** Minden vizuális beállítás (megjelenítési mód, HDR, köd, színprofil, relief, felskálázó, nedves padló, fáklyafény) kizárólag az **Esc → Pause Menü → Settings** felületen konfigurálható. F-billentyű gyorsgombok nincsenek hozzárendelve.
+
 | Billentyű | Funkció |
 |---|---|
 | **Egérgörgő FEL** | Zoom növelése (1.0x → 1.5x → 2.0x → 2.5x → 3.0x) |
 | **Egérgörgő LE** | Zoom csökkentése (3.0x → 2.5x → 2.0x → 1.5x → 1.0x) |
-| **[F3]** | **Renderelési Mód Váltása:** Mode 0 (Classic Blit) ↔ Mode 1 (Native 2.5D) ↔ Mode 2 (Native 3D) |
-| **[F4]** | V-Sync ki/bekapcsolása (144Hz Monitor frissítés vs. korlátlan FPS) |
-| **[F5]** | HDR Izzás és Fénykoszorú szintje (Ki / 1.0x / 2.0x / 3.0x) |
-| **[F6]** | Játékos fáklyafény (Hero Torch Light) be/ki |
-| **[F7]** | Felskálázó ciklus (AMD FSR CAS / Neural Edge / Anime4K / 8K Catmull-Rom / Native) |
-| **[F8]** | Valós idejű FPS számláló ki/be |
-| **[F9]** | Volumetrikus köd mód (Ki / Kripta Pára / Sűrű Pokoltűz Füst) |
-| **[F10]** | Színprofil ciklus (1996 Classic / Dark Gothic OLED / Hellish Crimson / Crypt Cyan / Noir) |
-| **[F11]** | 3D Felületi Relief ciklus (Ki / Finom / Kiegyensúlyozott / Mély 3D / Extrém) |
-| **[F12]** | Vizes kövezett padló PBR pocsolya-tükröződések ki/be |
 | **[Q] / [E]** | *(Mode 2-ben)* Kamera körbeforgatása (Orbit Yaw) a játékos körül |
 | **[PageUp] / [PgDn]** | *(Mode 2-ben)* Kamera dőlésszögének állítása (Pitch 25° - 75°) |
 | **[C]** | Karakterlap megnyitása / bezárása |

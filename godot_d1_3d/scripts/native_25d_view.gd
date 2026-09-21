@@ -98,6 +98,7 @@ var fog_material: ShaderMaterial = null
 var current_upscaler_mode: int = 3
 var current_relief_mode: int = 3
 var wet_floor: bool = true
+var current_hdr_level: int = 1
 
 # Continuous 2.5D GPU Isometric Lightmap & Shared Tile PBR Material
 var d2r_pbr_shader = preload("res://shaders/d2r_25d_pbr.gdshader")
@@ -340,12 +341,16 @@ func set_wet_floor(enabled: bool) -> void:
 	if dungeon_tile_material:
 		dungeon_tile_material.set_shader_parameter("wet_floor", enabled)
 
-func apply_all_resurrected_settings(torch: bool, fog: int, upscaler: int, relief: int, wet: bool) -> void:
+func set_hdr_level(level: int) -> void:
+	current_hdr_level = clamp(level, 0, 3)
+
+func apply_all_resurrected_settings(torch: bool, fog: int, upscaler: int, relief: int, wet: bool, hdr: int = 1) -> void:
 	set_soft_torchlight(torch)
 	set_atmospheric_fog(fog)
 	set_upscaler_mode(upscaler)
 	set_relief_mode(relief)
 	set_wet_floor(wet)
+	set_hdr_level(hdr)
 
 func activate():
 	is_active = true
@@ -1283,13 +1288,15 @@ func update_torches():
 			var rad = float(info.get("radius", 6))
 
 			if l_type == 1: # Wall torch / brazier
-				pl.color = Color(1.0, 0.72, 0.35)
-				pl.energy = 0.85 * t_flicker
-				pl.texture_scale = clampf(rad * 0.22, 1.0, 2.2)
+				var hdr_torch_energy = [0.75, 0.95, 1.25, 1.60][current_hdr_level]
+				pl.color = Color(1.0, 0.72 + float(current_hdr_level) * 0.04, 0.35 + float(current_hdr_level) * 0.05)
+				pl.energy = hdr_torch_energy * t_flicker
+				pl.texture_scale = clampf(rad * (0.22 + float(current_hdr_level) * 0.03), 1.0, 2.6)
 			elif l_type == 2: # Spell / missile (Fireball, flame)
+				var hdr_missile_energy = [1.00, 1.35, 1.85, 2.50][current_hdr_level]
 				pl.color = Color(1.0, 0.88, 0.50)
-				pl.energy = 1.25 * t_flicker
-				pl.texture_scale = clampf(rad * 0.26, 1.2, 2.5)
+				pl.energy = hdr_missile_energy * t_flicker
+				pl.texture_scale = clampf(rad * (0.26 + float(current_hdr_level) * 0.04), 1.2, 3.0)
 			else:
 				pl.color = Color(0.95, 0.70, 0.40)
 				pl.energy = 0.70
@@ -1382,11 +1389,19 @@ func update_objects():
 		var is_sarc = (o_type == 48 or o_type == 108)
 		var is_town = (last_level_idx == 0)
 
+		var flame_mod = Color(1.0, 0.96, 0.92)
+		if current_hdr_level == 1:
+			flame_mod = Color(2.2, 1.65, 0.95)
+		elif current_hdr_level == 2:
+			flame_mod = Color(3.2, 2.30, 1.15)
+		elif current_hdr_level == 3:
+			flame_mod = Color(4.5, 3.10, 1.35)
+
 		if is_town:
 			var light_val = light_grid[tile_idx] if has_light else 0
 			var bright = clamp(1.0 - float(light_val) / 15.0, 0.0, 1.0)
 			if is_flame:
-				spr.self_modulate = Color(1.0, 1.0, 1.0)
+				spr.self_modulate = flame_mod
 			else:
 				spr.self_modulate = Color(0.82, 0.84, 0.88).lerp(Color(1.0, 0.98, 0.95), bright * 0.65)
 			spr.visible = true
@@ -1407,13 +1422,18 @@ func update_objects():
 				if ty > 0 and light_grid[tile_idx - 112] < light_val:
 					light_val = light_grid[tile_idx - 112]
 
-			var o_norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
-			var o_factor = pow(o_norm, 1.8)
 			if is_flame:
-				o_factor = max(0.85, o_factor)
-			spr.self_modulate = Color(0.040, 0.042, 0.055).lerp(Color(1.0, 0.96, 0.92), max(0.0, o_factor))
+				spr.self_modulate = flame_mod
+			else:
+				var o_norm = clamp(1.0 - float(light_val) / 14.5, 0.0, 1.0)
+				var o_factor = pow(o_norm, 1.8)
+				spr.self_modulate = Color(0.040, 0.042, 0.055).lerp(Color(1.0, 0.96, 0.92), max(0.0, o_factor))
 			spr.visible = true
 		else:
+			if is_flame:
+				spr.self_modulate = flame_mod
+			else:
+				spr.self_modulate = Color(1.0, 1.0, 1.0)
 			spr.visible = true
 
 	for o_id in object_sprites:
@@ -1579,8 +1599,10 @@ func update_ground_items():
 				tw_f.tween_property(flare, "scale", Vector2(1.3, 1.3), 1.1).set_trans(Tween.TRANS_SINE)
 				tw_f.tween_property(flare, "scale", Vector2(0.9, 0.9), 1.1).set_trans(Tween.TRANS_SINE)
 
-			# Color modulate based on quality
-			var beam_col = COLOR_MAGIC if quality == 1 else COLOR_UNIQUE
+			# Color modulate based on quality with HDR boost
+			var hdr_loot_mult = [1.0, 1.6, 2.4, 3.4][current_hdr_level]
+			var base_beam = COLOR_MAGIC if quality == 1 else COLOR_UNIQUE
+			var beam_col = Color(base_beam.r * hdr_loot_mult, base_beam.g * hdr_loot_mult, base_beam.b * hdr_loot_mult, base_beam.a)
 			var flare_sprite = beam_node.get_node_or_null("GroundFlare") as Sprite2D
 			var pillar_sprite = beam_node.get_node_or_null("Pillar") as Sprite2D
 			var parts = beam_node.get_node_or_null("Particles") as CPUParticles2D
@@ -1772,7 +1794,14 @@ func update_missiles():
 		# Non-glowing missiles (arrows) sample the dungeon light grid
 		if spr:
 			if light_flag:
-				spr.self_modulate = Color(1.0, 1.0, 1.0)
+				var m_mod = Color(1.0, 1.0, 1.0)
+				if current_hdr_level == 1:
+					m_mod = Color(2.4, 1.8, 1.1)
+				elif current_hdr_level == 2:
+					m_mod = Color(3.6, 2.5, 1.3)
+				elif current_hdr_level == 3:
+					m_mod = Color(5.0, 3.4, 1.6)
+				spr.self_modulate = m_mod
 			elif has_light:
 				var tile_idx = clamp(m_ty, 0, 111) * 112 + clamp(m_tx, 0, 111)
 				var l_val = light_grid[tile_idx]

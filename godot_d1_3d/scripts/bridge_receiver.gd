@@ -111,7 +111,16 @@ var zoom_step_names = [
 	"3.0x (Epikus Makró / Macro Close)"
 ]
 
-var hdr_multipliers = [0.0, 1.0, 2.0, 3.0]
+# Mode 0 (Classic Blit / Legacy) calibrated HDR multipliers:
+# The former 1.0x level is now 3.0x (max) to prevent excessive blown-out bloom
+var mode0_hdr_multipliers = [0.0, 0.35, 0.70, 1.00]
+
+# Mode 1 (Native Godot 2.5D) next-gen vibrant HDR parameters:
+var mode1_hdr_multipliers = [0.0, 1.0, 2.0, 3.0]
+var mode1_glow_intensities = [0.0, 1.10, 1.50, 2.00]
+var mode1_glow_blooms = [0.0, 0.65, 1.05, 1.55]
+var mode1_glow_strengths = [1.0, 1.15, 1.25, 1.40]
+
 var hdr_names = [
 	"Engine HDR Glow: OFF (0.0x)",
 	"Engine HDR Glow: 1.0x (Subtle Natural Glow - Default)",
@@ -263,7 +272,8 @@ func _ready():
 			current_fog_mode,
 			current_upscaler_mode,
 			current_relief_mode,
-			wet_floor
+			wet_floor,
+			current_hdr_level
 		)
 	native_25d_instance.deactivate()
 
@@ -502,12 +512,56 @@ func toggle_hd_graphics() -> bool:
 	set_hd_graphics_enabled(not get_hd_graphics_enabled())
 	return get_hd_graphics_enabled()
 
+func _apply_environment_glow():
+	if not world_env or not world_env.environment:
+		return
+	var env = world_env.environment
+	var is_on = (current_hdr_level > 0)
+	env.glow_enabled = is_on
+	if not is_on:
+		return
+
+	if current_display_mode == DisplayMode.ORIGINAL_25D:
+		# Mode 0: Blit / legacy 3D quad view
+		# Scaled so that 3.0x is equal to former 1.0x (no more blown-out blinding white fog)
+		var m0 = mode0_hdr_multipliers[current_hdr_level]
+		env.glow_hdr_threshold = 0.98
+		env.glow_hdr_scale = 2.0
+		env.glow_intensity = 0.85 * m0
+		env.glow_bloom = 0.35 * m0
+		env.glow_strength = 1.15
+		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+		env.set("glow_levels/1", 0.0)
+		env.set("glow_levels/2", 0.8)
+		env.set("glow_levels/3", 0.4)
+		env.set("glow_levels/4", 0.1)
+		env.set("glow_levels/5", 0.0)
+	elif current_display_mode == DisplayMode.NATIVE_25D:
+		# Mode 1: Native Godot 2.5D View
+		# Rich, multi-octave vibrant bloom on torches, braziers, spells and loot beams
+		env.glow_hdr_threshold = 0.85
+		env.glow_hdr_scale = 2.0
+		env.glow_intensity = mode1_glow_intensities[current_hdr_level]
+		env.glow_bloom = mode1_glow_blooms[current_hdr_level]
+		env.glow_strength = mode1_glow_strengths[current_hdr_level]
+		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+		env.set("glow_levels/1", 0.70)
+		env.set("glow_levels/2", 0.85)
+		env.set("glow_levels/3", 1.00)
+		env.set("glow_levels/4", 0.75)
+		env.set("glow_levels/5", 0.50)
+	else:
+		# Mode 2: Native 3D Sandbox
+		env.glow_hdr_threshold = 0.95
+		env.glow_intensity = 0.6
+		env.glow_bloom = 0.3
+
 func update_shader_params():
 	if shader_material:
 		shader_material.set_shader_parameter("color_profile", current_color_profile)
 		shader_material.set_shader_parameter("upscaler_mode", current_upscaler_mode)
 		shader_material.set_shader_parameter("relief_mode", current_relief_mode)
-		shader_material.set_shader_parameter("hdr_glow_mult", hdr_multipliers[current_hdr_level])
+		shader_material.set_shader_parameter("hdr_glow_mult", mode0_hdr_multipliers[current_hdr_level])
 		shader_material.set_shader_parameter("wet_floor", wet_floor)
 		shader_material.set_shader_parameter("playfield_zoom", playfield_zoom)
 		shader_material.set_shader_parameter("left_panel_open", left_panel_open)
@@ -522,18 +576,18 @@ func update_shader_params():
 	if brightness_material:
 		brightness_material.set_shader_parameter("color_profile", current_color_profile if current_display_mode != DisplayMode.ORIGINAL_25D else 0)
 
-	if world_env and world_env.environment:
-		if current_display_mode == DisplayMode.NATIVE_25D:
-			world_env.environment.glow_enabled = (current_hdr_level > 0)
-			if current_hdr_level > 0:
-				world_env.environment.glow_intensity = 0.85 * hdr_multipliers[current_hdr_level]
-				world_env.environment.glow_bloom = 0.35 * hdr_multipliers[current_hdr_level]
+	if directional_light:
+		directional_light.light_color = Color.WHITE if current_color_profile == 0 else Color(0.96, 0.78, 0.50, 1)
+
+	_apply_environment_glow()
 
 	if native_25d_instance:
 		if native_25d_instance.has_method("set_relief_mode"):
 			native_25d_instance.set_relief_mode(current_relief_mode)
 		if native_25d_instance.has_method("set_wet_floor"):
 			native_25d_instance.set_wet_floor(wet_floor)
+		if native_25d_instance.has_method("set_hdr_level"):
+			native_25d_instance.set_hdr_level(current_hdr_level)
 
 func update_fog_mode():
 	if world_env and world_env.environment:
@@ -552,6 +606,12 @@ func update_fog_mode():
 			env.volumetric_fog_density = 0.038
 			env.volumetric_fog_emission = Color(0.06, 0.03, 0.015, 1)
 			env.volumetric_fog_emission_energy = 0.35
+
+	if dungeon_embers:
+		var is_town = (last_level_idx == 0) if last_level_idx != -999 else (diablo_bridge != null and diablo_bridge.has_method("get_current_level") and diablo_bridge.get_current_level() == 0)
+		var should_emit = not is_town and last_is_ingame and current_fog_mode > 0 and current_display_mode == DisplayMode.ORIGINAL_25D
+		dungeon_embers.emitting = should_emit
+		dungeon_embers.visible = should_emit
 
 	if native_25d_instance and native_25d_instance.has_method("set_atmospheric_fog"):
 		native_25d_instance.set_atmospheric_fog(current_fog_mode)
@@ -647,7 +707,7 @@ func _process(delta: float):
 				update_shader_params()
 				show_osd("Color Profile: " + color_names[current_color_profile], 2.5)
 			var new_hdr = int(diablo_bridge.get_resurrected_hdr_level())
-			if new_hdr != current_hdr_level and new_hdr >= 0 and new_hdr < hdr_multipliers.size():
+			if new_hdr != current_hdr_level and new_hdr >= 0 and new_hdr < hdr_names.size():
 				current_hdr_level = new_hdr
 				update_shader_params()
 				show_osd(hdr_names[current_hdr_level], 2.5)
@@ -946,13 +1006,14 @@ func apply_display_mode():
 			effects_container.visible = true
 		if directional_light:
 			directional_light.visible = true
+			directional_light.light_color = Color.WHITE if current_color_profile == 0 else Color(0.96, 0.78, 0.50, 1)
 		if dungeon_embers:
 			var is_town = (last_level_idx == 0) if last_level_idx != -999 else (diablo_bridge != null and diablo_bridge.has_method("get_current_level") and diablo_bridge.get_current_level() == 0)
-			dungeon_embers.emitting = not is_town and is_ingame
-			dungeon_embers.visible = not is_town and is_ingame
-		if world_env and world_env.environment:
-			world_env.environment.glow_enabled = true
-			update_fog_mode()
+			var should_emit = not is_town and is_ingame and current_fog_mode > 0
+			dungeon_embers.emitting = should_emit
+			dungeon_embers.visible = should_emit
+		_apply_environment_glow()
+		update_fog_mode()
 		if brightness_material:
 			brightness_material.set_shader_parameter("color_profile", 0)
 		if camera:
@@ -980,10 +1041,7 @@ func apply_display_mode():
 			dungeon_embers.visible = false
 		if world_env and world_env.environment:
 			world_env.environment.volumetric_fog_enabled = false
-			world_env.environment.glow_enabled = (current_hdr_level > 0)
-			if current_hdr_level > 0:
-				world_env.environment.glow_intensity = 0.85 * hdr_multipliers[current_hdr_level]
-				world_env.environment.glow_bloom = 0.35 * hdr_multipliers[current_hdr_level]
+		_apply_environment_glow()
 		if brightness_material:
 			brightness_material.set_shader_parameter("color_profile", current_color_profile)
 		if modal_layer and diablo_bridge and diablo_bridge.has_method("is_modal_active"):
@@ -995,7 +1053,8 @@ func apply_display_mode():
 					current_fog_mode,
 					current_upscaler_mode,
 					current_relief_mode,
-					wet_floor
+					wet_floor,
+					current_hdr_level
 				)
 			native_25d_instance.activate()
 		show_osd("Display Mode 2/3: Native Godot 2.5D Engine (144Hz Smooth Camera, Y-Sorted Sprites, PointLight2D)", 3.5)
@@ -1130,6 +1189,7 @@ func _unhandled_input(event: InputEvent):
 			raw_code = event.physical_keycode
 		if raw_code == 0:
 			raw_code = event.key_label
+
 		var key = get_sdl_key(raw_code)
 		var state = 1 if event.pressed else 0
 		var uni = event.unicode if event.pressed else 0
@@ -1251,11 +1311,21 @@ func update_dynamic_lighting(delta: float) -> void:
 		var o_light = pooled_torch_lights[i]
 		if i < env_count:
 			var info = active_lights[i + 1]
+			var l_type = info.get("type", 0)
+			var sparks = o_light.get_node_or_null("TorchSparks")
+
+			# Wall torches/braziers (type 1) only active when Soft Torchlight is enabled;
+			# spell missiles (type 2) remain active for projectile lighting feedback.
+			if l_type == 1 and not hero_light_enabled:
+				o_light.visible = false
+				if sparks:
+					sparks.visible = false
+					sparks.emitting = false
+				continue
+
 			o_light.visible = true
 			var lp = info["world_pos"]
 			o_light.position = Vector3(lp.x, lp.y, 0.30)
-			var l_type = info["type"]
-			var sparks = o_light.get_node_or_null("TorchSparks")
 			if l_type == 1: # Wall Torch / Brazier
 				o_light.light_color = Color(1.0, 0.68, 0.28, 1.0)
 				o_light.omni_range = clamp(info["radius"] * 0.26, 1.8, 2.8)
