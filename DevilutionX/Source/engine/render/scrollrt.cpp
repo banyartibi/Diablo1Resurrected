@@ -1510,6 +1510,10 @@ void DrawFPS(const Surface &out)
 
 	DrawString(out, formatted, Point { 8, 68 }, { UiFlags::ColorRed });
 
+	if (gbGodotBridgeActive) {
+		return;
+	}
+
 	switch (CurrentShaderStyle) {
 	case ShaderStyle::AI_Neural_CNN:
 		DrawString(out, "Style [1/12]: [AI Neural CNN (Deep Learning Super-Resolution)]", Point { 8, 86 }, { UiFlags::ColorGold });
