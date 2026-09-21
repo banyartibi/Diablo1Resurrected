@@ -940,12 +940,12 @@ func update_lighting_and_transparency():
 			if wall_spr:
 				wall_spr.visible = true
 				wall_spr.self_modulate = Color(1.0, 1.0, 1.0)
-				wall_spr.modulate.a = wall_alpha
+				wall_spr.modulate.a = 1.0 # Opaque; texture alpha drives transparency via blend_mix
 
 			if arch_spr:
 				arch_spr.visible = true
 				arch_spr.self_modulate = Color(1.0, 1.0, 1.0)
-				arch_spr.modulate.a = wall_alpha
+				arch_spr.modulate.a = 1.0 # Opaque; texture alpha drives transparency via blend_mix
 
 			if enable_wall_occluders:
 				var occ = tile_occluders.get(pos_key, null)
@@ -1288,15 +1288,15 @@ func update_torches():
 			var rad = float(info.get("radius", 6))
 
 			if l_type == 1: # Wall torch / brazier
-				var hdr_torch_energy = [0.75, 0.95, 1.25, 1.60][current_hdr_level]
+				var hdr_torch_energy = [0.80, 1.00, 1.25, 1.50][current_hdr_level]
 				pl.color = Color(1.0, 0.72 + float(current_hdr_level) * 0.04, 0.35 + float(current_hdr_level) * 0.05)
 				pl.energy = hdr_torch_energy * t_flicker
-				pl.texture_scale = clampf(rad * (0.22 + float(current_hdr_level) * 0.03), 1.0, 2.6)
+				pl.texture_scale = clampf(rad * (0.20 + float(current_hdr_level) * 0.03), 1.0, 1.9)
 			elif l_type == 2: # Spell / missile (Fireball, flame)
-				var hdr_missile_energy = [1.00, 1.35, 1.85, 2.50][current_hdr_level]
+				var hdr_missile_energy = [1.00, 1.30, 1.65, 1.95][current_hdr_level]
 				pl.color = Color(1.0, 0.88, 0.50)
 				pl.energy = hdr_missile_energy * t_flicker
-				pl.texture_scale = clampf(rad * (0.26 + float(current_hdr_level) * 0.04), 1.2, 3.0)
+				pl.texture_scale = clampf(rad * (0.24 + float(current_hdr_level) * 0.03), 1.2, 2.2)
 			else:
 				pl.color = Color(0.95, 0.70, 0.40)
 				pl.energy = 0.70
@@ -1391,11 +1391,11 @@ func update_objects():
 
 		var flame_mod = Color(1.0, 0.96, 0.92)
 		if current_hdr_level == 1:
-			flame_mod = Color(2.2, 1.65, 0.95)
+			flame_mod = Color(1.4, 1.1, 0.7)
 		elif current_hdr_level == 2:
-			flame_mod = Color(3.2, 2.30, 1.15)
+			flame_mod = Color(1.8, 1.45, 0.95)
 		elif current_hdr_level == 3:
-			flame_mod = Color(4.5, 3.10, 1.35)
+			flame_mod = Color(2.1, 1.65, 1.1)
 
 		if is_town:
 			var light_val = light_grid[tile_idx] if has_light else 0
@@ -1796,11 +1796,11 @@ func update_missiles():
 			if light_flag:
 				var m_mod = Color(1.0, 1.0, 1.0)
 				if current_hdr_level == 1:
-					m_mod = Color(2.4, 1.8, 1.1)
+					m_mod = Color(1.4, 1.15, 0.9)
 				elif current_hdr_level == 2:
-					m_mod = Color(3.6, 2.5, 1.3)
+					m_mod = Color(1.75, 1.4, 1.05)
 				elif current_hdr_level == 3:
-					m_mod = Color(5.0, 3.4, 1.6)
+					m_mod = Color(2.1, 1.6, 1.2)
 				spr.self_modulate = m_mod
 			elif has_light:
 				var tile_idx = clamp(m_ty, 0, 111) * 112 + clamp(m_tx, 0, 111)

@@ -11,9 +11,11 @@
 #include "control.h"
 #include "controls/axis_direction.h"
 #include "controls/controller_motion.h"
+#include "diablo.h"
 #include "engine.h"
 #include "engine/clx_sprite.hpp"
 #include "engine/load_cel.hpp"
+#include "engine/render_bridge.hpp"
 #include "engine/render/clx_render.hpp"
 #include "engine/render/text_render.hpp"
 #include "options.h"
@@ -333,6 +335,7 @@ void gmenu_draw(const Surface &out)
 		GameMenuMove();
 		if (gmenu_current_option != nullptr)
 			gmenu_current_option();
+		if (gbHideVanillaHUD && gbRunGame) return;
 		if (gbIsHellfire) {
 			const uint32_t ticks = SDL_GetTicks();
 			if ((int)(ticks - LogoAnim_tick) > 25) {

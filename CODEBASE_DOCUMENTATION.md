@@ -106,7 +106,7 @@ A játékos menet közben bármikor a **Pause Menüből (Esc → Settings → Di
 * **Működési elv:** A Godot nem egy egybefüggő videoképet jelenít meg, hanem **darabjaira bontva építi fel a világot Godot Node2D elemekből**:
   * **Dungeon DPieces (Pályaelemek):** A `diablo_bridge.get_dungeon_grid()` alapján az 56x56 / 112x112-es pályarács elemeit közvetlenül kinyeri és kesselve (`get_dungeon_piece_texture()`) helyezi el izometrikus gyémántrácson ($X_{screen} = (X - Y) \cdot 32$, $Y_{screen} = (X + Y) \cdot 16$).
   * **Boltívek és oszlopok (Special CELs):** Oszlopfejek, ajtókeretek, boltívek automatikus maszkolása és felülrétegzése (`get_dungeon_special_grid()`).
-  * **Frontfal átlátszóság (Wall Transparency):** A játékos mögé eső elülső falak automatikusan félig átlátszóvá válnak az autentikus `dTransVal` és `GetTransList()` alapján.
+  * **Frontfal átlátszóság (Wall Transparency):** A falak/arche most már pixel-szintű textúra-alphát textúrájukból vesznek (“blend_mix”) — a lapos 0.65 ghost-tile hack eltávolítva; a natív mode textúrák nem rögzítenek be az autentikus TRN átlátszást, így az átlátság kizárólag texture-driven alpha.
   * **Organikus megvilágítás (Smooth Per-Tile Lighting):** A 112x112-es `dLight` rácsot a szomszédos tile-ok átlagolásával és Hermite smoothstep interpolációval simítja, megszüntetve a kockás megvilágítási határokat.
   * **Entitások és Y-Sorting:**
     * **Játékos és Szörnyek:** A CLX sprite-ok raszterizálva kerülnek fel a képernyőre (`get_player_sprite_data`, `get_monster_sprite_data`), Godot Y-sortinggal mélységhelyesen rendezve.
@@ -304,6 +304,8 @@ A játék hangzásáért a Godot 4.7 natív hangmotorja felel, amely lehallgatja
 | **[I]** | Leltár megnyitása / bezárása |
 | **[Q]** | Küldetésnapló megnyitása / bezárása |
 | **[Tab]** | Automap (átlátszó térkép) ki/bekapcsolása |
+| **[G]** | Grafika-stílus toggle: Resurrected 4x HD / Authentic 1996 Pixel Art |
+| **[H]** | Modern/Classic HUD switch - Mode 0 only; other modes show OSD notice |
 | **[1] - [8]** | Övben lévő italok és tekercsek azonnali elfogyasztása |
 
 ---
@@ -382,7 +384,20 @@ A futtató szkript gondoskodik a:
   2. `run_devilutionx_hd.sh` **deprekált**: megtagadja a standalone indítást, és átkirányít a beágyazott GDExtension motorra (`./run_d1_godot3d.sh`) — így legacy megjelenítésnél is egy executable fut, mind a godot motoron.
 * **Ellenőrzés:** indítás most már garantáltan egyetlen `godot4` folyamatot indít beágyazott DevilutionX core-del; standalone binary-nak nincs közvetlen indítója.
 
-### Következő Lehetséges Lépések (Roadmap):
+### Bugfix: Mode 1 HDR bloom, tile transparency, double dialog and [H] hotkey (`bridge_receiver.gd`, `native_25d_view.gd`, `d2r_25d_pbr.gdshader`, `scrollrt.cpp`, `gmenu.cpp`):
+* **Hiba:**
+  1. Mode 1 (Native 2.5D) HDR glow: oversized bloom haloes + semi-transparent "ghost" wall/arche tiles (`62f2b99`: SubViewport env glow + sprite multipliers up to ~5x).
+  2. Blit mode (Mode 0, Modern HUD ON): double dialog - both native frame and Godot modal layer showed talk/qtext dialogs simultaneously (`DrawSText`/`DrawQText`/`gmenu_draw` were not gated by `gbHideVanillaHUD`).
+  3. `[H]` hotkey toggled Modern/Classic HUD unconditionally; in Mode 1/2 it killed the modern HUD without explanation.
+* **Ok (root cause):** The `62f2b99` commit created `_apply_environment_glow()` for Mode 1 with a low threshold and large multipliers; wall translucency came from a flat `modulate.a = 0.65` hack instead of per-pixel texture alpha; DrawView HUD elements lacked the `!gbHideVanillaHUD || !gbRunGame` gate other elements had; the KEY_H handler was not restricted by display mode.
+* **Javítás:**
+  1. Mode 1 env glow: `glow_hdr_threshold` 0.85 -> **0.90**; octaves (glow_levels/1..5) -> **0.45 / 0.35 / 0.25 / 0.15 / 0** (tight taper like Mode 0); intensities `[0, 1.10, 1.50, 2.00]` -> `[0, 0.75, 1.10, 1.45]`; blooms -> `[0, 0.35, 0.60, 0.90]`; strengths -> `[1.0, 1.05, 1.10, 1.20]`.
+  2. Torch PointLight energy `[0.75, 0.95, 1.25, 1.60]` -> `[0.80, 1.00, 1.25, 1.50]`, scale clamp -> **1.9**; missile energy `[1.00, 1.35, 1.85, 2.50]` -> `[1.00, 1.30, 1.65, 1.95]`, scale clamp -> **2.2**. flame_mod L1-L3 (2.2,1.65,0.95)/(3.2,2.30,1.15)/(4.5,3.10,1.35) -> **(1.4,1.1,0.7)/(1.8,1.45,0.95)/(2.1,1.65,1.1)**; m_mod L1-L3 (2.4,1.8,1.1)/(3.6,2.5,1.3)/(5.0,3.4,1.6) -> **(1.4,1.15,0.9)/(1.75,1.4,1.05)/(2.1,1.6,1.2)**.
+  3. Tiles: flat `modulate.a = 0.65` hack removed - walls/arche at **opacity 1.0**, per-pixel texture alpha drives transparency (`blend_mix`; shader de-premultiply extended to all tile types).
+  4. Double dialog: `DrawSText`/`DrawQText` gated with `!gbHideVanillaHUD || !gbRunGame`; `gmenu_draw()` early return (skips logo + menu rendering) when the modern HUD is hidden in game - navigation logic (`GameMenuMove`, `gmenu_current_option`) preserved.
+  5. `[H]`: toggle only Mode 0; other modes OSD: "[H] Modern/Classic HUD Switch is only available in Classic Blit Mode (Display Mode 1/3)". Modal layer condition simplified (removed the `is_qtext` clause).
+* **Ellenőrzés:** clean build (`build_gdextension.sh`, ninja 0 errors). Halo sizes are reasoned estimates - user verifies visually via `run_d1_godot3d.sh`: double dialog gone in Mode 0, tighter halos + opaque walls (texture-driven alpha) in Mode 1, [H] OSD shown in Modes 1/2.
+
 * Mode 2 (Native 3D Sandbox) továbbfejlesztése: valódi 3D-s dungeon fal-modellek és oszlopok a dobozok helyett.
 * További PBR anyagok és textúrák a környezethez.
 * Teljes játékon belüli beállítások menü a modern HUD alá.

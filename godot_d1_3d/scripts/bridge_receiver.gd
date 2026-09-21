@@ -117,9 +117,9 @@ var mode0_hdr_multipliers = [0.0, 0.35, 0.70, 1.00]
 
 # Mode 1 (Native Godot 2.5D) next-gen vibrant HDR parameters:
 var mode1_hdr_multipliers = [0.0, 1.0, 2.0, 3.0]
-var mode1_glow_intensities = [0.0, 1.10, 1.50, 2.00]
-var mode1_glow_blooms = [0.0, 0.65, 1.05, 1.55]
-var mode1_glow_strengths = [1.0, 1.15, 1.25, 1.40]
+var mode1_glow_intensities = [0.0, 0.75, 1.10, 1.45]
+var mode1_glow_blooms = [0.0, 0.35, 0.60, 0.90]
+var mode1_glow_strengths = [1.0, 1.05, 1.10, 1.20]
 
 var hdr_names = [
 	"Engine HDR Glow: OFF (0.0x)",
@@ -539,17 +539,17 @@ func _apply_environment_glow():
 	elif current_display_mode == DisplayMode.NATIVE_25D:
 		# Mode 1: Native Godot 2.5D View
 		# Rich, multi-octave vibrant bloom on torches, braziers, spells and loot beams
-		env.glow_hdr_threshold = 0.85
+		env.glow_hdr_threshold = 0.90
 		env.glow_hdr_scale = 2.0
 		env.glow_intensity = mode1_glow_intensities[current_hdr_level]
 		env.glow_bloom = mode1_glow_blooms[current_hdr_level]
 		env.glow_strength = mode1_glow_strengths[current_hdr_level]
 		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-		env.set("glow_levels/1", 0.70)
-		env.set("glow_levels/2", 0.85)
-		env.set("glow_levels/3", 1.00)
-		env.set("glow_levels/4", 0.75)
-		env.set("glow_levels/5", 0.50)
+		env.set("glow_levels/1", 0.45)
+		env.set("glow_levels/2", 0.35)
+		env.set("glow_levels/3", 0.25)
+		env.set("glow_levels/4", 0.15)
+		env.set("glow_levels/5", 0)
 	else:
 		# Mode 2: Native 3D Sandbox
 		env.glow_hdr_threshold = 0.95
@@ -834,8 +834,7 @@ func _process(delta: float):
 			# (native_modal_layer.gd); the world view does not need to rebuild.
 			if modal_layer and diablo_bridge.has_method("is_modal_active"):
 				var modal_active = diablo_bridge.is_modal_active()
-				var is_qtext = diablo_bridge.is_qtext_active() if diablo_bridge.has_method("is_qtext_active") else false
-				var should_show_modal = modal_active and (current_display_mode != DisplayMode.ORIGINAL_25D or modern_hud_enabled or is_qtext)
+				var should_show_modal = modal_active and (current_display_mode != DisplayMode.ORIGINAL_25D or modern_hud_enabled)
 				if modal_layer.visible != should_show_modal:
 					modal_layer.visible = should_show_modal
 				last_modal_active = modal_active
@@ -1107,6 +1106,9 @@ func _unhandled_input(event: InputEvent):
 		# DO NOT intercept letter keys H or G! They must type characters!
 		if not is_text_active and is_ingame:
 			if event.keycode == KEY_H:
+				if current_display_mode != DisplayMode.ORIGINAL_25D:
+					show_osd("[H] Modern/Classic HUD Switch is only available in Classic Blit Mode (Display Mode 1/3)")
+					return
 				modern_hud_enabled = !modern_hud_enabled
 				if modern_hud:
 					modern_hud.visible = modern_hud_enabled

@@ -31,8 +31,8 @@ void fragment() {
 		discard;
 	}
 
-	// Un-premultiply RGB on floor tiles near the diamond boundary to eliminate bilinear black fringe/gaps
-	vec3 base_rgb = (is_floor && tex.a > 0.01) ? (tex.rgb / max(tex.a, 0.02)) : tex.rgb;
+	// De-premultiply RGB for ALL tile types where texture alpha is meaningful (floor diamonds AND wall/arche sprites): eliminates bilinear black fringe/gaps
+	vec3 base_rgb = (tex.a > 0.01) ? (tex.rgb / max(tex.a, 0.02)) : tex.rgb;
 
 	// For floors: use per-pixel world_pos for seamless continuous lightmap interpolation.
 	// For walls: anchor lighting to the base tile center (v_foot_pos - (0, 16)).

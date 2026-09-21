@@ -1412,8 +1412,10 @@ void DrawView(const Surface &out, Point startPosition)
 	}
 	DrawFloatingNumbers(out, startPosition, offset);
 
-	if (stextflag != TalkID::None && !qtextflag)
-		DrawSText(out);
+	if (!gbHideVanillaHUD || !gbRunGame) {
+		if (stextflag != TalkID::None && !qtextflag)
+			DrawSText(out);
+	}
 	if (invflag) {
 		DrawInv(out);
 	} else if (sbookflag) {
@@ -1439,8 +1441,10 @@ void DrawView(const Surface &out, Point startPosition)
 	if (ShowUniqueItemInfoBox && !gbHideVanillaHUD) {
 		DrawUniqueInfo(out);
 	}
-	if (qtextflag) {
-		DrawQText(out);
+	if (!gbHideVanillaHUD || !gbRunGame) {
+		if (qtextflag) {
+			DrawQText(out);
+		}
 	}
 	if (spselflag && !gbHideVanillaHUD) {
 		DrawSpellList(out);
