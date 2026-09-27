@@ -1,6 +1,6 @@
-# ⚔️ Diablo 1: Resurrected – Godot 4 3D Next-Gen Engine
+# ⚔️ Diablo: Definitive Edition – Godot 4 3D Next-Gen Engine
 
-**Diablo 1: Resurrected (D1R)** is a next-generation hybrid engine that marries the authentic, deterministic logic and gameplay of **DevilutionX** with the modern 3D Vulkan Forward+ rendering pipeline of **Godot Engine 4.7**.
+**Diablo: Definitive Edition (D1DE)** is a next-generation hybrid engine that marries the authentic, deterministic logic and gameplay of **DevilutionX** with the modern 3D Vulkan Forward+ rendering pipeline of **Godot Engine 4.7**.
 
 ---
 
