@@ -190,13 +190,23 @@ public:
 	bool get_vsync_enabled() const;
 	bool get_show_fps() const;
 
-	// Resurrected display mode + rebindable mode-switch hotkey binding.
+	// Definitive Edition (D1DE) display mode + rebindable mode-switch hotkey binding.
+	int get_d1de_display_mode() const;
 	int get_resurrected_display_mode() const;
 	int get_mode_switch_key() const;
 	int get_mode_switch_mods() const;
 	void set_mode_switch_binding(int key, int mods);
 
-	// Resurrected display effect states (Mode 0), polled by the Godot side.
+	// Definitive Edition (D1DE) display effect states (Mode 0), polled by the Godot side.
+	bool get_d1de_torchlight() const;
+	int get_d1de_fog_level() const;
+	int get_d1de_color_profile() const;
+	int get_d1de_hdr_level() const;
+	int get_d1de_upscaler_mode() const;
+	int get_d1de_relief_mode() const;
+	bool get_d1de_wet_floor() const;
+
+	// Backward-compatibility aliases
 	bool get_resurrected_torchlight() const;
 	int get_resurrected_fog_level() const;
 	int get_resurrected_color_profile() const;

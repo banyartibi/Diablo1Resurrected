@@ -46,6 +46,20 @@ Minden verifikálva után commit + push (a felhasználó kéri).
 
 ---
 
+## 🆕 Fázis-3: Resurrected Combat VFX – Mode 1-ben is (2026-09-21)
+
+| # | Munka | Állapot |
+|---|---|---|
+| 1 | **Resurrected Effects ON/OFF** toggle a Pause menu Options panelben (`native_modal_layer.gd` sor) + DevilutionX `Resurrected` options kategóriájának új bool bejegyeje: `resurrectedEffects` (default true, diablo.ini persisted) | ✅ |
+| 2 | **Mode 1 Native Godot 2.5D Combat VFX**: vér-spritz (`GPUParticles2D`, canvas_item teardrop shader), csontszilánkok (undead/kő szörnyek), fireball explosion (fractal flame tongues) – tile→world mapping `((x−y)*32, (x+y)*16+16)`, Y-sorting a `world_root`-ban, intenzitáskal + secondary gore burst | ✅ |
+| 3 | **C++ gate**: `PushVisualEvent()` early return, ha `resurrectedEffects == false` – minden display mode-ban hat; diablo.ini persist + élő update (újraindítás nélkül) | ✅ |
+
+**Build:** `./build_gdextension.sh` + Godot headless import tiszta (3 canvas_item shader compila, PlaneMesh scenes OK).
+
+**Re-verification (2026-09-21, second agent):** ✅ Clean build (`ninja: no work to do`, core + GDExtension), clean headless import (new `*_2d.tscn` scenes & 3 canvas_item shaders valid resources), és `--check-only` parse-check tiszta a 3 érintett scripten (`one_shot_particles_2d.gd`, `native_25d_view.gd`, `native_modal_layer.gd`). A C++ gate (`PushVisualEvent()` → render_bridge.cpp ~L1108) és az Options row (native_modal_layer.gd L313-614) helyén. **Következő lépés:** valós visual runtime verify a user display/Vulkan session-ban – `./run_d1_godot3d.sh` → Native Godot 2.5D mode → kill monster / fireball → VFX látható? → Options → Resurrected Effects OFF → nincs VFX (minden mód), ON vissza.
+
+---
+
 ## Task 1 – DevilutionX + Godot Vulkan (extra tuning)
 
 ### ✅ Kész és működik

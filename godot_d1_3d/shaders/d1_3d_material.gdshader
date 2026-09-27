@@ -248,8 +248,8 @@ void fragment() {
     if (in_ui) {
         // UI Areas (HUD, Inventory, Character Sheet, Quest Log):
         // 100% authentic, razor-sharp original rendering with zero glow bloom!
-        ALBEDO = base_color;
-        EMISSION = vec3(0.0);
+        ALBEDO = vec3(0.0);
+        EMISSION = base_color;
         SPECULAR = 0.0;
         ROUGHNESS = 1.0;
         NORMAL = vec3(0.0, 0.0, 1.0);
@@ -281,6 +281,10 @@ void fragment() {
             }
         }
         ALBEDO *= panel_shadow;
+        if (relief_mode == 0) {
+            EMISSION = ALBEDO;
+            ALBEDO = vec3(0.0);
+        }
     }
 
     // Void & Darkness Protection:

@@ -6,10 +6,10 @@ GODOT="$DIR/tools/godot4/godot4"
 GODOT_PROJ="$DIR/godot_d1_3d"
 LIBEXT_SO="$DIR/godot_d1_3d/bin/libdiablo.linux.template_debug.x86_64.so"
 
-echo "========================================================"
-echo "    Launching Diablo 1: Resurrected – In-Process Engine "
-echo "        Native Godot 4.7.2 GDExtension Architecture      "
-echo "========================================================"
+echo "====================================================="
+echo "    Launching Diablo: Definitive Edition:            "
+echo "    Native Godot 4.7.2 GDExtension Architecture      "
+echo "====================================================="
 
 if [ ! -f "$GODOT" ]; then
     echo "ERROR: Godot 4 binary not found at $GODOT!"

@@ -54,7 +54,7 @@ var _opt_gamma_slider: HSlider
 var _opt_brightness_slider: HSlider
 var _opt_speed_slider: HSlider
 var _opt_hd_button: Button = null
-# --- Resurrected effect toggles + graphics rows (menu-driven; no hotkeys) ---
+# --- Definitive Edition (D1DE) effect toggles + graphics rows (menu-driven; no hotkeys) ---
 var _opt_torchlight_button: Button = null
 var _opt_fog_button: Button = null
 var _opt_color_button: Button = null
@@ -62,6 +62,7 @@ var _opt_hdr_button: Button = null
 var _opt_upscaler_button: Button = null
 var _opt_relief_button: Button = null
 var _opt_wet_floor_button: Button = null
+var _opt_effects_button: Button = null
 var _opt_display_mode_button: Button = null
 var _opt_vsync_button: Button = null
 var _opt_show_fps_button: Button = null
@@ -277,7 +278,7 @@ func _ready() -> void:
 	_opt_speed_value = speed_row.get_node("ValueLabel")
 	_opt_speed_slider.value_changed.connect(_on_opt_speed_changed)
 
-	var hd_row := _add_option_button_row(opt_vbox, "Visuals", "Resurrected 4x HD")
+	var hd_row := _add_option_button_row(opt_vbox, "Visuals", "Definitive Edition 4x HD")
 	_opt_hd_button = hd_row.get_node("Button")
 	_opt_hd_button.pressed.connect(_on_opt_hd_toggled)
 
@@ -308,6 +309,10 @@ func _ready() -> void:
 	var wet_floor_row := _add_option_button_row(opt_vbox, "Wet Floor", "On")
 	_opt_wet_floor_button = wet_floor_row.get_node("Button")
 	_opt_wet_floor_button.pressed.connect(_on_opt_wet_floor_toggled)
+
+	var effects_row := _add_option_button_row(opt_vbox, "Definitive Effects", "On")
+	_opt_effects_button = effects_row.get_node("Button")
+	_opt_effects_button.pressed.connect(_on_opt_d1de_effects_toggled)
 
 	var display_mode_row := _add_option_button_row(opt_vbox, "Display Mode", "Cycle")
 	_opt_display_mode_button = display_mode_row.get_node("Button")
@@ -465,13 +470,15 @@ func _refresh_option_values() -> void:
 	_options_refreshing = true
 	var mv := OPT_VOLUME_MIN
 	var sv := OPT_VOLUME_MIN
-	var g := 70
+	var g := 50
 	var s := OPT_SPEED_MIN
 	if diablo_bridge.has_method("get_music_volume"):
 		mv = int(diablo_bridge.get_music_volume())
 	if diablo_bridge.has_method("get_sound_volume"):
 		sv = int(diablo_bridge.get_sound_volume())
-	if diablo_bridge.has_method("get_gamma"):
+	if brightness_host and brightness_host.has_method("get_gamma_pct"):
+		g = clampi(int(brightness_host.get_gamma_pct()), OPT_GAMMA_MIN, OPT_GAMMA_MAX)
+	elif diablo_bridge.has_method("get_gamma"):
 		g = clampi(int(diablo_bridge.get_gamma()), OPT_GAMMA_MIN, OPT_GAMMA_MAX)
 	if diablo_bridge.has_method("get_speed"):
 		s = clampi(int(diablo_bridge.get_speed()), OPT_SPEED_MIN, OPT_SPEED_MAX)
@@ -486,7 +493,7 @@ func _refresh_option_values() -> void:
 	_opt_gamma_value.text = "%d%%" % g
 	_opt_speed_slider.value = float(s)
 	_opt_speed_value.text = _speed_label(s)
-	var b := 120
+	var b := 100
 	if brightness_host and brightness_host.has_method("get_brightness"):
 		b = clampi(int(brightness_host.get_brightness()), OPT_BRIGHTNESS_MIN, OPT_BRIGHTNESS_MAX)
 	_opt_brightness_slider.value = float(b)
@@ -495,15 +502,16 @@ func _refresh_option_values() -> void:
 		var is_hd := true
 		if brightness_host and brightness_host.has_method("get_hd_graphics_enabled"):
 			is_hd = brightness_host.get_hd_graphics_enabled()
-		_opt_hd_button.text = "Resurrected 4x HD" if is_hd else "Authentic 1996"
-	_set_row_text(_opt_torchlight_button, "Resurrected", "Soft Torchlight")
-	_set_row_text(_opt_fog_button, "Resurrected", "Atmospheric Fog")
-	_set_row_text(_opt_color_button, "Resurrected", "Color Profile")
-	_set_row_text(_opt_hdr_button, "Resurrected", "Engine HDR Glow")
-	_set_row_text(_opt_upscaler_button, "Resurrected", "Upscaler")
-	_set_row_text(_opt_relief_button, "Resurrected", "3D Surface Relief")
-	_set_row_text(_opt_wet_floor_button, "Resurrected", "Wet Floor")
-	_set_row_text(_opt_display_mode_button, "Resurrected", "Display Mode")
+		_opt_hd_button.text = "Definitive Edition 4x HD" if is_hd else "Authentic 1996"
+	_set_row_text(_opt_torchlight_button, "Definitive Edition", "Soft Torchlight")
+	_set_row_text(_opt_fog_button, "Definitive Edition", "Atmospheric Fog")
+	_set_row_text(_opt_color_button, "Definitive Edition", "Color Profile")
+	_set_row_text(_opt_hdr_button, "Definitive Edition", "Engine HDR Glow")
+	_set_row_text(_opt_upscaler_button, "Definitive Edition", "Upscaler")
+	_set_row_text(_opt_relief_button, "Definitive Edition", "3D Surface Relief")
+	_set_row_text(_opt_wet_floor_button, "Definitive Edition", "Wet Floor")
+	_set_row_text(_opt_effects_button, "Definitive Edition", "Definitive Effects")
+	_set_row_text(_opt_display_mode_button, "Definitive Edition", "Display Mode")
 	_set_row_text(_opt_vsync_button, "Graphics", "V-Sync")
 	_set_row_text(_opt_show_fps_button, "Graphics", "Show FPS")
 	_options_refreshing = false
@@ -514,22 +522,24 @@ func _on_opt_hd_toggled() -> void:
 	if brightness_host and brightness_host.has_method("toggle_hd_graphics"):
 		var is_hd: bool = brightness_host.toggle_hd_graphics()
 		if _opt_hd_button:
-			_opt_hd_button.text = "Resurrected 4x HD" if is_hd else "Authentic 1996"
+			_opt_hd_button.text = "Definitive Edition 4x HD" if is_hd else "Authentic 1996"
 
-# --- Resurrected effect toggles + graphics rows (menu-driven; no hotkeys) ---
+# --- Definitive Edition (D1DE) effect toggles + graphics rows (menu-driven; no hotkeys) ---
 
 func _get_bridge_entry(cat_name: String, entry_name: String) -> Variant:
 	if diablo_bridge == null or not diablo_bridge.has_method("get_settings_categories"):
 		return null
 	var cat_id := -1
 	for cat in diablo_bridge.get_settings_categories():
-		if str(cat.get("name", "")) == cat_name:
+		var c_name = str(cat.get("name", ""))
+		if c_name == cat_name or (cat_name == "Definitive Edition" and c_name == "Resurrected"):
 			cat_id = int(cat.get("id", 0))
 			break
 	if cat_id < 0 or not diablo_bridge.has_method("get_settings_entries"):
 		return null
 	for entry in diablo_bridge.get_settings_entries(cat_id):
-		if str(entry.get("name", "")) == entry_name:
+		var e_name = str(entry.get("name", ""))
+		if e_name == entry_name or (entry_name == "Definitive Effects" and e_name == "Resurrected Effects"):
 			var info = {
 				"cat_id": cat_id,
 				"id": int(entry.get("id", 0)),
@@ -553,7 +563,7 @@ func _set_row_text(btn: Button, cat_name: String, entry_name: String) -> void:
 		if idx >= 0 and idx < opts.size():
 			btn.text = str(opts[idx])
 
-func _toggle_resurrected_bool(btn: Button, cat_name: String, entry_name: String) -> void:
+func _toggle_d1de_bool(btn: Button, cat_name: String, entry_name: String) -> void:
 	if _options_refreshing or diablo_bridge == null:
 		return
 	var info = _get_bridge_entry(cat_name, entry_name)
@@ -566,7 +576,10 @@ func _toggle_resurrected_bool(btn: Button, cat_name: String, entry_name: String)
 		diablo_bridge.save_settings()
 	_set_row_text(btn, cat_name, entry_name)
 
-func _cycle_resurrected_list(btn: Button, cat_name: String, entry_name: String) -> void:
+func _toggle_resurrected_bool(btn: Button, cat_name: String, entry_name: String) -> void:
+	_toggle_d1de_bool(btn, cat_name, entry_name)
+
+func _cycle_d1de_list(btn: Button, cat_name: String, entry_name: String) -> void:
 	if _options_refreshing or diablo_bridge == null:
 		return
 	var info = _get_bridge_entry(cat_name, entry_name)
@@ -583,35 +596,44 @@ func _cycle_resurrected_list(btn: Button, cat_name: String, entry_name: String) 
 		diablo_bridge.save_settings()
 	_set_row_text(btn, cat_name, entry_name)
 
+func _cycle_resurrected_list(btn: Button, cat_name: String, entry_name: String) -> void:
+	_cycle_d1de_list(btn, cat_name, entry_name)
+
 func _on_opt_torchlight_toggled() -> void:
-	_toggle_resurrected_bool(_opt_torchlight_button, "Resurrected", "Soft Torchlight")
+	_toggle_d1de_bool(_opt_torchlight_button, "Definitive Edition", "Soft Torchlight")
 
 func _on_opt_fog_cycled() -> void:
-	_cycle_resurrected_list(_opt_fog_button, "Resurrected", "Atmospheric Fog")
+	_cycle_d1de_list(_opt_fog_button, "Definitive Edition", "Atmospheric Fog")
 
 func _on_opt_color_cycled() -> void:
-	_cycle_resurrected_list(_opt_color_button, "Resurrected", "Color Profile")
+	_cycle_d1de_list(_opt_color_button, "Definitive Edition", "Color Profile")
 
 func _on_opt_hdr_cycled() -> void:
-	_cycle_resurrected_list(_opt_hdr_button, "Resurrected", "Engine HDR Glow")
+	_cycle_d1de_list(_opt_hdr_button, "Definitive Edition", "Engine HDR Glow")
 
 func _on_opt_upscaler_cycled() -> void:
-	_cycle_resurrected_list(_opt_upscaler_button, "Resurrected", "Upscaler")
+	_cycle_d1de_list(_opt_upscaler_button, "Definitive Edition", "Upscaler")
 
 func _on_opt_relief_cycled() -> void:
-	_cycle_resurrected_list(_opt_relief_button, "Resurrected", "3D Surface Relief")
+	_cycle_d1de_list(_opt_relief_button, "Definitive Edition", "3D Surface Relief")
 
 func _on_opt_wet_floor_toggled() -> void:
-	_toggle_resurrected_bool(_opt_wet_floor_button, "Resurrected", "Wet Floor")
+	_toggle_d1de_bool(_opt_wet_floor_button, "Definitive Edition", "Wet Floor")
+
+func _on_opt_d1de_effects_toggled() -> void:
+	_toggle_d1de_bool(_opt_effects_button, "Definitive Edition", "Definitive Effects")
+
+func _on_opt_resurrected_effects_toggled() -> void:
+	_on_opt_d1de_effects_toggled()
 
 func _on_opt_display_mode_switched() -> void:
-	_cycle_resurrected_list(_opt_display_mode_button, "Resurrected", "Display Mode")
+	_cycle_d1de_list(_opt_display_mode_button, "Definitive Edition", "Display Mode")
 
 func _on_opt_vsync_toggled() -> void:
-	_toggle_resurrected_bool(_opt_vsync_button, "Graphics", "V-Sync")
+	_toggle_d1de_bool(_opt_vsync_button, "Graphics", "V-Sync")
 
 func _on_opt_show_fps_toggled() -> void:
-	_toggle_resurrected_bool(_opt_show_fps_button, "Graphics", "Show FPS")
+	_toggle_d1de_bool(_opt_show_fps_button, "Graphics", "Show FPS")
 
 func _on_opt_music_changed(v: float) -> void:
 	if _options_refreshing:
@@ -634,6 +656,8 @@ func _on_opt_gamma_changed(v: float) -> void:
 		return
 	var g := int(round(v))
 	_opt_gamma_value.text = "%d%%" % g
+	if brightness_host and brightness_host.has_method("set_gamma_pct"):
+		brightness_host.set_gamma_pct(g)
 	if diablo_bridge and diablo_bridge.has_method("set_gamma"):
 		diablo_bridge.set_gamma(g)
 
@@ -932,7 +956,7 @@ func _set_title(t: int, is_qtext: bool) -> void:
 		1: _title_label.text = "Game Menu"
 		2:
 			var talker = diablo_bridge.get_qtext_title() if diablo_bridge and diablo_bridge.has_method("get_qtext_title") else ""
-			_title_label.text = talker if not talker.is_empty() else "Dialog"
+			_title_label.text = talker if not talker.is_empty() else "Dialogue"
 		_: _title_label.text = ""
 
 # Drive visibility + refresh each frame from D1's modal state

@@ -1,0 +1,40 @@
+[gd_scene load_steps=7 format=3 uid="uid://vfx2dfire"]
+
+[ext_resource type="Script" path="res://scripts/one_shot_particles_2d.gd" id="1_osp"]
+[ext_resource type="Shader" path="res://shaders/fireball_blast_2d.gdshader" id="2_fbl"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fire"]
+shader = ExtResource("2_fbl")
+
+[sub_resource type="Gradient" id="Gradient_white"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_fire"]
+gradient = SubResource("Gradient_white")
+width = 24
+height = 24
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_fire"]
+lifetime_randomness = 0.4
+direction = Vector3(0, -0.4, 0)
+spread = 180.0
+initial_velocity_min = 40.0
+initial_velocity_max = 90.0
+gravity = Vector3(0, -35, 0)
+damping_min = 14.0
+damping_max = 28.0
+scale_min = 0.8
+scale_max = 1.5
+color = Color(1, 1, 1, 1)
+
+[node name="FireballExplosion2D" type="GPUParticles2D"]
+material = SubResource("ShaderMaterial_fire")
+emitting = false
+amount = 20
+texture = SubResource("GradientTexture2D_fire")
+lifetime = 0.40
+one_shot = true
+explosiveness = 0.92
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_fire")
+script = ExtResource("1_osp")

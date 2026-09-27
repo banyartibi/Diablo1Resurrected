@@ -1,12 +1,12 @@
-# ⚔️ Diablo 1: Resurrected – Teljes Rendszer- és Kódarchitektúra Dokumentáció
+# ⚔️ Diablo: Definitive Edition – Teljes Rendszer- és Kódarchitektúra Dokumentáció
 
-> **Dokumentum célja:** Ez a dokumentáció a **Diablo 1: Resurrected (D1R)** projekt teljes architektúráját, forráskód-felépítését, adatfolyamait és fejlesztési állapotát írja le. Célja, hogy jövőbeli AI asszisztensként vagy humán fejlesztőként egyetlen átolvasással pontosan megértsd, hol mi található, hogyan működik a hibrid motor, és milyen feladatokon dolgozunk.
+> **Dokumentum célja:** Ez a dokumentáció a **Diablo: Definitive Edition (D1DE)** projekt teljes architektúráját, forráskód-felépítését, adatfolyamait és fejlesztési állapotát írja le. Célja, hogy jövőbeli AI asszisztensként vagy humán fejlesztőként egyetlen átolvasással pontosan megértsd, hol mi található, hogyan működik a hibrid motor, és milyen feladatokon dolgozunk.
 
 ---
 
 ## 1. 🌟 Projekt Áttekintés és Filozófia
 
-A **Diablo 1: Resurrected (D1R)** egy következő generációs **hibrid játékmotor**, amely egyesíti:
+A **Diablo: Definitive Edition (D1DE)** egy következő generációs **hibrid játékmotor**, amely egyesíti:
 1. **DevilutionX Core (C++17):** Az 1996-os Diablo 1 + Hellfire 100%-ban autentikus, hibajavított, determinisztikus játékszabályait, mesterséges intelligenciáját, tárgy/leltár rendszerét, mentéseit és hálózati kódját.
 2. **Godot Engine 4.7.2 Forward+ Vulkan Renderer (C++ / GDScript):** Modern 3D/2.5D renderelést, PBR anyagokat, dinamikus megvilágítást, részecskerendszereket, procedurális árnyékokat, modern UI-t és térbeli hangrendszert.
 
@@ -22,7 +22,7 @@ Ahelyett, hogy a Diablo 1 több százezer soros játéklogikáját és véletlen
 * **Jelenlegi fázis (Native In-Process GDExtension):** A DevilutionX forráskódja közvetlenül belefordul a `libdiablo.so` GDExtension megosztott könyvtárba. A Godot indulásakor a `DiabloBridge` Node példányosul, elindítja a DevilutionX háttérszálat (`g_DiabloThread`), és **0 ms IPC késleltetéssel**, közvetlen C++ memóriapuffereken keresztül kommunikál a két motor.
 
 ### 2.2 Szálmodell és Szinkronizáció
-* **Godot Fő Szál (Main/Render Thread):** Futtatja a Godot jelenetfát, a GDScript kódokat (`bridge_receiver.gd`, `native_25d_view.gd`, `native_3d_sandbox.gd`, `diablo4_hud.gd`), a Vulkan renderelőt és a hangkiszolgálót (144Hz+).
+* **Godot Fő Szál (Main/Render Thread):** Futtatja a Godot jelenetfát, a GDScript kódokat (`bridge_receiver.gd`, `native_25d_view.gd`, `native_3d_sandbox.gd`, `d1de_hud.gd`), a Vulkan renderelőt és a hangkiszolgálót (144Hz+).
 * **DevilutionX Szál (`g_DiabloThread`):** A `StartDevilutionXThread()` hívja meg a `devilution::DiabloMain()` függvényt egy független szálon, amely az autentikus tick-rátával (20 TPS) frissíti a játék állapotát.
 * **Szinkronizáció & Biztonság:**
   * `g_InventoryMutex`: Védi a leltár, karakterlap, tárgyak és dungeon entitások lekérdezését.
@@ -165,11 +165,14 @@ A játékos menet közben bármikor a **Pause Menüből (Esc → Settings → Di
 │   │   │   └── native_25d_view.tscn # Mode 1: Natív Godot 2.5D jelenet
 │   │   ├── sandbox/
 │   │   │   └── native_3d_sandbox.tscn # Mode 2: Natív 3D Sandbox jelenet
-│   │   ├── hud/                    # Modern Diablo IV stílusú kezelőfelület
-│   │   │   ├── diablo4_hud.tscn & .gd           # Fő HUD (gömbök, action bar, tooltip)
-│   │   │   ├── diablo4_character_panel.tscn & .gd # Karakterlap és stat pontok
-│   │   │   ├── diablo4_inventory.tscn & .gd     # 40-slot leltár és felszerelés
-│   │   │   └── diablo4_quest_log.tscn & .gd     # Küldetésnapló
+│   │   ├── hud/                    # Modern Diablo: Definitive Edition (D1DE) kezelőfelület
+│   │   │   ├── d1de_hud.tscn & .gd              # Fő HUD (gömbök, action bar, tooltip)
+│   │   │   ├── d1de_character_panel.tscn & .gd    # Karakterlap és stat pontok
+│   │   │   ├── d1de_inventory.tscn & .gd        # 40-slot leltár és felszerelés
+│   │   │   ├── d1de_quest_log.tscn & .gd        # Küldetésnapló
+│   │   │   ├── d1de_spellbook.tscn & .gd        # Varázslatkönyv
+│   │   │   ├── d1de_stash.tscn & .gd            # Láda és aranykezelés
+│   │   │   └── d1de_tabbed_menu.tscn & .gd      # Lapozható menü keret
 │   │   └── effects/                # 3D részecske effektek (vér, csontok, fáklyák)
 │   ├── scripts/
 │   │   ├── bridge_receiver.gd      # Fő kontroller (módváltás, input routing, shader paraméterek)
@@ -177,7 +180,9 @@ A játékos menet közben bármikor a **Pause Menüből (Esc → Settings → Di
 │   │   ├── native_3d_sandbox.gd    # Mode 2 logikája (MultiMesh 3D, kameramozgás, 3D sprite-ok)
 │   │   └── audio_manager.gd        # Natív Godot hangrendszer (Spatial 3D SFX, Music crossfade)
 │   └── shaders/
+│       ├── d1de_25d_pbr.gdshader   # Mode 1 2.5D PBR tile és entitás árnyaló
 │       ├── d1_3d_material.gdshader # Mode 0 főkép shader (Normal relief, CAS, wet floor)
+│       ├── atmospheric_fog_2d.gdshader # 2D dungeon köd és pára
 │       ├── liquid_globe.gdshader   # Hullámzó, folyékony életerő- és managömbök
 │       ├── hud_panel_bg.gdshader   # Gótikus kőfelület és aranyozott szegélyek
 │       └── action_slot.gdshader    # Képesség- és italgombok árnyalása
@@ -251,9 +256,9 @@ A `DiabloBridge` Node osztály (GDScriptből elérhető) közvetlen hidat képez
 
 ---
 
-## 6. 🎨 Modern Diablo IV HUD & Kezelőfelület
+## 6. 🎨 Modern Diablo: Definitive Edition (D1DE) Kezelőfelület
 
-A `godot_d1_3d/scenes/hud/diablo4_hud.gd` valósítja meg a teljes felületet:
+A `godot_d1_3d/scenes/hud/d1de_hud.gd` valósítja meg a teljes felületet:
 
 1. **Életerő és Mana Gömbök:**
    * Egyedi GLSL shader (`liquid_globe.gdshader`) szimulálja a hullámzó, örvénylő folyadékot, fénycsillanásokkal és buborékokkal.
@@ -263,15 +268,19 @@ A `godot_d1_3d/scenes/hud/diablo4_hud.gd` valósítja meg a teljes felületet:
    * Különböző italtípusok (életerő, mana, rejuv, tekercsek) automatikus felismerése egyedi színezett ikonokkal (`TEX_HEAL`, `TEX_MANA`, stb.).
    * Másodlagos képesség / varázslat ikon jobb oldalon, kattintásra megnyíló Speedbook varázslatválasztó szalaggal.
 3. **Karakterlap (Character Panel - [C]):**
-   * Gótikus kőkeretes panel (`diablo4_character_panel.tscn`).
+   * Gótikus kőkeretes panel (`d1de_character_panel.tscn`).
    * Elosztható stat pontok kijelzése, interaktív `+` gombokkal (Strength, Magic, Dexterity, Vitality).
    * Részletes statisztikák: Sebzés, Támadóérték, Védelem, Mágia/Tűz/Villám ellenállások.
 4. **Leltár (Inventory Frame - [I]):**
-   * Diablo IV stílusú paperdoll elrendezés (sisak, páncél, fegyver, pajzs, gyűrűk, amulett).
+   * D1DE stílusú paperdoll elrendezés (sisak, páncél, fegyver, pajzs, gyűrűk, amulett).
    * 40 férőhelyes hátizsák rács többszörös foglalású tárgyakkal (1x1, 1x2, 1x3, 2x3 rekeszes fegyverek és vértek).
    * Tárgy hover tooltip lebegő ablakkal: ritkaság szerinti szegélyszín (Szürke/Normál, Mágikus Kék, Egyedi Arany, Követelménynek nem megfelelő Vörös).
 5. **Küldetésnapló (Quest Log - [Q]):**
-   * Aktív és teljesített küldetések listája (`diablo4_quest_log.tscn`).
+   * Aktív és teljesített küldetések listája (`d1de_quest_log.tscn`).
+6. **Varázslatkönyv (SpellBook - [B]):**
+   * Lapozható varázslatgyűjtemény ikonokkal és szintkijelzéssel (`d1de_spellbook.tscn`).
+7. **Láda és Arany (Stash):**
+   * Lapozható közös és egyéni ládarekeszek (`d1de_stash.tscn`).
 
 ---
 
@@ -303,8 +312,9 @@ A játék hangzásáért a Godot 4.7 natív hangmotorja felel, amely lehallgatja
 | **[C]** | Karakterlap megnyitása / bezárása |
 | **[I]** | Leltár megnyitása / bezárása |
 | **[Q]** | Küldetésnapló megnyitása / bezárása |
+| **[B]** | Varázslatkönyv megnyitása / bezárása |
 | **[Tab]** | Automap (átlátszó térkép) ki/bekapcsolása |
-| **[G]** | Grafika-stílus toggle: Resurrected 4x HD / Authentic 1996 Pixel Art |
+| **[G]** | Grafika-stílus toggle: Definitive Edition 4x HD / Authentic 1996 Pixel Art |
 | **[H]** | Modern/Classic HUD switch - Mode 0 only; other modes show OSD notice |
 | **[1] - [8]** | Övben lévő italok és tekercsek azonnali elfogyasztása |
 

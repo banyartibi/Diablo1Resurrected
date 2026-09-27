@@ -146,9 +146,9 @@ bool Vulkan_Init(SDL_Window *window, int width, int height)
 
 	VkApplicationInfo appInfo {};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "DevilutionX HD Resurrected";
+	appInfo.pApplicationName = "Diablo: Definitive Edition";
 	appInfo.applicationVersion = VK_MAKE_VERSION(1, 5, 5);
-	appInfo.pEngineName = "D1R Vulkan Engine";
+	appInfo.pEngineName = "D1DE Engine";
 	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 	appInfo.apiVersion = VK_API_VERSION_1_0;
 

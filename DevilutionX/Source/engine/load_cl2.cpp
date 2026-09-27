@@ -25,8 +25,11 @@ OwnedClxSpriteListOrSheet LoadCl2ListOrSheet(const char *pszName, PointerOrValue
 
 	char path[MaxMpqPathSize];
 	*BufCopy(path, pszName, DEVILUTIONX_CL2_EXT) = '\0';
-	size_t size;
+	size_t size = 0;
 	std::unique_ptr<uint8_t[]> data = LoadFileInMem<uint8_t>(path, &size);
+	if (!data || size < 8) {
+		return OwnedClxSpriteListOrSheet { nullptr, 0 };
+	}
 	return Cl2ToClx(std::move(data), size, widthOrWidths);
 }
 

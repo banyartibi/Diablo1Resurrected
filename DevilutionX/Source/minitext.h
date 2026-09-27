@@ -15,6 +15,7 @@ namespace devilution {
 
 /** Specify if the quest dialog window is being shown */
 extern bool qtextflag;
+extern int16_t g_ActiveSpeechId;
 
 /**
  * @brief Free the resouces used by the quest dialog window

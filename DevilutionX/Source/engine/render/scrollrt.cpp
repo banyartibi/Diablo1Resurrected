@@ -16,7 +16,7 @@
 #include "doom.h"
 #include "engine/backbuffer_state.hpp"
 #include "engine/dx.h"
-#include "engine/render_d2r.hpp"
+#include "engine/render_d1de.hpp"
 #include "engine/render_vulkan/render_vulkan.hpp"
 #include "engine/render_bridge.hpp"
 #include "engine/render/clx_render.hpp"

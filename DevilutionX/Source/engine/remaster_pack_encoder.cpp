@@ -58,6 +58,9 @@ uint8_t FindNearestPaletteIndex(uint8_t r, uint8_t g, uint8_t b, const SDL_Color
 
 void EncodeFolderToClx(const fs::path &folderPath, const fs::path &outClxPath, const SDL_Color *palette)
 {
+	if (fs::exists(outClxPath) && fs::file_size(outClxPath) > 0)
+		return;
+
 	std::vector<FrameInfo> frames;
 	for (const auto &entry : fs::directory_iterator(folderPath)) {
 		if (entry.path().extension() == ".png") {

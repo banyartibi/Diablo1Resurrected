@@ -21,6 +21,7 @@
 #include "engine/trn.hpp"
 #include "init.h"
 #include "minitext.h"
+#include "engine/render_bridge.hpp"
 #include "options.h"
 #include "panels/info_box.hpp"
 #include "qol/stash.h"
@@ -2139,6 +2140,7 @@ void TalkEnter()
 	for (auto &quest : Quests) {
 		if (quest._qactive == QUEST_ACTIVE && QuestDialogTable[talker][quest._qidx] != TEXT_NONE && quest._qlog) {
 			if (sn == stextsel) {
+				SetActiveQuestTitle(_(QuestsData[quest._qidx]._qlstr));
 				InitQTextMsg(QuestDialogTable[talker][quest._qidx]);
 			}
 			sn += la;

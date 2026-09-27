@@ -111,7 +111,7 @@ set(libdevilutionx_SRCS
   engine/sound_position.cpp
   engine/surface.cpp
   engine/trn.cpp
-  engine/render_d2r.cpp
+  engine/render_d1de.cpp
   engine/render_vulkan/render_vulkan.cpp
   engine/render_bridge.cpp
   engine/remaster_exporter.cpp

@@ -1006,7 +1006,7 @@ GraphicsOptions::GraphicsOptions()
 #endif
               { FrameRateControl::CPUSleep, N_("Limit FPS") },
           })
-    , gammaCorrection("Gamma Correction", OptionEntryFlags::Invisible, "Gamma Correction", "Gamma correction level.", 60)
+    , gammaCorrection("Gamma Correction", OptionEntryFlags::Invisible, "Gamma Correction", "Gamma correction level.", 80)
     , zoom("Zoom", OptionEntryFlags::None, N_("Zoom"), N_("Zoom on when enabled."), false)
     , colorCycling("Color Cycling", OptionEntryFlags::None, N_("Color Cycling"), N_("Color cycling effect used for water, lava, and acid animation."), true)
     , alternateNestArt("Alternate nest art", OptionEntryFlags::OnlyHellfire | OptionEntryFlags::CantChangeInGame, N_("Alternate nest art"), N_("The game will use an alternative palette for Hellfire’s nest tileset."), false)
@@ -1112,7 +1112,7 @@ std::string OptionEntryKeyCapture::FormatBinding(int godotKey, uint8_t modsMask)
 }
 
 ResurrectedOptions::ResurrectedOptions()
-    : OptionCategoryBase("Resurrected", N_("Resurrected"), N_("Diablo 1 Resurrected: native display mode switch binding + effects (Legacy Blit / Godot 2.5D / Godot 3D)"))
+    : OptionCategoryBase("Definitive Edition", N_("Definitive Edition"), N_("Diablo: Definitive Edition: native display mode switch binding + effects (Legacy Blit / Godot 2.5D / Godot 3D)"))
     , modeSwitchBinding("Mode Switch", N_("Display Mode Switch"), N_("Cycles Original 2.5D / Native Godot 2.5D / Native Godot 3D Sandbox."), /*Godot KEY_F12*/ 4194343, /*Ctrl modifier bit*/ 2)
     , displayMode("Display Mode", OptionEntryFlags::None, N_("Display Mode"), N_("Original 2.5D Blit / Native Godot 2.5D / Native Godot 3D Sandbox."), DisplayMode::Native_25D,
           {
@@ -1120,7 +1120,7 @@ ResurrectedOptions::ResurrectedOptions()
               { DisplayMode::Native_25D, N_("Native Godot 2.5D") },
               { DisplayMode::Native_3D, N_("Native Godot 3D Sandbox") },
           })
-    , softTorchlight("Soft Torchlight", OptionEntryFlags::None, N_("Soft Torchlight"), N_("Warm candlelight around the hero in dungeons."), false)
+    , softTorchlight("Soft Torchlight", OptionEntryFlags::None, N_("Soft Torchlight"), N_("Warm candlelight around the hero in dungeons."), true)
     , atmosphericFog("Atmospheric Fog", OptionEntryFlags::None, N_("Atmospheric Fog"), N_("Volumetric fog atmosphere for dungeons."), AtmosphericFogMode::Off,
           {
               { AtmosphericFogMode::Off, N_("OFF") },
@@ -1150,7 +1150,7 @@ ResurrectedOptions::ResurrectedOptions()
               { UpscalerMode::CatmullRom, N_("8K Catmull-Rom Bicubic Spline") },
               { UpscalerMode::NativePixelArt, N_("Native 1:1 Direct Retro Pixel-Art") },
           })
-    , reliefMode("Surface Relief Mode", OptionEntryFlags::None, N_("3D Surface Relief"), N_("Bump-mapped surface relief for the playfield (Mode 0)."), ReliefMode::Extreme_Sculpted,
+    , reliefMode("Surface Relief Mode", OptionEntryFlags::None, N_("3D Surface Relief"), N_("Bump-mapped surface relief for the playfield (Mode 0)."), ReliefMode::Flat_2D,
           {
               { ReliefMode::Flat_2D, N_("OFF (Flat 2D)") },
               { ReliefMode::Subtle_3D, N_("Mode 1 (Subtle 3D)") },
@@ -1159,6 +1159,7 @@ ResurrectedOptions::ResurrectedOptions()
               { ReliefMode::Extreme_Sculpted, N_("Mode 4 (Extreme Sculpted 3D Relief)") },
           })
     , wetFloor("Wet Floor", OptionEntryFlags::None, N_("Wet Floor"), N_("Wet & reflective cobblestone (glossy puddles)."), true)
+    , resurrectedEffects("Definitive Effects", OptionEntryFlags::None, N_("Definitive Effects"), N_("Combat gore & spell VFX in all display modes (blood splatter, bone shards, fireball bursts)."), true)
 {
 }
 std::vector<OptionEntryBase *> ResurrectedOptions::GetEntries()
@@ -1174,6 +1175,7 @@ std::vector<OptionEntryBase *> ResurrectedOptions::GetEntries()
 		&upscalerMode,
 		&reliefMode,
 		&wetFloor,
+		&resurrectedEffects,
 	};
 	// clang-format on
 }

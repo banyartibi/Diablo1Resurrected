@@ -1055,7 +1055,7 @@ void DiabloParseFlags(int argc, char **argv)
 		if (arg == "-h" || arg == "--help") {
 			PrintHelpAndExit();
 		} else if (arg == "--version") {
-			printInConsole("D1R-Biti v3.0.0-HD");
+			printInConsole("Diablo: Definitive Edition (D1DE) v3.0.0-HD");
 			printNewlineInConsole();
 			diablo_quit(0);
 		} else if (arg == "--vulkan") {
@@ -1174,8 +1174,8 @@ void DiabloInitScreen()
 
 void SetApplicationVersions()
 {
-	*BufCopy(gszProductName, "D1R-Biti v3.0.0-HD") = '\0';
-	*BufCopy(gszVersionNumber, "D1R-Biti v3.0.0-HD") = '\0';
+	*BufCopy(gszProductName, "Diablo: Definitive Edition") = '\0';
+	*BufCopy(gszVersionNumber, "D1DE v3.0.0-HD") = '\0';
 }
 
 void CheckArchivesUpToDate()
@@ -1207,6 +1207,8 @@ void ApplicationInit()
 		LoadLanguageArchive();
 		LoadGameArchives();
 		RunRemasterAssetPipeline();
+		InitPalette();
+		RunPackHdClxPipeline();
 		diablo_quit(0);
 	}
 
@@ -1908,7 +1910,7 @@ void InitKeymapActions()
 	    "DecreaseGamma",
 	    N_("Decrease Gamma"),
 	    N_("Reduce screen brightness."),
-	    'G',
+	    SDLK_UNKNOWN,
 	    DecreaseGamma,
 	    nullptr,
 	    CanPlayerTakeAction);
@@ -1916,7 +1918,7 @@ void InitKeymapActions()
 	    "IncreaseGamma",
 	    N_("Increase Gamma"),
 	    N_("Increase screen brightness."),
-	    'F',
+	    SDLK_UNKNOWN,
 	    IncreaseGamma,
 	    nullptr,
 	    CanPlayerTakeAction);

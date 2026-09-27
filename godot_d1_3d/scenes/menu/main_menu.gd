@@ -218,7 +218,7 @@ func _on_credits_pressed() -> void:
 	var dlg = AcceptDialog.new()
 	dlg.title = "Készítők" if is_hungarian else "Credits"
 	dlg.dialog_text = (
-		"DIABLO 1 RESURRECTED\n\n" +
+		"DIABLO: DEFINITIVE EDITION\n\n" +
 		("Fejlesztő: biti\nMotor: Godot 4.7 + DevilutionX\n\nKöszönet a DevilutionX csapatnak\naz eredeti Diablo engine\nnyílt forráskódú újraírásáért."
 		if is_hungarian else
 		"Developer: biti\nEngine: Godot 4.7 + DevilutionX\n\nSpecial Thanks to the DevilutionX team\nfor the open-source reimplementation\nof the original Diablo engine.")

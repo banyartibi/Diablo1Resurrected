@@ -783,20 +783,38 @@ std::vector<uint8_t> LoadDevilutionXAsset(const char *path)
 	return buffer;
 }
 
+// Native Godot Diablo IV Inventory Bridge Synchronization
+static std::mutex g_InventoryMutex;
+static std::atomic<uint32_t> g_InventoryVersion { 1 };
+
+uint32_t GetInventoryVersion()
+{
+	return g_InventoryVersion.load();
+}
+
 void UseBeltSlot(int slotIndex)
 {
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || MyPlayer == nullptr)
 		return;
 	if (slotIndex < 0 || slotIndex >= 8)
 		return;
 	Player &myPlayer = *MyPlayer;
 	if (!myPlayer.SpdList[slotIndex].isEmpty() && myPlayer.SpdList[slotIndex]._itype != ItemType::Gold) {
+		int prevCurs = pcurs;
+		pcurs = CURSOR_HAND;
 		UseInvItem(INVITEM_BELT_FIRST + slotIndex);
+		if (pcurs == CURSOR_HAND) {
+			pcurs = prevCurs;
+		}
+		CalcPlrInv(myPlayer, true);
+		g_InventoryVersion.fetch_add(1);
 	}
 }
 
 void ClickBeltSlot(int slotIndex)
 {
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || MyPlayer == nullptr)
 		return;
 	if (slotIndex < 0 || slotIndex >= 8)
@@ -829,6 +847,7 @@ void ClickBeltSlot(int slotIndex)
 		}
 	}
 	CalcPlrInv(player, true);
+	g_InventoryVersion.fetch_add(1);
 }
 
 std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
@@ -836,8 +855,8 @@ std::vector<uint8_t> GetSpellIconRgba(int spellId, int spellType)
 	if (!gbRunGame || spellId <= 0 || spellId > static_cast<int>(SpellID::LAST))
 		return {};
 
-	// orig_palette holds the un-faded master palette loaded from town/dungeon data
-	const auto &pal = orig_palette;
+	// system_palette holds the active, gamma-corrected master palette loaded from town/dungeon data
+	const auto &pal = sgbFadedIn.load() ? system_palette : orig_palette;
 	bool paletteReady = false;
 	for (int i = 16; i < 256; ++i) {
 		if (pal[i].r > 40 || pal[i].g > 40 || pal[i].b > 40) {
@@ -910,7 +929,7 @@ D1ItemIconRgba GetBeltItemIconRgba(int slotIndex)
 
 	ClxDraw(surface, { 0, h - 1 }, sprite);
 
-	const auto &pal = orig_palette;
+	const auto &pal = sgbFadedIn.load() ? system_palette : orig_palette;
 	D1ItemIconRgba res;
 	res.width = w;
 	res.height = h;
@@ -1107,6 +1126,10 @@ static bool IsTorchOrFireObject(int objType)
 
 void PushVisualEvent(uint32_t type, Point tile, Displacement offset, Direction dir, float intensity)
 {
+	// Resurrected Effects ON/OFF (Options): when disabled no VFX are queued in any display mode.
+	if (*sgOptions.Resurrected.resurrectedEffects == false)
+		return;
+
 	Point screenPos = TileToScreenCoords(tile, offset);
 	int yOffset = 22;
 	if (CurrentZoomMode == ZoomMode::Balanced_1_5x) yOffset = 33;
@@ -1131,6 +1154,8 @@ void PushVisualEvent(uint32_t type, Point tile, Displacement offset, Direction d
 	ev.type = type;
 	ev.normX = normX;
 	ev.normY = normY;
+	ev.tileX = tile.x;
+	ev.tileY = tile.y;
 	ev.dirX = dx;
 	ev.dirY = dy;
 	ev.intensity = intensity;
@@ -1510,6 +1535,11 @@ std::vector<D1QuestEntry> GetQuestsInfo()
 
 static std::string g_ActiveQuestTitle = "";
 
+void SetActiveQuestTitle(std::string_view title)
+{
+	g_ActiveQuestTitle = std::string(title);
+}
+
 void SelectQuest(int questIdx)
 {
 	if (questIdx >= 0 && questIdx < MAXQUESTS) {
@@ -1525,15 +1555,6 @@ void SelectQuest(int questIdx)
 			QuestLogIsOpen = false;
 		}
 	}
-}
-
-// Native Godot Diablo IV Inventory Bridge
-static std::mutex g_InventoryMutex;
-static std::atomic<uint32_t> g_InventoryVersion { 1 };
-
-uint32_t GetInventoryVersion()
-{
-	return g_InventoryVersion.load();
 }
 
 static std::string SanitizeUtf8(std::string_view sv)
@@ -1717,7 +1738,7 @@ int GetPlayerGold()
 D1ItemIconRgba GetItemSpriteRgba(int cursId)
 {
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
-	if (!gbRunGame || cursId <= 0)
+	if (cursId <= 0 || !IsInvItemSpriteLoaded() || cursId > static_cast<int>(GetNumInvItems()))
 		return {};
 
 	const ClxSprite sprite = GetInvItemSprite(cursId);
@@ -1859,7 +1880,7 @@ D1ItemIconRgba GetDurabilityIconRgba(int frameIdx)
 
 	ClxDraw(surface, { 0, h - 1 }, sprite);
 
-	const auto &pal = orig_palette;
+	const auto &pal = sgbFadedIn.load() ? system_palette : orig_palette;
 	D1ItemIconRgba res;
 	res.width = w;
 	res.height = h;
@@ -1933,14 +1954,7 @@ D1ItemIconRgba GetDurabilityCompositeIconRgba(int iconIdx, int durability)
 		ClxDraw(stenciledBuffer, { 0, h }, redSprite);
 	}
 
-	bool paletteReady = false;
-	for (int i = 16; i < 256; ++i) {
-		if (orig_palette[i].r > 40 || orig_palette[i].g > 40 || orig_palette[i].b > 40) {
-			paletteReady = true;
-			break;
-		}
-	}
-	const auto &pal = paletteReady ? orig_palette : system_palette;
+	const auto &pal = sgbFadedIn.load() ? system_palette : orig_palette;
 
 	D1ItemIconRgba res;
 	res.width = w;
@@ -2006,6 +2020,17 @@ void ClickInventorySlot(int slotType, int slotIdx, bool isShift, bool isCtrl)
 			Point clickPos { InvRect[targetSlot].Center().x + GetRightPanel().position.x, InvRect[targetSlot].Center().y + GetRightPanel().position.y };
 			DoCheckInvPaste(player, clickPos);
 		} else {
+			if (isCtrl && devilution::IsStashOpen && player.InvGrid[slotIdx] != 0) {
+				int iv = std::abs(player.InvGrid[slotIdx]) - 1;
+				if (iv >= 0 && iv < player._pNumInv) {
+					if (devilution::AutoPlaceItemInStash(player, player.InvList[iv], true)) {
+						player.RemoveInvItem(iv, true);
+						CalcPlrInv(player, true);
+						g_InventoryVersion.fetch_add(1);
+						return;
+					}
+				}
+			}
 			int targetSlot = SLOTXY_INV_FIRST + slotIdx;
 			Point clickPos { InvRect[targetSlot].Center().x + GetRightPanel().position.x, InvRect[targetSlot].Center().y + GetRightPanel().position.y };
 			DoCheckInvCut(player, clickPos, isShift, isCtrl);
@@ -2036,26 +2061,34 @@ void UseInventorySlot(int slotType, int slotIdx)
 				CalcPlrInv(player, true);
 			}
 		}
-	} else if (slotType == 1) {
-		// Backpack item right-click
+	} else if (slotType == 1 || slotType == 2) {
+		// Backpack item right-click:
+		// slotType == 2: direct InvList index (0.._pNumInv-1)
+		// slotType == 1: backpack grid cell (0..39)
 		int itemIndex = -1;
-		if (slotIdx >= 0 && slotIdx < 40) {
-			if (player.InvGrid[slotIdx] != 0) {
-				itemIndex = abs(player.InvGrid[slotIdx]) - 1;
+		if (slotType == 2) {
+			if (slotIdx >= 0 && slotIdx < player._pNumInv) {
+				itemIndex = slotIdx;
 			}
-		} else if (slotIdx >= 0 && slotIdx < player._pNumInv) {
-			itemIndex = slotIdx;
+		} else {
+			if (slotIdx >= 0 && slotIdx < 40 && player.InvGrid[slotIdx] != 0) {
+				itemIndex = abs(player.InvGrid[slotIdx]) - 1;
+			} else if (slotIdx >= 0 && slotIdx < player._pNumInv) {
+				itemIndex = slotIdx;
+			}
 		}
 
 		if (itemIndex >= 0 && itemIndex < player._pNumInv) {
 			Item &item = player.InvList[itemIndex];
 			if (item.isUsable()) {
-				// Godot HUD-ból hívva pcurs nem biztos CURSOR_HAND,
-				// de az UseInvItem erre ellenőriz – ideiglenesen állítsuk be.
 				int prevCurs = pcurs;
 				pcurs = CURSOR_HAND;
 				UseInvItem(INVITEM_INV_FIRST + itemIndex);
-				pcurs = prevCurs;
+				// If UseInvItem changed cursor to targeting mode (e.g. CURSOR_TELEPORT, CURSOR_IDENTIFY), preserve it!
+				if (pcurs == CURSOR_HAND) {
+					pcurs = prevCurs;
+				}
+				CalcPlrInv(player, true);
 			} else if (player.CanUseItem(item)) {
 				// Auto-equip weapon/armor/ring/amulet
 				AutoEquip(player, item);
@@ -2562,6 +2595,8 @@ static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH
 	outH = h;
 	outRgba.assign(w * h * 4, 0);
 
+	const auto &pal = sgbFadedIn.load() ? system_palette : orig_palette;
+
 	const uint8_t *src = sprite.pixelData();
 	const uint8_t *srcEnd = src + sprite.pixelDataSize();
 
@@ -2580,8 +2615,11 @@ static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH
 					if (trn != nullptr) color = trn[color];
 					for (uint8_t i = 0; i < count; ++i) {
 						int px = (w - remainingWidth + i);
-						if (px >= 0 && px < w && curY >= 0 && curY < h) {
-							int idx = (curY * w + px) * 4;
+						int lineSkip = px / w;
+						int actualX = px % w;
+						int actualY = curY - lineSkip;
+						if (actualX >= 0 && actualX < w && actualY >= 0 && actualY < h) {
+							int idx = (actualY * w + actualX) * 4;
 							if (color == 0) {
 								// Authentic Diablo 1 shadow pixel!
 								outRgba[idx + 0] = 0;
@@ -2589,7 +2627,7 @@ static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH
 								outRgba[idx + 2] = 0;
 								outRgba[idx + 3] = 160;
 							} else {
-								SDL_Color c = system_palette[color];
+								SDL_Color c = pal[color];
 								outRgba[idx + 0] = c.r;
 								outRgba[idx + 1] = c.g;
 								outRgba[idx + 2] = c.b;
@@ -2604,8 +2642,11 @@ static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH
 						uint8_t color = *src++;
 						if (trn != nullptr) color = trn[color];
 						int px = (w - remainingWidth + i);
-						if (px >= 0 && px < w && curY >= 0 && curY < h) {
-							int idx = (curY * w + px) * 4;
+						int lineSkip = px / w;
+						int actualX = px % w;
+						int actualY = curY - lineSkip;
+						if (actualX >= 0 && actualX < w && actualY >= 0 && actualY < h) {
+							int idx = (actualY * w + actualX) * 4;
 							if (color == 0) {
 								// Authentic Diablo 1 shadow pixel!
 								outRgba[idx + 0] = 0;
@@ -2613,7 +2654,7 @@ static void RasterizeClxSpriteRgba(const ClxSprite &sprite, int &outW, int &outH
 								outRgba[idx + 2] = 0;
 								outRgba[idx + 3] = 160;
 							} else {
-								SDL_Color c = system_palette[color];
+								SDL_Color c = pal[color];
 								outRgba[idx + 0] = c.r;
 								outRgba[idx + 1] = c.g;
 								outRgba[idx + 2] = c.b;
@@ -2745,7 +2786,7 @@ D1TilePieceRgba GetDungeonPieceRgba(int pieceId)
 		for (int x = 0; x < w; ++x) {
 			uint8_t idx = src[x];
 			if (idx != 0) {
-				SDL_Color c = system_palette[idx];
+				SDL_Color c = (sgbFadedIn.load() ? system_palette : orig_palette)[idx];
 				int px = (y * w + x) * 4;
 				dst[px + 0] = c.r;
 				dst[px + 1] = c.g;
@@ -2785,7 +2826,7 @@ D1SpecialCelRgba GetSpecialCelRgba(int specialId)
 		for (int x = 0; x < w; ++x) {
 			uint8_t idx = src[x];
 			if (idx != 0) {
-				SDL_Color c = system_palette[idx];
+				SDL_Color c = (sgbFadedIn.load() ? system_palette : orig_palette)[idx];
 				int px = (y * w + x) * 4;
 				dst[px + 0] = c.r;
 				dst[px + 1] = c.g;
@@ -3280,7 +3321,59 @@ std::string GetQTextTitle()
 	if (qtextflag && !g_ActiveQuestTitle.empty()) {
 		return g_ActiveQuestTitle;
 	}
-	return devilution::GetActiveTalkerName();
+
+	if (qtextflag && g_ActiveSpeechId >= 0 && g_ActiveSpeechId < 258) {
+		_speech_id sid = static_cast<_speech_id>(g_ActiveSpeechId);
+		_sfx_id sfx = Speeches[sid].sfxnr;
+
+		// Match any quest from QuestsData FIRST!
+		for (size_t q = 0; q < MAXQUESTS; ++q) {
+			if (QuestsData[q]._qdmsg == sid || Quests[q]._qmsg == sid) {
+				return std::string(_(QuestsData[q]._qlstr));
+			}
+		}
+
+		// Towners
+		if (sfx >= TSFX_STORY0 && sfx <= TSFX_STORY38) return std::string(_("Cain the Elder"));
+		if (sfx >= TSFX_TAVERN0 && sfx <= TSFX_TAVERN45) return std::string(_("Ogden the Tavern Owner"));
+		if (sfx >= TSFX_HEALER1 && sfx <= TSFX_HEALER47) return std::string(_("Pepin the Healer"));
+		if (sfx >= TSFX_BMAID1 && sfx <= TSFX_BMAID40) return std::string(_("Gillian the Barmaid"));
+		if (sfx >= TSFX_SMITH1 && sfx <= TSFX_SMITH56) return std::string(_("Griswold the Blacksmith"));
+		if (sfx >= TSFX_DRUNK1 && sfx <= TSFX_DRUNK35) return std::string(_("Farnham the Drunk"));
+		if (sfx >= TSFX_WITCH1 && sfx <= TSFX_WITCH42) return std::string(_("Adria the Witch"));
+		if (sfx >= TSFX_PEGBOY1 && sfx <= TSFX_PEGBOY43) return std::string(_("Wirt the Peg-legged boy"));
+		if (sfx >= TSFX_COW1 && sfx <= TSFX_COW8) return std::string(_("Complete Nut"));
+		if (sfx >= TSFX_FARMER1 && sfx <= TSFX_FARMER9) return std::string(_("Lester the Farmer"));
+		if (sid >= TEXT_GIRL1 && sid <= TEXT_GIRL4) return std::string(_("Celia"));
+
+		// Bosses & Unique Monsters
+		if (sfx == USFX_CLEAVER) return std::string(_("The Butcher"));
+		if (sfx >= USFX_GARBUD1 && sfx <= USFX_GARBUD4) return std::string(_("Gharbad the Weak"));
+		if (sfx >= USFX_LACH1 && sfx <= USFX_LACH3) return std::string(_("Lachdanan"));
+		if (sfx == USFX_LAZ1 || sfx == USFX_LAZ2) return std::string(_("Archbishop Lazarus"));
+		if (sfx == USFX_SKING1) return std::string(_("The Skeleton King"));
+		if (sfx >= USFX_SNOT1 && sfx <= USFX_SNOT3) return std::string(_("Snotspill"));
+		if (sfx == USFX_WARLRD1 || sfx == USFX_WLOCK1) return std::string(_("Warlord of Blood"));
+		if (sfx == USFX_ZHAR1 || sfx == USFX_ZHAR2) return std::string(_("Zhar the Mad"));
+		if (sfx >= USFX_DEFILER1 && sfx <= USFX_DEFILER8) return std::string(_("The Defiler"));
+		if (sfx >= USFX_NAKRUL1 && sfx <= USFX_NAKRUL6) return std::string(_("Na-Krul"));
+
+		// Dungeon books / special lore speeches
+		if (sid == TEXT_BOOK9) return std::string(_("Tome of Knowledge"));
+		if (sid == TEXT_BUTCH9) return std::string(_("Wounded Townsman"));
+		if (sid >= TEXT_BLOOD1 && sid <= TEXT_BLOOD8) return std::string(_("Book of Blood"));
+		if (sid == TEXT_BLOODWAR) return std::string(_("Book of Blood"));
+		if (sid >= TEXT_BLIND1 && sid <= TEXT_BLIND8) return std::string(_("Book of the Blind"));
+		if (sid == TEXT_BLINDING) return std::string(_("Book of the Blind"));
+		if (sid >= TEXT_BONE1 && sid <= TEXT_BONE8) return std::string(_("Mythical Book"));
+		if (sid == TEXT_BONER || sid == TEXT_BLOODY) return std::string(_("Mythical Book"));
+	}
+
+	if (stextflag != TalkID::None && leveltype == DTYPE_TOWN) {
+		return devilution::GetActiveTalkerName();
+	}
+
+	return "Dialogue";
 }
 
 void DismissQText()
@@ -3375,7 +3468,10 @@ std::vector<D1InvItemData> GetStashItems()
 			const Item &item = devilution::Stash.stashList[itemId];
 			if (item.position != slot)
 				continue; // Only take the root slot of multi-cell items
-			result.push_back(ConvertItemToInvData(item, y * 10 + x, x, y, itemId));
+			Size sz = GetInventorySize(item);
+			int topX = item.position.x;
+			int topY = item.position.y - (sz.height - 1);
+			result.push_back(ConvertItemToInvData(item, topY * 10 + topX, topX, topY, itemId));
 		}
 	}
 	return result;
@@ -3413,9 +3509,18 @@ void ClickStashSlot(int cellIdx, bool isShift, bool isCtrl)
 	int cellX = cellIdx % 10;
 	int cellY = cellIdx / 10;
 	Point slot { cellX, cellY };
-	Point clickPos = devilution::GetStashSlotCoord(slot) + Displacement { 14, 14 };
 
-	devilution::CheckStashItem(clickPos, isShift, isCtrl);
+	if (!MyPlayer->HoldItem.isEmpty()) {
+		devilution::PasteItemToStashSlot(slot);
+	} else if (isCtrl) {
+		devilution::StashStruct::StashCell itemId = devilution::Stash.GetItemIdAtPosition(slot);
+		if (itemId != devilution::StashStruct::EmptyCell) {
+			devilution::TransferItemToInventory(*MyPlayer, itemId);
+		}
+	} else {
+		devilution::CutItemFromStashSlot(slot, isShift);
+	}
+
 	CalcPlrInv(*MyPlayer, true);
 	g_InventoryVersion.fetch_add(1);
 }

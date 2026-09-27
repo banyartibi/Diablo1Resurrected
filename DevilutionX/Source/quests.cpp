@@ -22,6 +22,7 @@
 #include "levels/town.h"
 #include "levels/trigs.h"
 #include "minitext.h"
+#include "engine/render_bridge.hpp"
 #include "missiles.h"
 #include "monster.h"
 #include "options.h"
@@ -897,8 +898,11 @@ void QuestlogDown()
 void QuestlogEnter()
 {
 	PlaySFX(IS_TITLSLCT);
-	if (EncounteredQuestCount != 0 && SelectedQuest >= 0 && SelectedQuest < FirstFinishedQuest)
-		InitQTextMsg(Quests[EncounteredQuests[SelectedQuest]]._qmsg);
+	if (EncounteredQuestCount != 0 && SelectedQuest >= 0 && SelectedQuest < FirstFinishedQuest) {
+		int qidx = EncounteredQuests[SelectedQuest];
+		SetActiveQuestTitle(_(QuestsData[qidx]._qlstr));
+		InitQTextMsg(Quests[qidx]._qmsg);
+	}
 	QuestLogIsOpen = false;
 }
 

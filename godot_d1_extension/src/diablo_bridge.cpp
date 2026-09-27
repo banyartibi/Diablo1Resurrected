@@ -158,10 +158,20 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("save_settings"), &DiabloBridge::save_settings);
 	ClassDB::bind_method(D_METHOD("get_vsync_enabled"), &DiabloBridge::get_vsync_enabled);
 	ClassDB::bind_method(D_METHOD("get_show_fps"), &DiabloBridge::get_show_fps);
+	ClassDB::bind_method(D_METHOD("get_d1de_display_mode"), &DiabloBridge::get_d1de_display_mode);
 	ClassDB::bind_method(D_METHOD("get_resurrected_display_mode"), &DiabloBridge::get_resurrected_display_mode);
 	ClassDB::bind_method(D_METHOD("get_mode_switch_key"), &DiabloBridge::get_mode_switch_key);
 	ClassDB::bind_method(D_METHOD("get_mode_switch_mods"), &DiabloBridge::get_mode_switch_mods);
 	ClassDB::bind_method(D_METHOD("set_mode_switch_binding", "key", "mods"), &DiabloBridge::set_mode_switch_binding);
+
+	ClassDB::bind_method(D_METHOD("get_d1de_torchlight"), &DiabloBridge::get_d1de_torchlight);
+	ClassDB::bind_method(D_METHOD("get_d1de_fog_level"), &DiabloBridge::get_d1de_fog_level);
+	ClassDB::bind_method(D_METHOD("get_d1de_color_profile"), &DiabloBridge::get_d1de_color_profile);
+	ClassDB::bind_method(D_METHOD("get_d1de_hdr_level"), &DiabloBridge::get_d1de_hdr_level);
+	ClassDB::bind_method(D_METHOD("get_d1de_upscaler_mode"), &DiabloBridge::get_d1de_upscaler_mode);
+	ClassDB::bind_method(D_METHOD("get_d1de_relief_mode"), &DiabloBridge::get_d1de_relief_mode);
+	ClassDB::bind_method(D_METHOD("get_d1de_wet_floor"), &DiabloBridge::get_d1de_wet_floor);
+
 	ClassDB::bind_method(D_METHOD("get_resurrected_torchlight"), &DiabloBridge::get_resurrected_torchlight);
 	ClassDB::bind_method(D_METHOD("get_resurrected_fog_level"), &DiabloBridge::get_resurrected_fog_level);
 	ClassDB::bind_method(D_METHOD("get_resurrected_color_profile"), &DiabloBridge::get_resurrected_color_profile);
@@ -1079,6 +1089,7 @@ Array DiabloBridge::poll_visual_events() {
 		float wx = (ev.normX - 0.5f) * 16.0f;
 		float wy = (0.5f - ev.normY) * 9.0f;
 		d["world_pos"] = Vector3(wx, wy, 0.50f);
+		d["tile"] = Vector2i(ev.tileX, ev.tileY);
 		d["dir"] = Vector2(ev.dirX, ev.dirY);
 		d["intensity"] = ev.intensity;
 		arr.append(d);
@@ -1263,6 +1274,9 @@ Ref<ImageTexture> DiabloBridge::get_item_texture(int curs_id) {
 	Ref<Image> img = Image::create_from_data(icon.width, icon.height, false, Image::FORMAT_RGBA8, pba);
 	if (img.is_null())
 		return Ref<ImageTexture>();
+
+	// Upscale 4X with nearest-neighbor to match 4X HD cell dimensions (28x28 -> 112x112, 28x84 -> 112x336, 56x84 -> 224x336)
+	img->resize(icon.width * 4, icon.height * 4, Image::INTERPOLATE_NEAREST);
 
 	Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
 	item_texture_cache[curs_id] = tex;
@@ -1773,6 +1787,39 @@ int DiabloBridge::get_resurrected_relief_mode() const {
 	return devilution::GetResurrectedReliefMode();
 }
 
+int DiabloBridge::get_d1de_display_mode() const {
+	return get_resurrected_display_mode();
+}
+
+bool DiabloBridge::get_d1de_torchlight() const {
+	return get_resurrected_torchlight();
+}
+
+int DiabloBridge::get_d1de_fog_level() const {
+	return get_resurrected_fog_level();
+}
+
+int DiabloBridge::get_d1de_color_profile() const {
+	return get_resurrected_color_profile();
+}
+
+int DiabloBridge::get_d1de_hdr_level() const {
+	return get_resurrected_hdr_level();
+}
+
+int DiabloBridge::get_d1de_upscaler_mode() const {
+	return get_resurrected_upscaler_mode();
+}
+
+int DiabloBridge::get_d1de_relief_mode() const {
+	return get_resurrected_relief_mode();
+}
+
+bool DiabloBridge::get_d1de_wet_floor() const {
+	return get_resurrected_wet_floor();
+}
+
 bool DiabloBridge::get_resurrected_wet_floor() const {
 	return devilution::GetResurrectedWetFloor();
 }
+

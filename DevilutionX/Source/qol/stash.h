@@ -80,6 +80,8 @@ void TransferItemToInventory(Player &player, uint16_t itemId);
  */
 void DrawStash(const Surface &out);
 void CheckStashItem(Point mousePosition, bool isShiftHeld = false, bool isCtrlHeld = false);
+bool PasteItemToStashSlot(Point firstSlot);
+void CutItemFromStashSlot(Point slot, bool automaticMove = false);
 bool UseStashItem(uint16_t cii);
 uint16_t CheckStashHLight(Point mousePosition);
 void CheckStashButtonRelease(Point mousePosition);

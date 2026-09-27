@@ -1,0 +1,41 @@
+[gd_scene load_steps=7 format=3 uid="uid://vfx2dbone"]
+
+[ext_resource type="Script" path="res://scripts/one_shot_particles_2d.gd" id="1_osp"]
+[ext_resource type="Shader" path="res://shaders/bone_shard_2d.gdshader" id="2_bne"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bone"]
+shader = ExtResource("2_bne")
+
+[sub_resource type="Gradient" id="Gradient_white"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_shard"]
+gradient = SubResource("Gradient_white")
+width = 14
+height = 14
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_bone"]
+particle_flag_align_y = true
+lifetime_randomness = 0.4
+direction = Vector3(0, -1, 0)
+spread = 80.0
+initial_velocity_min = 50.0
+initial_velocity_max = 110.0
+gravity = Vector3(0, 380, 0)
+damping_min = 8.0
+damping_max = 20.0
+scale_min = 0.7
+scale_max = 1.4
+color = Color(1, 1, 1, 1)
+
+[node name="BoneShards2D" type="GPUParticles2D"]
+material = SubResource("ShaderMaterial_bone")
+emitting = false
+amount = 24
+texture = SubResource("GradientTexture2D_shard")
+lifetime = 0.45
+one_shot = true
+explosiveness = 0.94
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_bone")
+script = ExtResource("1_osp")

@@ -34,6 +34,9 @@ constexpr uint8_t GetCelTransparentWidth(uint8_t control)
 
 OwnedClxSpriteListOrSheet CelToClx(const uint8_t *data, size_t size, PointerOrValue<uint16_t> widthOrWidths)
 {
+	if (!data || size < 8)
+		return OwnedClxSpriteListOrSheet { nullptr, 0 };
+
 	// A CEL file either begins with:
 	// 1. A CEL header.
 	// 2. A list of offsets to frame groups (each group is a CEL file).
@@ -47,10 +50,14 @@ OwnedClxSpriteListOrSheet CelToClx(const uint8_t *data, size_t size, PointerOrVa
 	// The only file that becomes larger is data\hf_logo3.cel, by exactly 4445 bytes.
 	cl2Data.reserve(size + 4445);
 
+	const uint8_t *const dataEnd = data + size;
+
 	// If it is a number of frames, then the last frame offset will be equal to the size of the file.
-	if (LoadLE32(&data[maybeNumFrames * 4 + 4]) != size) {
+	if (maybeNumFrames * 4 + 8 > size || LoadLE32(&data[maybeNumFrames * 4 + 4]) != size) {
 		// maybeNumFrames is the address of the first group, right after
 		// the list of group offsets.
+		if (maybeNumFrames % 4 != 0 || maybeNumFrames > size)
+			return OwnedClxSpriteListOrSheet { nullptr, 0 };
 		numGroups = maybeNumFrames / 4;
 		groupsHeaderSize = maybeNumFrames;
 		data += groupsHeaderSize;
@@ -58,6 +65,8 @@ OwnedClxSpriteListOrSheet CelToClx(const uint8_t *data, size_t size, PointerOrVa
 	}
 
 	for (size_t group = 0; group < numGroups; ++group) {
+		if (data + 8 > dataEnd)
+			break;
 		uint32_t numFrames;
 		if (numGroups == 1) {
 			numFrames = maybeNumFrames;
@@ -66,20 +75,30 @@ OwnedClxSpriteListOrSheet CelToClx(const uint8_t *data, size_t size, PointerOrVa
 			WriteLE32(&cl2Data[4 * group], static_cast<uint32_t>(cl2Data.size()));
 		}
 
+		if (data + 4 * (2 + static_cast<size_t>(numFrames)) > dataEnd)
+			break;
+
 		// CL2 header: frame count, frame offset for each frame, file size
 		const size_t cl2DataOffset = cl2Data.size();
 		cl2Data.resize(cl2Data.size() + 4 * (2 + static_cast<size_t>(numFrames)));
 		WriteLE32(&cl2Data[cl2DataOffset], numFrames);
 
-		const uint8_t *srcEnd = &data[LoadLE32(&data[4])];
+		const uint32_t firstOffset = LoadLE32(&data[4]);
+		if (firstOffset > size || data + firstOffset > dataEnd)
+			break;
+
+		const uint8_t *srcEnd = data + firstOffset;
 		for (size_t frame = 1; frame <= numFrames; ++frame) {
 			const uint8_t *src = srcEnd;
-			srcEnd = &data[LoadLE32(&data[4 * (frame + 1)])];
+			const uint32_t nextOffset = LoadLE32(&data[4 * (frame + 1)]);
+			if (nextOffset > size || data + nextOffset > dataEnd || data + nextOffset < src)
+				break;
+			srcEnd = data + nextOffset;
 			WriteLE32(&cl2Data[cl2DataOffset + 4 * frame], static_cast<uint32_t>(cl2Data.size() - cl2DataOffset));
 
 			// Skip CEL frame header if there is one.
 			constexpr size_t CelFrameHeaderSize = 10;
-			const bool celFrameHasHeader = LoadLE16(src) == CelFrameHeaderSize;
+			const bool celFrameHasHeader = (src + CelFrameHeaderSize <= srcEnd) && (LoadLE16(src) == CelFrameHeaderSize);
 			if (celFrameHasHeader)
 				src += CelFrameHeaderSize;
 
@@ -93,9 +112,11 @@ OwnedClxSpriteListOrSheet CelToClx(const uint8_t *data, size_t size, PointerOrVa
 
 			unsigned transparentRunWidth = 0;
 			size_t frameHeight = 0;
-			while (src != srcEnd) {
+			while (src < srcEnd) {
 				// Process line:
 				for (unsigned remainingCelWidth = frameWidth; remainingCelWidth != 0;) {
+					if (src >= srcEnd)
+						break;
 					uint8_t val = *src++;
 					if (IsCelTransparent(val)) {
 						val = GetCelTransparentWidth(val);
@@ -103,9 +124,14 @@ OwnedClxSpriteListOrSheet CelToClx(const uint8_t *data, size_t size, PointerOrVa
 					} else {
 						AppendClxTransparentRun(transparentRunWidth, cl2Data);
 						transparentRunWidth = 0;
+						if (src + val > srcEnd) {
+							val = static_cast<uint8_t>(srcEnd - src);
+						}
 						AppendClxPixelsOrFillRun(src, val, cl2Data);
 						src += val;
 					}
+					if (val >= remainingCelWidth)
+						break;
 					remainingCelWidth -= val;
 				}
 				++frameHeight;

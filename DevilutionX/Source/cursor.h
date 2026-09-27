@@ -43,6 +43,9 @@ extern int8_t pcursplr;
 extern Point cursPosition;
 extern DVL_API_FOR_TEST int pcurs;
 
+extern const uint16_t InvItemWidth1[];
+extern const uint16_t InvItemWidth2[];
+
 void InitCursor();
 void FreeCursor();
 void ResetCursor();
@@ -66,6 +69,8 @@ void DrawItem(const Item &item, const Surface &out, Point position, ClxSprite cl
 
 /** Returns the sprite for the given inventory index. */
 ClxSprite GetInvItemSprite(int cursId);
+bool IsInvItemSpriteLoaded();
+size_t GetNumInvItems();
 
 ClxSprite GetHalfSizeItemSprite(int cursId);
 ClxSprite GetHalfSizeItemSpriteRed(int cursId);

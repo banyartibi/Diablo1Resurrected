@@ -1,7 +1,7 @@
 shader_type canvas_item;
 render_mode blend_mix;
 
-// Diablo 1 Resurrected - 2D Atmospheric Dungeon Fog (Mode 1)
+// Diablo: Definitive Edition - 2D Atmospheric Dungeon Fog (Mode 1)
 // Realistic layered procedural mist & drifting smoke across the dungeon playfield.
 
 uniform int fog_mode : hint_range(0, 2) = 1; // 0: Off, 1: Crypt Mist, 2: Dense Drift

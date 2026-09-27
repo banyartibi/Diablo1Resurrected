@@ -662,6 +662,9 @@ struct ResurrectedOptions : OptionCategoryBase {
 	OptionEntryEnum<ReliefMode> reliefMode;
 	/** @brief Wet & reflective cobblestone floor (glossy puddles). */
 	OptionEntryBoolean wetFloor;
+
+	/** @brief Combat gore & spell VFX across all display modes (blood splatter, bone shards, fireball bursts). */
+	OptionEntryBoolean resurrectedEffects;
 };
 
 struct GameplayOptions : OptionCategoryBase {

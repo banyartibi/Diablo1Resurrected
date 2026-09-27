@@ -36,10 +36,6 @@
 #include "utils/utf8.hpp"
 
 namespace devilution {
-namespace {
-/** Cursor images CEL */
-OptionalOwnedClxSpriteList pCursCels;
-OptionalOwnedClxSpriteList pCursCels2;
 
 /** Maps from objcurs.cel frame number to frame width. */
 const uint16_t InvItemWidth1[] = {
@@ -75,6 +71,13 @@ const uint16_t InvItemWidth2[] = {
 	2 * 28
 	// clang-format on
 };
+
+namespace {
+
+/** Cursor images CEL */
+OptionalOwnedClxSpriteList pCursCels;
+OptionalOwnedClxSpriteList pCursCels2;
+
 constexpr uint16_t InvItems1Size = sizeof(InvItemWidth1) / sizeof(InvItemWidth1[0]);
 constexpr uint16_t InvItems2Size = sizeof(InvItemWidth2) / sizeof(InvItemWidth2[0]);
 
@@ -152,6 +155,11 @@ void FreeCursor()
 	pCursCels = std::nullopt;
 	pCursCels2 = std::nullopt;
 	ClearCursor();
+}
+
+bool IsInvItemSpriteLoaded()
+{
+	return pCursCels.has_value();
 }
 
 ClxSprite GetInvItemSprite(int cursId)

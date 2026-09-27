@@ -285,6 +285,8 @@ struct D1VisualEvent {
 	uint32_t type = 0; // 1: Blood Splatter, 2: Bone Shards, 3: Fireball Explosion, 4: Hit Sparks
 	float normX = 0.5f;
 	float normY = 0.5f;
+	int tileX = 0;
+	int tileY = 0;
 	float dirX = 0.0f;
 	float dirY = -1.0f;
 	float intensity = 1.0f;
@@ -523,6 +525,7 @@ void SelectModalItem(int index);
 bool IsQTextActive();
 std::vector<std::string> GetQTextLines();
 std::string GetQTextTitle();
+void SetActiveQuestTitle(std::string_view title);
 void DismissQText();
 
 // Native Godot Modern Stash Bridge

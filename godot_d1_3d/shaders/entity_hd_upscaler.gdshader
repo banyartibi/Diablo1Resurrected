@@ -1,14 +1,19 @@
 shader_type canvas_item;
 render_mode unshaded;
 
-// Diablo 1 Resurrected - Entity (Hero & Monster) HD Subpixel Upscaler Shader
-// Supports AMD CAS, Anime4K Edge Push, Anime4K Thin Lines, 8K Catmull-Rom & Native 1:1
+// Diablo: Definitive Edition - Entity (Hero, Monster, Object) High-Definition Subpixel Upscaler
+// Supports:
+// Mode 0: AMD FidelityFX CAS (Contrast-Adaptive Sharpening + Subpixel Alpha)
+// Mode 1: Neural Edge Reconstruction (Scale2x / EPX Diagonal Vector Smoothing)
+// Mode 2: Anime4K Thin Lines & Contours (Crisp Inked Gothic Outlines)
+// Mode 3: 8K Catmull-Rom Bicubic Spline (Bounded Anti-Ringing Interpolation)
+// Mode 4: Native 1:1 Direct Retro Pixel-Art (Crisp Pixels + Anti-Aliased Silhouette)
 
 uniform bool hd_enabled = true;
-uniform int upscaler_mode : hint_range(0, 4) = 3; // 0: AMD CAS, 1: Anime4K Edge, 2: Anime4K Thin, 3: 8K Catmull-Rom, 4: Native
-uniform float sharpness : hint_range(0.0, 1.0) = 0.35;
-uniform float gamma : hint_range(0.5, 2.5) = 1.55;
-uniform float brightness : hint_range(0.5, 3.0) = 1.45;
+uniform int upscaler_mode : hint_range(0, 4) = 0; // Default 0: AMD FidelityFX CAS
+uniform float sharpness : hint_range(0.0, 1.0) = 0.40;
+uniform float gamma : hint_range(0.5, 2.5) = 1.0;
+uniform float brightness : hint_range(0.5, 3.0) = 1.0;
 
 vec4 catmull_rom_weights(float t) {
     float t2 = t * t;
@@ -26,75 +31,90 @@ void fragment() {
     vec2 texel = vec2(1.0) / tex_size;
 
     vec4 c = texture(TEXTURE, UV);
-    if (!hd_enabled || upscaler_mode == 4 || tex_size.x <= 1.0 || tex_size.y <= 1.0) {
-        vec3 gamma_c = pow(clamp(c.rgb, 0.0, 1.0), vec3(1.0 / max(gamma, 0.1))) * brightness;
-        COLOR = vec4(gamma_c, c.a) * COLOR;
+
+    // If HD is disabled (Authentic 1996), bypass all enhancements and render raw 1996 retro pixels
+    if (!hd_enabled || tex_size.x <= 1.0 || tex_size.y <= 1.0) {
+        vec3 col_rgb = (abs(gamma - 1.0) > 0.01 ? pow(clamp(c.rgb, 0.0, 1.0), vec3(1.0 / max(gamma, 0.1))) : c.rgb) * brightness;
+        COLOR = vec4(col_rgb, c.a) * COLOR;
     } else if (c.a < 0.005) {
         COLOR = vec4(0.0);
     } else {
-        vec4 sampled;
-        if (upscaler_mode == 0) {
-            // AMD FidelityFX CAS
-            vec4 a = texture(TEXTURE, UV + vec2( 0.0, -1.0) * texel);
-            vec4 b = texture(TEXTURE, UV + vec2(-1.0,  0.0) * texel);
-            vec4 d = texture(TEXTURE, UV + vec2( 1.0,  0.0) * texel);
-            vec4 e = texture(TEXTURE, UV + vec2( 0.0,  1.0) * texel);
+        // Cardinal 4-neighbors
+        vec4 up = texture(TEXTURE, UV + vec2( 0.0, -1.0) * texel);
+        vec4 dn = texture(TEXTURE, UV + vec2( 0.0,  1.0) * texel);
+        vec4 lf = texture(TEXTURE, UV + vec2(-1.0,  0.0) * texel);
+        vec4 rt = texture(TEXTURE, UV + vec2( 1.0,  0.0) * texel);
 
-            vec3 min_c = min(c.rgb, min(min(a.rgb, b.rgb), min(d.rgb, e.rgb)));
-            vec3 max_c = max(c.rgb, max(max(a.rgb, b.rgb), max(d.rgb, e.rgb)));
+        vec2 f = fract(UV / texel);
+        float edge_alpha = 1.0;
+        if (upscaler_mode != 4) {
+            float min_dist = 1.0;
+            if (up.a < 0.5) min_dist = min(min_dist, f.y);
+            if (dn.a < 0.5) min_dist = min(min_dist, 1.0 - f.y);
+            if (lf.a < 0.5) min_dist = min(min_dist, f.x);
+            if (rt.a < 0.5) min_dist = min(min_dist, 1.0 - f.x);
+
+            // Diagonal outer corner rounding
+            if (up.a < 0.5 && lf.a < 0.5) min_dist = min(min_dist, length(vec2(f.x, f.y)));
+            if (up.a < 0.5 && rt.a < 0.5) min_dist = min(min_dist, length(vec2(1.0 - f.x, f.y)));
+            if (dn.a < 0.5 && lf.a < 0.5) min_dist = min(min_dist, length(vec2(f.x, 1.0 - f.y)));
+            if (dn.a < 0.5 && rt.a < 0.5) min_dist = min(min_dist, length(vec2(1.0 - f.x, 1.0 - f.y)));
+
+            edge_alpha = smoothstep(0.04, 0.35, min_dist);
+        }
+
+        vec4 sampled = c;
+
+        if (upscaler_mode == 0) {
+            // Mode 0: AMD FidelityFX CAS Super-Resolution (Clean Contrast-Adaptive Sharpening)
+            vec3 min_c = min(c.rgb, min(min(up.rgb, dn.rgb), min(lf.rgb, rt.rgb)));
+            vec3 max_c = max(c.rgb, max(max(up.rgb, dn.rgb), max(lf.rgb, rt.rgb)));
 
             vec3 amp = clamp(min(min_c, 2.0 - max_c) / max(max_c, vec3(0.001)), 0.0, 1.0);
-            vec3 w = -sqrt(amp) * (sharpness * 0.16);
-            vec3 sharp_rgb = (a.rgb * w + b.rgb * w + c.rgb + d.rgb * w + e.rgb * w) / (1.0 + 4.0 * w);
+            vec3 w = -sqrt(amp) * (sharpness * 0.18);
+            vec3 sharp_rgb = (up.rgb * w + dn.rgb * w + c.rgb + lf.rgb * w + rt.rgb * w) / (1.0 + 4.0 * w);
+            sampled = vec4(clamp(sharp_rgb, min_c, max_c), c.a);
 
-            float avg_a = (a.a + b.a + d.a + e.a) * 0.25;
-            float smooth_a = (c.a >= 0.85) ? c.a : mix(c.a, avg_a, 0.20);
-            sampled = vec4(clamp(sharp_rgb, 0.0, 1.0), smooth_a);
-        } else if (upscaler_mode == 1 || upscaler_mode == 2) {
-            // Neural Edge Push (used for modes 1 and 2)
-            const vec3 luma = vec3(0.299, 0.587, 0.114);
-            float l_tl = dot(texture(TEXTURE, UV + vec2(-1.0, -1.0) * texel).rgb, luma);
-            float l_tc = dot(texture(TEXTURE, UV + vec2( 0.0, -1.0) * texel).rgb, luma);
-            float l_tr = dot(texture(TEXTURE, UV + vec2( 1.0, -1.0) * texel).rgb, luma);
-            float l_ml = dot(texture(TEXTURE, UV + vec2(-1.0,  0.0) * texel).rgb, luma);
-            float l_mr = dot(texture(TEXTURE, UV + vec2( 1.0,  0.0) * texel).rgb, luma);
-            float l_bl = dot(texture(TEXTURE, UV + vec2(-1.0,  1.0) * texel).rgb, luma);
-            float l_bc = dot(texture(TEXTURE, UV + vec2( 0.0,  1.0) * texel).rgb, luma);
-            float l_br = dot(texture(TEXTURE, UV + vec2( 1.0,  1.0) * texel).rgb, luma);
+        } else if (upscaler_mode == 1) {
+            // Mode 1: Neural Edge Reconstruction (Scale2x / EPX Subpixel Diagonal Vector Contours)
+            vec4 recon = c;
 
-            float gx = (l_tr + 2.0 * l_mr + l_br) - (l_tl + 2.0 * l_ml + l_bl);
-            float gy = (l_bl + 2.0 * l_bc + l_br) - (l_tl + 2.0 * l_tc + l_tr);
-            float edge = length(vec2(gx, gy));
+            // Diagonal edge recognition: eliminates blocky stair-stepping on diagonal silhouettes
+            bool diff_ud = any(greaterThan(abs(up.rgb - dn.rgb), vec3(0.06)));
+            bool diff_lr = any(greaterThan(abs(lf.rgb - rt.rgb), vec3(0.06)));
+            if (diff_ud && diff_lr) {
+                bool match_ur = all(lessThan(abs(up.rgb - rt.rgb), vec3(0.08)));
+                bool match_br = all(lessThan(abs(dn.rgb - rt.rgb), vec3(0.08)));
+                bool match_bl = all(lessThan(abs(dn.rgb - lf.rgb), vec3(0.08)));
+                bool match_ul = all(lessThan(abs(up.rgb - lf.rgb), vec3(0.08)));
 
-            vec4 pushed = c;
-            if (edge > 0.035) {
-                vec2 dir = normalize(vec2(gx, gy));
-                vec2 pushed_uv = UV - dir * (texel * 0.45 * clamp(edge * 2.5, 0.0, 1.0));
-                pushed = mix(c, texture(TEXTURE, pushed_uv), clamp(edge * 2.8, 0.0, 1.0));
+                if (match_ur && f.x > 0.5 && f.y < 0.5) recon = up;
+                if (match_br && f.x > 0.5 && f.y > 0.5) recon = dn;
+                if (match_bl && f.x < 0.5 && f.y > 0.5) recon = dn;
+                if (match_ul && f.x < 0.5 && f.y < 0.5) recon = up;
             }
 
-            if (upscaler_mode == 2) {
-                // Anime4K Thin Lines
-                vec4 up = texture(TEXTURE, UV + vec2( 0.0, -1.0) * texel);
-                vec4 dn = texture(TEXTURE, UV + vec2( 0.0,  1.0) * texel);
-                vec4 lf = texture(TEXTURE, UV + vec2(-1.0,  0.0) * texel);
-                vec4 rt = texture(TEXTURE, UV + vec2( 1.0,  0.0) * texel);
+            sampled = vec4(recon.rgb, c.a);
 
-                vec3 min_c = min(pushed.rgb, min(min(up.rgb, dn.rgb), min(lf.rgb, rt.rgb)));
-                vec3 max_c = max(pushed.rgb, max(max(up.rgb, dn.rgb), max(lf.rgb, rt.rgb)));
-                vec3 sharpened = pushed.rgb + (pushed.rgb - (up.rgb + dn.rgb + lf.rgb + rt.rgb) * 0.25) * 0.65;
-                sampled = vec4(clamp(sharpened, min_c, max_c), pushed.a);
-            } else {
-                sampled = pushed;
-            }
-        } else {
-            // 8K Catmull-Rom Bicubic Spline (Default)
+        } else if (upscaler_mode == 2) {
+            // Mode 2: Anime4K Thin Lines & Vector Contours (Inked outlines without wavy UV distortion)
+            vec3 min_c = min(c.rgb, min(min(up.rgb, dn.rgb), min(lf.rgb, rt.rgb)));
+            vec3 max_c = max(c.rgb, max(max(up.rgb, dn.rgb), max(lf.rgb, rt.rgb)));
+            vec3 avg_nb = (up.rgb + dn.rgb + lf.rgb + rt.rgb) * 0.25;
+
+            // High-pass contour ink
+            vec3 contour = c.rgb + (c.rgb - avg_nb) * (sharpness * 1.2);
+            vec3 sharpened = clamp(contour, min_c * 0.85, max_c);
+            sampled = vec4(sharpened, c.a);
+
+        } else if (upscaler_mode == 3) {
+            // Mode 3: 8K Catmull-Rom Bicubic Spline (Bounded anti-ringing interpolation)
             vec2 coord = UV / texel - 0.5;
-            vec2 f = fract(coord);
+            vec2 f_coord = fract(coord);
             vec2 base = (floor(coord) + 0.5) * texel;
 
-            vec4 wx = catmull_rom_weights(f.x);
-            vec4 wy = catmull_rom_weights(f.y);
+            vec4 wx = catmull_rom_weights(f_coord.x);
+            vec4 wy = catmull_rom_weights(f_coord.y);
 
             vec4 col = vec4(0.0);
             for (int j = 0; j < 4; j++) {
@@ -104,11 +124,17 @@ void fragment() {
                     col += s * (wx[i] * wy[j]);
                 }
             }
-            sampled = clamp(col, 0.0, 1.0);
+            vec3 min_c = min(c.rgb, min(min(up.rgb, dn.rgb), min(lf.rgb, rt.rgb)));
+            vec3 max_c = max(c.rgb, max(max(up.rgb, dn.rgb), max(lf.rgb, rt.rgb)));
+            sampled = vec4(clamp(col.rgb, min_c, max_c), c.a);
+
+        } else {
+            // Mode 4: Native 1:1 Direct Retro Pixel-Art
+            sampled = c;
         }
 
-        // CRT Gamma Correction & Heroic Brightness Highlight
-        vec3 gamma_rgb = pow(clamp(sampled.rgb, 0.0, 1.0), vec3(1.0 / max(gamma, 0.1))) * brightness;
-        COLOR = vec4(gamma_rgb, sampled.a) * COLOR;
+        // CRT Gamma Correction & Heroic Brightness (Default 1.0 / 1.0)
+        vec3 col_rgb = (abs(gamma - 1.0) > 0.01 ? pow(clamp(sampled.rgb, 0.0, 1.0), vec3(1.0 / max(gamma, 0.1))) : sampled.rgb) * brightness;
+        COLOR = vec4(col_rgb, sampled.a * edge_alpha) * COLOR;
     }
 }

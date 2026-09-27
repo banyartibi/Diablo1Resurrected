@@ -25,6 +25,7 @@
 namespace devilution {
 
 bool qtextflag;
+int16_t g_ActiveSpeechId = -1;
 
 namespace {
 
@@ -92,8 +93,10 @@ int CalculateTextPosition()
 	int y = (currTime - ScrollStart) / speed - 260;
 
 	int textHeight = LineHeight * TextLines.size();
-	if (y >= textHeight)
+	if (y >= textHeight) {
 		qtextflag = false;
+		g_ActiveSpeechId = -1;
+	}
 
 	return y;
 }
@@ -139,6 +142,7 @@ void InitQuestText()
 
 void InitQTextMsg(_speech_id m)
 {
+	g_ActiveSpeechId = static_cast<int16_t>(m);
 	_sfx_id sfxnr = Speeches[m].sfxnr;
 	const _sfx_id *classSounds = herosounds[static_cast<size_t>(MyPlayer->_pClass)];
 	switch (sfxnr) {
@@ -198,6 +202,7 @@ std::vector<std::string> GetRawQTextLines()
 
 void DismissRawQText()
 {
+	g_ActiveSpeechId = -1;
 	if (qtextflag) {
 		qtextflag = false;
 		if (leveltype == DTYPE_TOWN)

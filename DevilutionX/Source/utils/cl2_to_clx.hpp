@@ -22,6 +22,9 @@ uint16_t Cl2ToClx(const uint8_t *data, size_t size,
 
 inline OwnedClxSpriteListOrSheet Cl2ToClx(std::unique_ptr<uint8_t[]> &&data, size_t size, PointerOrValue<uint16_t> widthOrWidths)
 {
+	if (!data || size < 8)
+		return OwnedClxSpriteListOrSheet { nullptr, 0 };
+
 	std::vector<uint8_t> clxData;
 	const uint16_t numLists = Cl2ToClx(data.get(), size, widthOrWidths, clxData);
 	data = nullptr;

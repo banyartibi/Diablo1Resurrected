@@ -59,6 +59,8 @@ inline void AppendClxPixelsRun(const uint8_t *src, unsigned width, std::vector<u
 
 inline void AppendClxPixelsOrFillRun(const uint8_t *src, size_t length, std::vector<uint8_t> &out)
 {
+	if (length == 0 || src == nullptr)
+		return;
 	const uint8_t *begin = src;
 	const uint8_t *prevColorBegin = src;
 	unsigned prevColorRunLength = 1;

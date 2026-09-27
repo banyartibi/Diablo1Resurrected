@@ -112,31 +112,30 @@ bool IsItemAllowedInStash(const Item &item)
 	return item._iMiscId != IMISC_ARENAPOT;
 }
 
-void CheckStashPaste(Point cursorPosition)
+bool PasteItemToStashSlotInternal(Point firstSlot)
 {
 	Player &player = *MyPlayer;
 
 	if (!IsItemAllowedInStash(player.HoldItem))
-		return;
+		return false;
 
 	if (player.HoldItem._itype == ItemType::Gold) {
 		if (Stash.gold > std::numeric_limits<int>::max() - player.HoldItem._ivalue)
-			return;
+			return false;
 		Stash.gold += player.HoldItem._ivalue;
 		player.HoldItem.clear();
 		PlaySFX(IS_GOLD);
 		Stash.dirty = true;
 		NewCursor(CURSOR_HAND);
-		return;
+		return true;
 	}
 
 	const Size itemSize = GetInventorySize(player.HoldItem);
 
-	std::optional<Point> targetSlot = FindTargetSlotUnderItemCursor(cursorPosition, itemSize);
-	if (!targetSlot)
-		return;
-
-	Point firstSlot = *targetSlot;
+	if (firstSlot.x < 0 || firstSlot.y < 0 ||
+	    firstSlot.x + itemSize.width > StashGridSize.width ||
+	    firstSlot.y + itemSize.height > StashGridSize.height)
+		return false;
 
 	// Check that no more than 1 item is replaced by the move
 	StashStruct::StashCell stashIndex = StashStruct::EmptyCell;
@@ -148,7 +147,7 @@ void CheckStashPaste(Point cursorPosition)
 			stashIndex = iv; // Found first item
 			continue;
 		}
-		return; // Found a second item
+		return false; // Found a second item
 	}
 
 	PlaySFX(ItemInvSnds[ItemCAnimTbl[player.HoldItem._iCurs]]);
@@ -178,9 +177,24 @@ void CheckStashPaste(Point cursorPosition)
 	Stash.dirty = true;
 
 	NewCursor(player.HoldItem);
+	return true;
 }
 
-void CheckStashCut(Point cursorPosition, bool automaticMove)
+void CheckStashPaste(Point cursorPosition)
+{
+	Player &player = *MyPlayer;
+	if (player.HoldItem._itype == ItemType::Gold) {
+		PasteItemToStashSlotInternal({ 0, 0 });
+		return;
+	}
+	const Size itemSize = GetInventorySize(player.HoldItem);
+	std::optional<Point> targetSlot = FindTargetSlotUnderItemCursor(cursorPosition, itemSize);
+	if (!targetSlot)
+		return;
+	PasteItemToStashSlotInternal(*targetSlot);
+}
+
+void CutItemFromStashSlotInternal(Point slot, bool automaticMove)
 {
 	Player &player = *MyPlayer;
 
@@ -188,24 +202,8 @@ void CheckStashCut(Point cursorPosition, bool automaticMove)
 		IsWithdrawGoldOpen = false;
 	}
 
-	Point slot = InvalidStashPoint;
-
-	for (auto point : StashGridRange) {
-		Rectangle cell {
-			GetStashSlotCoord(point),
-			InventorySlotSizeInPixels + 1
-		};
-
-		// check which inventory rectangle the mouse is in, if any
-		if (cell.contains(cursorPosition)) {
-			slot = point;
-			break;
-		}
-	}
-
-	if (slot == InvalidStashPoint) {
+	if (slot.x < 0 || slot.x >= StashGridSize.width || slot.y < 0 || slot.y >= StashGridSize.height)
 		return;
-	}
 
 	Item &holdItem = player.HoldItem;
 	holdItem.clear();
@@ -254,6 +252,30 @@ void CheckStashCut(Point cursorPosition, bool automaticMove)
 	}
 }
 
+void CheckStashCut(Point cursorPosition, bool automaticMove)
+{
+	Point slot = InvalidStashPoint;
+
+	for (auto point : StashGridRange) {
+		Rectangle cell {
+			GetStashSlotCoord(point),
+			InventorySlotSizeInPixels + 1
+		};
+
+		// check which inventory rectangle the mouse is in, if any
+		if (cell.contains(cursorPosition)) {
+			slot = point;
+			break;
+		}
+	}
+
+	if (slot == InvalidStashPoint) {
+		return;
+	}
+
+	CutItemFromStashSlotInternal(slot, automaticMove);
+}
+
 void WithdrawGold(Player &player, int amount)
 {
 	AddGoldToInventory(player, amount);
@@ -262,6 +284,16 @@ void WithdrawGold(Player &player, int amount)
 }
 
 } // namespace
+
+bool PasteItemToStashSlot(Point firstSlot)
+{
+	return PasteItemToStashSlotInternal(firstSlot);
+}
+
+void CutItemFromStashSlot(Point slot, bool automaticMove)
+{
+	CutItemFromStashSlotInternal(slot, automaticMove);
+}
 
 Point GetStashSlotCoord(Point slot)
 {
