@@ -445,27 +445,48 @@ func _input(event: InputEvent):
 			get_viewport().set_input_as_handled()
 			return
 		elif kc == KEY_ESCAPE:
+			if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+				var cid = diablo_bridge.get_cursor_id()
+				if cid > 1 and cid < 12:
+					if diablo_bridge.has_method("cancel_targeting_cursor"):
+						diablo_bridge.cancel_targeting_cursor()
+					var vp = get_viewport()
+					if vp: vp.set_input_as_handled()
+					return
 			if is_speedbook_showing:
 				close_speedbook()
-				get_viewport().set_input_as_handled()
+				var vp = get_viewport()
+				if vp: vp.set_input_as_handled()
 				return
 			if stash_frame and stash_frame.visible:
 				if diablo_bridge and diablo_bridge.has_method("close_stash"):
 					diablo_bridge.close_stash()
 				stash_frame.visible = false
-				get_viewport().set_input_as_handled()
+				var vp = get_viewport()
+				if vp: vp.set_input_as_handled()
 				return
 			if tabbed_menu and tabbed_menu.visible:
 				tabbed_menu.close_menu()
-				get_viewport().set_input_as_handled()
+				var vp = get_viewport()
+				if vp: vp.set_input_as_handled()
 				return
 
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+				var cid = diablo_bridge.get_cursor_id()
+				if cid > 1 and cid < 12:
+					if diablo_bridge.has_method("cancel_targeting_cursor"):
+						diablo_bridge.cancel_targeting_cursor()
+					var vp = get_viewport()
+					if vp: vp.set_input_as_handled()
+					return
 
-	if event is InputEventMouseButton and event.pressed and is_speedbook_showing:
-		if skill_selector and skill_selector.visible:
-			if not skill_selector.get_global_rect().has_point(event.position):
-				if action_bar and not action_bar.get_global_rect().has_point(event.position):
-					close_speedbook()
+		if is_speedbook_showing:
+			if skill_selector and skill_selector.visible:
+				if not skill_selector.get_global_rect().has_point(event.position):
+					if action_bar and not action_bar.get_global_rect().has_point(event.position):
+						close_speedbook()
 
 func toggle_spell_book():
 	if diablo_bridge and diablo_bridge.has_method("toggle_spell_book"):
@@ -734,6 +755,7 @@ func _process(delta: float):
 		if stash_frame: stash_frame.visible = false
 		if enemy_health_bar: enemy_health_bar.visible = false
 		if durability_container: durability_container.visible = false
+		_reset_custom_cursor()
 		return
 
 	if diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
@@ -744,6 +766,7 @@ func _process(delta: float):
 		if stash_frame: stash_frame.visible = false
 		if enemy_health_bar: enemy_health_bar.visible = false
 		if durability_container: durability_container.visible = false
+		_reset_custom_cursor()
 		return
 
 	var is_modern = true
@@ -756,6 +779,7 @@ func _process(delta: float):
 		if tabbed_menu: tabbed_menu.visible = false
 		if stash_frame: stash_frame.visible = false
 		if level_up_btn: level_up_btn.visible = false
+		_reset_custom_cursor()
 		return
 
 	$Root.visible = true
@@ -769,6 +793,7 @@ func _process(delta: float):
 	update_item_tooltip()
 	update_durability_warnings(delta)
 	update_panels()
+	update_custom_cursor()
 
 func update_health_and_mana(delta: float):
 	var hp = diablo_bridge.get_player_hp()
@@ -1473,6 +1498,35 @@ func update_durability_warnings(delta: float):
 		else:
 			slot.visible = false
 
+var last_custom_cursor_id: int = -1
 
+func _reset_custom_cursor():
+	if last_custom_cursor_id != -1:
+		Input.set_custom_mouse_cursor(null)
+		last_custom_cursor_id = -1
 
+func update_custom_cursor():
+	if not diablo_bridge or not diablo_bridge.has_method("get_cursor_id"):
+		_reset_custom_cursor()
+		return
 
+	var cid: int = diablo_bridge.get_cursor_id()
+	if cid == last_custom_cursor_id:
+		return
+
+	last_custom_cursor_id = cid
+
+	# Targeting cursors: 2=Identify, 3=Repair, 4=Recharge, 5=Disarm, 6=Oil, 7=Telekinesis, 8=Resurrect, 9=Teleport, 10=HealOther, 11=Hourglass
+	if cid > 1 and cid < 12:
+		var tex: Texture2D = null
+		if diablo_bridge.has_method("get_cursor_texture"):
+			tex = diablo_bridge.get_cursor_texture(cid)
+		if tex:
+			Input.set_custom_mouse_cursor(tex, Input.CURSOR_ARROW, Vector2.ZERO)
+		else:
+			Input.set_custom_mouse_cursor(null)
+	else:
+		Input.set_custom_mouse_cursor(null)
+
+func _exit_tree():
+	_reset_custom_cursor()

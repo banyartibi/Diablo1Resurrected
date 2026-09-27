@@ -159,6 +159,10 @@ func toggle_tab(tab_idx: int):
 		switch_tab(tab_idx)
 
 func close_menu():
+	if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+		var cid = diablo_bridge.get_cursor_id()
+		if cid > 1 and cid < 12 and diablo_bridge.has_method("cancel_targeting_cursor"):
+			diablo_bridge.cancel_targeting_cursor()
 	visible = false
 	if diablo_bridge and diablo_bridge.has_method("close_all_ui_panels"):
 		diablo_bridge.close_all_ui_panels()

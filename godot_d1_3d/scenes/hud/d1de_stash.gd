@@ -285,6 +285,17 @@ func _update_stash_items():
 
 		items_overlay.add_child(item_ctrl)
 
+func _gui_input(event: InputEvent):
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+			var cid = diablo_bridge.get_cursor_id()
+			if cid > 1 and cid < 12:
+				if diablo_bridge.has_method("cancel_targeting_cursor"):
+					diablo_bridge.cancel_targeting_cursor()
+				update_stash()
+				_on_item_mouse_exited()
+				accept_event()
+
 func _on_stash_cell_gui_input(cell_idx: int, event: InputEvent):
 	if not (event is InputEventMouseButton) or not event.pressed:
 		return
@@ -294,6 +305,15 @@ func _on_stash_cell_gui_input(cell_idx: int, event: InputEvent):
 			diablo_bridge.click_stash_slot(cell_idx, mb.shift_pressed, mb.ctrl_pressed)
 			update_stash()
 			_on_item_mouse_exited()
+	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+			var cid = diablo_bridge.get_cursor_id()
+			if cid > 1 and cid < 12:
+				if diablo_bridge.has_method("cancel_targeting_cursor"):
+					diablo_bridge.cancel_targeting_cursor()
+				update_stash()
+				_on_item_mouse_exited()
+				return
 
 func _on_stash_item_gui_input(cell_idx: int, event: InputEvent):
 	if not (event is InputEventMouseButton) or not event.pressed:
@@ -305,6 +325,14 @@ func _on_stash_item_gui_input(cell_idx: int, event: InputEvent):
 			update_stash()
 			_on_item_mouse_exited()
 	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+			var cid = diablo_bridge.get_cursor_id()
+			if cid > 1 and cid < 12:
+				if diablo_bridge.has_method("cancel_targeting_cursor"):
+					diablo_bridge.cancel_targeting_cursor()
+				update_stash()
+				_on_item_mouse_exited()
+				return
 		# Quick transfer item to player backpack on right-click (matching D1DE / ARPG standard)
 		if diablo_bridge and diablo_bridge.has_method("click_stash_slot"):
 			diablo_bridge.click_stash_slot(cell_idx, false, true)

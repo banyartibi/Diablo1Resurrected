@@ -479,6 +479,17 @@ func _set_slot_border_color(panel: Panel, col: Color):
 	else:
 		panel.modulate = Color(0.85, 0.82, 0.78, 0.75)
 
+func _gui_input(event: InputEvent):
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+			var cid = diablo_bridge.get_cursor_id()
+			if cid > 1 and cid < 12:
+				if diablo_bridge.has_method("cancel_targeting_cursor"):
+					diablo_bridge.cancel_targeting_cursor()
+				update_inventory()
+				_on_item_mouse_exited()
+				accept_event()
+
 func _on_equip_slot_gui_input(slot_idx: int, event: InputEvent):
 	if not (event is InputEventMouseButton) or not event.pressed:
 		return
@@ -489,6 +500,14 @@ func _on_equip_slot_gui_input(slot_idx: int, event: InputEvent):
 			update_inventory()
 			_on_item_mouse_exited()
 	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+			var cid = diablo_bridge.get_cursor_id()
+			if cid > 1 and cid < 12:
+				if diablo_bridge.has_method("cancel_targeting_cursor"):
+					diablo_bridge.cancel_targeting_cursor()
+				update_inventory()
+				_on_item_mouse_exited()
+				return
 		if diablo_bridge and diablo_bridge.has_method("use_inventory_slot"):
 			diablo_bridge.use_inventory_slot(0, slot_idx)
 			update_inventory()
@@ -504,6 +523,14 @@ func _on_backpack_cell_gui_input(cell_idx: int, event: InputEvent):
 			update_inventory()
 			_on_item_mouse_exited()
 	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+			var cid = diablo_bridge.get_cursor_id()
+			if cid > 1 and cid < 12:
+				if diablo_bridge.has_method("cancel_targeting_cursor"):
+					diablo_bridge.cancel_targeting_cursor()
+				update_inventory()
+				_on_item_mouse_exited()
+				return
 		if diablo_bridge and diablo_bridge.has_method("use_inventory_slot"):
 			diablo_bridge.use_inventory_slot(1, cell_idx)
 			update_inventory()
@@ -519,6 +546,14 @@ func _on_backpack_item_gui_input(cell_idx: int, inv_list_idx: int, event: InputE
 			update_inventory()
 			_on_item_mouse_exited()
 	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+			var cid = diablo_bridge.get_cursor_id()
+			if cid > 1 and cid < 12:
+				if diablo_bridge.has_method("cancel_targeting_cursor"):
+					diablo_bridge.cancel_targeting_cursor()
+				update_inventory()
+				_on_item_mouse_exited()
+				return
 		if diablo_bridge and diablo_bridge.has_method("use_inventory_slot"):
 			if inv_list_idx >= 0:
 				diablo_bridge.use_inventory_slot(2, inv_list_idx)
@@ -537,6 +572,14 @@ func _on_belt_slot_gui_input(belt_idx: int, event: InputEvent):
 			update_inventory()
 			_on_item_mouse_exited()
 	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if diablo_bridge and diablo_bridge.has_method("get_cursor_id"):
+			var cid = diablo_bridge.get_cursor_id()
+			if cid > 1 and cid < 12:
+				if diablo_bridge.has_method("cancel_targeting_cursor"):
+					diablo_bridge.cancel_targeting_cursor()
+				update_inventory()
+				_on_item_mouse_exited()
+				return
 		if diablo_bridge and diablo_bridge.has_method("use_belt_slot"):
 			diablo_bridge.use_belt_slot(belt_idx)
 			update_inventory()

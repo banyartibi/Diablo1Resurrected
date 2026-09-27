@@ -110,6 +110,9 @@ void DiabloBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_item_texture", "curs_id"), &DiabloBridge::get_item_texture);
 	ClassDB::bind_method(D_METHOD("click_inventory_slot", "slot_type", "slot_idx", "is_shift", "is_ctrl"), &DiabloBridge::click_inventory_slot, DEFVAL(false), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("use_inventory_slot", "slot_type", "slot_idx"), &DiabloBridge::use_inventory_slot);
+	ClassDB::bind_method(D_METHOD("get_cursor_id"), &DiabloBridge::get_cursor_id);
+	ClassDB::bind_method(D_METHOD("cancel_targeting_cursor"), &DiabloBridge::cancel_targeting_cursor);
+	ClassDB::bind_method(D_METHOD("get_cursor_texture", "curs_id"), &DiabloBridge::get_cursor_texture);
 	ClassDB::bind_method(D_METHOD("get_player_durability_warnings"), &DiabloBridge::get_player_durability_warnings);
 	ClassDB::bind_method(D_METHOD("get_durability_icon", "frame_idx"), &DiabloBridge::get_durability_icon);
 	ClassDB::bind_method(D_METHOD("get_durability_icon_composite", "icon_idx", "durability"), &DiabloBridge::get_durability_icon_composite);
@@ -1290,6 +1293,42 @@ void DiabloBridge::click_inventory_slot(int slot_type, int slot_idx, bool is_shi
 
 void DiabloBridge::use_inventory_slot(int slot_type, int slot_idx) {
 	devilution::PushBridgeAction(devilution::D1BridgeActionType::UseInventorySlot, slot_type, slot_idx);
+}
+
+int DiabloBridge::get_cursor_id() const {
+	return devilution::GetCurrentCursorId();
+}
+
+void DiabloBridge::cancel_targeting_cursor() {
+	devilution::PushBridgeAction(devilution::D1BridgeActionType::CancelTargetingCursor);
+}
+
+Ref<ImageTexture> DiabloBridge::get_cursor_texture(int curs_id) {
+	if (curs_id <= 0)
+		return Ref<ImageTexture>();
+
+	auto it = cursor_texture_cache.find(curs_id);
+	if (it != cursor_texture_cache.end() && it->second.is_valid())
+		return it->second;
+
+	auto icon = devilution::GetItemSpriteRgba(curs_id);
+	if (icon.rgba.empty() || icon.width <= 0 || icon.height <= 0)
+		return Ref<ImageTexture>();
+
+	PackedByteArray pba;
+	pba.resize(icon.rgba.size());
+	std::memcpy(pba.ptrw(), icon.rgba.data(), icon.rgba.size());
+
+	Ref<Image> img = Image::create_from_data(icon.width, icon.height, false, Image::FORMAT_RGBA8, pba);
+	if (img.is_null())
+		return Ref<ImageTexture>();
+
+	// 2X scale for crisp, appropriately sized custom OS mouse cursor
+	img->resize(icon.width * 2, icon.height * 2, Image::INTERPOLATE_NEAREST);
+
+	Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+	cursor_texture_cache[curs_id] = tex;
+	return tex;
 }
 
 Array DiabloBridge::get_player_durability_warnings() const {

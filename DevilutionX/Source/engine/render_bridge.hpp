@@ -223,7 +223,8 @@ enum class D1BridgeActionType : int {
 	QuickCastHotkey = 29,
 	UseSmartTownPortal = 30,
 	SetActiveUiPanel = 31,
-	CloseAllUiPanels = 32
+	CloseAllUiPanels = 32,
+	CancelTargetingCursor = 33
 };
 
 void PushBridgeAction(D1BridgeActionType type, int arg1 = 0, int arg2 = 0, int arg3 = 0, int arg4 = 0);
@@ -394,6 +395,8 @@ int GetPlayerGold();
 D1ItemIconRgba GetItemSpriteRgba(int cursId);
 void ClickInventorySlot(int slotType, int slotIdx, bool isShift = false, bool isCtrl = false);
 void UseInventorySlot(int slotType, int slotIdx);
+void CancelTargetingCursor();
+int GetCurrentCursorId();
 uint32_t GetInventoryVersion();
 
 // Equipment Durability Damage Warning Indicators

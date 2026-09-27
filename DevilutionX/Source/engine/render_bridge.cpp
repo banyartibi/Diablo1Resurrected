@@ -459,6 +459,7 @@ void PollGodotBridgeInput()
 		case D1BridgeActionType::UseSmartTownPortal:  UseSmartTownPortal(); break;
 		case D1BridgeActionType::SetActiveUiPanel:   SetActiveUiPanel(job.a); break;
 		case D1BridgeActionType::CloseAllUiPanels:   CloseAllUiPanels(); break;
+		case D1BridgeActionType::CancelTargetingCursor: CancelTargetingCursor(); break;
 		default: break;
 	}
 	}
@@ -797,6 +798,12 @@ void UseBeltSlot(int slotIndex)
 	std::lock_guard<std::mutex> lock(g_InventoryMutex);
 	if (!gbRunGame || MyPlayer == nullptr)
 		return;
+	if (pcurs > CURSOR_HAND && pcurs < CURSOR_FIRSTITEM) {
+		NewCursor(CURSOR_HAND);
+		CalcPlrInv(*MyPlayer, true);
+		g_InventoryVersion.fetch_add(1);
+		return;
+	}
 	if (slotIndex < 0 || slotIndex >= 8)
 		return;
 	Player &myPlayer = *MyPlayer;
@@ -1993,6 +2000,62 @@ void ClickInventorySlot(int slotType, int slotIdx, bool isShift, bool isCtrl)
 	if (player._pmode > PM_WALK_SIDEWAYS)
 		return;
 
+	// Targeting cursors (CURSOR_IDENTIFY, CURSOR_REPAIR, CURSOR_RECHARGE, CURSOR_OIL)
+	if (pcurs > CURSOR_HAND && pcurs < CURSOR_FIRSTITEM) {
+		int targetCii = -1;
+		Item *targetItem = nullptr;
+
+		if (slotType == 0) {
+			// Equipment slot (0..6)
+			if (slotIdx >= 0 && slotIdx <= 6 && !player.InvBody[slotIdx].isEmpty()) {
+				targetCii = slotIdx;
+				targetItem = &player.InvBody[slotIdx];
+			}
+		} else if (slotType == 1) {
+			// Backpack grid cell (0..39)
+			if (slotIdx >= 0 && slotIdx < 40 && player.InvGrid[slotIdx] != 0) {
+				int itemIndex = std::abs(player.InvGrid[slotIdx]) - 1;
+				if (itemIndex >= 0 && itemIndex < player._pNumInv) {
+					targetCii = INVITEM_INV_FIRST + itemIndex;
+					targetItem = &player.InvList[itemIndex];
+				}
+			} else if (slotIdx >= 0 && slotIdx < player._pNumInv) {
+				targetCii = INVITEM_INV_FIRST + slotIdx;
+				targetItem = &player.InvList[slotIdx];
+			}
+		} else if (slotType == 2) {
+			// Direct InvList index
+			if (slotIdx >= 0 && slotIdx < player._pNumInv) {
+				targetCii = INVITEM_INV_FIRST + slotIdx;
+				targetItem = &player.InvList[slotIdx];
+			}
+		}
+
+		if (targetCii != -1 && targetItem != nullptr) {
+			if (pcurs == CURSOR_IDENTIFY) {
+				CheckIdentify(player, targetCii);
+				PlaySFX(ItemInvSnds[ItemCAnimTbl[targetItem->_iCurs]]);
+				NewCursor(CURSOR_HAND);
+			} else if (pcurs == CURSOR_REPAIR) {
+				DoRepair(player, targetCii);
+				NewCursor(CURSOR_HAND);
+			} else if (pcurs == CURSOR_RECHARGE) {
+				DoRecharge(player, targetCii);
+				NewCursor(CURSOR_HAND);
+			} else if (pcurs == CURSOR_OIL) {
+				if (DoOil(player, targetCii))
+					NewCursor(CURSOR_HAND);
+			}
+		} else {
+			// Clicked on empty space while in targeting mode -> cancel targeting cursor
+			NewCursor(CURSOR_HAND);
+		}
+
+		CalcPlrInv(player, true);
+		g_InventoryVersion.fetch_add(1);
+		return;
+	}
+
 	if (slotType == 0) {
 		// Equipment slot (0..6: Head, RingL, RingR, Amulet, HandL, HandR, Chest)
 		if (slotIdx < 0 || slotIdx > 6)
@@ -2050,6 +2113,14 @@ void UseInventorySlot(int slotType, int slotIdx)
 	if (player._pmode > PM_WALK_SIDEWAYS)
 		return;
 
+	// Right-click while targeting cancels targeting mode
+	if (pcurs > CURSOR_HAND && pcurs < CURSOR_FIRSTITEM) {
+		NewCursor(CURSOR_HAND);
+		CalcPlrInv(player, true);
+		g_InventoryVersion.fetch_add(1);
+		return;
+	}
+
 	if (slotType == 0) {
 		// Equipment slot unequip
 		if (slotIdx < 0 || slotIdx > 6)
@@ -2098,6 +2169,26 @@ void UseInventorySlot(int slotType, int slotIdx)
 		}
 	}
 	g_InventoryVersion.fetch_add(1);
+}
+
+void CancelTargetingCursor()
+{
+	std::lock_guard<std::mutex> lock(g_InventoryMutex);
+	if (!gbRunGame)
+		return;
+	if (pcurs > CURSOR_HAND && pcurs < CURSOR_FIRSTITEM) {
+		NewCursor(CURSOR_HAND);
+		if (MyPlayer != nullptr)
+			CalcPlrInv(*MyPlayer, true);
+		g_InventoryVersion.fetch_add(1);
+	}
+}
+
+int GetCurrentCursorId()
+{
+	if (!IsBridgeSafeToRead())
+		return CURSOR_HAND;
+	return pcurs;
 }
 
 D1PotionSummary GetPotionSummary()
@@ -3509,6 +3600,33 @@ void ClickStashSlot(int cellIdx, bool isShift, bool isCtrl)
 	int cellX = cellIdx % 10;
 	int cellY = cellIdx / 10;
 	Point slot { cellX, cellY };
+
+	// Targeting cursors in stash (CURSOR_IDENTIFY, CURSOR_REPAIR, CURSOR_RECHARGE, CURSOR_OIL)
+	if (pcurs > CURSOR_HAND && pcurs < CURSOR_FIRSTITEM) {
+		devilution::StashStruct::StashCell itemId = devilution::Stash.GetItemIdAtPosition(slot);
+		if (itemId != devilution::StashStruct::EmptyCell && itemId < devilution::Stash.stashList.size()) {
+			Item &item = devilution::Stash.stashList[itemId];
+			if (pcurs == CURSOR_IDENTIFY) {
+				item._iIdentified = true;
+				PlaySFX(ItemInvSnds[ItemCAnimTbl[item._iCurs]]);
+				NewCursor(CURSOR_HAND);
+			} else if (pcurs == CURSOR_REPAIR) {
+				RepairItem(item, MyPlayer->_pLevel);
+				NewCursor(CURSOR_HAND);
+			} else if (pcurs == CURSOR_RECHARGE) {
+				RechargeItem(item, *MyPlayer);
+				NewCursor(CURSOR_HAND);
+			} else if (pcurs == CURSOR_OIL) {
+				if (ApplyOilToItem(item, *MyPlayer))
+					NewCursor(CURSOR_HAND);
+			}
+		} else {
+			NewCursor(CURSOR_HAND);
+		}
+		CalcPlrInv(*MyPlayer, true);
+		g_InventoryVersion.fetch_add(1);
+		return;
+	}
 
 	if (!MyPlayer->HoldItem.isEmpty()) {
 		devilution::PasteItemToStashSlot(slot);

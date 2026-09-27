@@ -27,6 +27,7 @@ private:
 	mutable std::unordered_map<int, Ref<ImageTexture>> piece_texture_cache;
 	mutable std::unordered_map<int, Ref<ImageTexture>> special_texture_cache;
 	mutable std::unordered_map<int, Ref<ImageTexture>> durability_texture_cache;
+	mutable std::unordered_map<int, Ref<ImageTexture>> cursor_texture_cache;
 
 protected:
 	static void _bind_methods();
@@ -139,6 +140,9 @@ public:
 	Ref<ImageTexture> get_item_texture(int curs_id);
 	void click_inventory_slot(int slot_type, int slot_idx, bool is_shift = false, bool is_ctrl = false);
 	void use_inventory_slot(int slot_type, int slot_idx);
+	int get_cursor_id() const;
+	void cancel_targeting_cursor();
+	Ref<ImageTexture> get_cursor_texture(int curs_id);
 	Array get_player_durability_warnings() const;
 	Ref<ImageTexture> get_durability_icon(int frame_idx);
 	Ref<ImageTexture> get_durability_icon_composite(int icon_idx, int durability);
