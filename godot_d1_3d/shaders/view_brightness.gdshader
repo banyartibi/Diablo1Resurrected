@@ -5,6 +5,8 @@ shader_type canvas_item;
 uniform float brightness : hint_range(0.4, 2.5) = 1.30;
 uniform float gamma : hint_range(0.4, 2.5) = 1.30;
 uniform int color_profile : hint_range(0, 4) = 0; // 0: Vanilla, 1: Dark Gothic, 2: Hellish Crimson, 3: Crypt Cyan, 4: Noir
+uniform int upscaler_mode : hint_range(0, 4) = 0;
+uniform float fsr_sharpness : hint_range(0.0, 1.0) = 0.50;
 
 // Distinct, Rich Color Grading Profiles
 vec3 apply_color_grading(vec3 c, int profile) {
@@ -48,6 +50,38 @@ vec3 apply_color_grading(vec3 c, int profile) {
 void fragment() {
 	vec4 tex = texture(TEXTURE, UV);
 	vec3 col = tex.rgb;
+
+	// Mode 3: AMD FSR 1.0 (EASU + RCAS Full-Screen Pass)
+	if (upscaler_mode == 3) {
+		vec2 texel = 1.0 / vec2(textureSize(TEXTURE, 0));
+		vec3 n = texture(TEXTURE, UV + vec2(0.0, -1.0) * texel).rgb;
+		vec3 s = texture(TEXTURE, UV + vec2(0.0, 1.0) * texel).rgb;
+		vec3 w = texture(TEXTURE, UV + vec2(-1.0, 0.0) * texel).rgb;
+		vec3 e = texture(TEXTURE, UV + vec2(1.0, 0.0) * texel).rgb;
+		vec3 nw = texture(TEXTURE, UV + vec2(-1.0, -1.0) * texel).rgb;
+		vec3 ne = texture(TEXTURE, UV + vec2(1.0, -1.0) * texel).rgb;
+		vec3 sw = texture(TEXTURE, UV + vec2(-1.0, 1.0) * texel).rgb;
+		vec3 se = texture(TEXTURE, UV + vec2(1.0, 1.0) * texel).rgb;
+
+		vec3 dc_dx = (ne + 2.0 * e + se) - (nw + 2.0 * w + sw);
+		vec3 dc_dy = (sw + 2.0 * s + se) - (nw + 2.0 * n + ne);
+		float len_x = length(dc_dx);
+		float len_y = length(dc_dy);
+		float edge_strength = clamp(max(len_x, len_y) * 2.0, 0.0, 1.0);
+
+		vec2 dir = (len_x + len_y > 0.001) ? normalize(vec2(len_y, -len_x)) : vec2(0.0, 1.0);
+		vec3 along1 = texture(TEXTURE, UV + dir * texel * 0.5).rgb;
+		vec3 along2 = texture(TEXTURE, UV - dir * texel * 0.5).rgb;
+		vec3 easu = mix(col, (along1 + along2) * 0.5, edge_strength * 0.65);
+
+		// RCAS contrast adaptive sharpening
+		vec3 min_c = min(easu, min(min(n, s), min(w, e)));
+		vec3 max_c = max(easu, max(max(n, s), max(w, e)));
+		vec3 amp = clamp(min(min_c, 2.0 - max_c) / max(max_c, vec3(0.001)), 0.0, 1.0);
+		vec3 lobe = -sqrt(amp) * (fsr_sharpness * 0.22);
+		col = clamp((n * lobe + s * lobe + easu + w * lobe + e * lobe) / (1.0 + 4.0 * lobe), min_c, max_c);
+	}
+
 	// Gamma power curve: lifts shadows and midtones smoothly without blowing out highlights
 	if (abs(gamma - 1.0) > 0.005) {
 		col = pow(clamp(col, 0.0, 1.0), vec3(1.0 / max(gamma, 0.05)));

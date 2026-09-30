@@ -309,10 +309,11 @@ func set_hd_graphics_enabled(enabled: bool) -> void:
 	print("[Native 2.5D View] HD Graphics switched to: %s" % ("Definitive Edition 4x HD" if enabled else "Authentic 1996"))
 
 func _apply_texture_filtering() -> void:
+	var level_has_hd = hd_graphics_enabled
 	if world_root:
-		world_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if hd_graphics_enabled else CanvasItem.TEXTURE_FILTER_NEAREST
+		world_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if level_has_hd else CanvasItem.TEXTURE_FILTER_NEAREST
 	if floor_root:
-		floor_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if hd_graphics_enabled else CanvasItem.TEXTURE_FILTER_NEAREST
+		floor_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if level_has_hd else CanvasItem.TEXTURE_FILTER_NEAREST
 	var ent_filter = CanvasItem.TEXTURE_FILTER_LINEAR if (hd_graphics_enabled and current_upscaler_mode != 4) else CanvasItem.TEXTURE_FILTER_NEAREST
 	if player_sprite:
 		player_sprite.texture_filter = ent_filter
@@ -626,8 +627,9 @@ func get_pbr_or_base_texture(piece_id: int) -> Texture2D:
 	if diablo_bridge and _has_piece_texture:
 		base_tex = diablo_bridge.get_dungeon_piece_texture(piece_id)
 
-	# If HD is disabled (Authentic 1996), return pure engine base texture
-	if not hd_graphics_enabled or not is_cathedral_level():
+	# If HD is disabled (Authentic 1996) or Level is Town (0):
+	# Town tiles MUST come strictly from the engine bridge: diablo_bridge.get_dungeon_piece_texture(piece_id)
+	if not hd_graphics_enabled or last_level_idx == 0:
 		if base_tex:
 			pbr_texture_cache[piece_id] = base_tex
 		return base_tex
@@ -666,7 +668,7 @@ func get_pbr_or_base_texture(piece_id: int) -> Texture2D:
 					spec_img.generate_mipmaps()
 					ct.specular_texture = ImageTexture.create_from_image(spec_img)
 					ct.specular_shininess = 0.35
-					ct.specular_color = Color(0.75, 0.65, 0.50)
+					ct.specular_color = Color(1.0, 1.0, 1.0)
 			ct.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 			pbr_texture_cache[piece_id] = ct
 			return ct
@@ -735,7 +737,7 @@ func get_pbr_or_base_special_texture(special_id: int) -> Texture2D:
 	return null
 
 func ensure_pbr_assets_for_level(grid: PackedInt32Array, special_grid: PackedInt32Array):
-	if not is_cathedral_level():
+	if last_level_idx == 0:
 		return
 	var missing_count = 0
 	var base_folder = get_pbr_folder_for_level()
@@ -895,9 +897,6 @@ func rebuild_dungeon_tiles():
 
 			# 1. Base Dungeon Piece (Floor & Walls) - PBR Normal Mapped & Delighted
 			var is_valid_piece = (piece_id >= 0)
-			if is_valid_piece and solidity_grid.size() >= 112 * 112 and last_level_idx != 0:
-				if solidity_grid[idx] == 0:
-					is_valid_piece = false
 
 			if is_valid_piece:
 				var tex: Texture2D = get_pbr_or_base_texture(piece_id)
@@ -908,10 +907,11 @@ func rebuild_dungeon_tiles():
 					var floor_h = int(round(float(tw) * 0.5)) # 32 for 64w, 128 for 256w
 					var is_wall = (th > floor_h)
 
+					var is_hd_asset = (tw >= 256)
 					var spr = Sprite2D.new()
 					spr.texture = tex
-					spr.material = dungeon_tile_material
-					spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if hd_graphics_enabled else CanvasItem.TEXTURE_FILTER_NEAREST
+					spr.material = dungeon_tile_material if last_level_idx != 0 else null
+					spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if (hd_graphics_enabled and is_hd_asset) else CanvasItem.TEXTURE_FILTER_NEAREST
 					spr.centered = false
 					spr.scale = Vector2(scale_factor, scale_factor)
 					spr.position = tile_pos
@@ -1045,8 +1045,8 @@ func update_lighting_and_transparency(light_grid: PackedByteArray, solidity_grid
 				var i = ty * 112 + tx
 				var solid = solidity_grid[i] if has_solidity else 1
 
-				# 0 = Empty void / uncarved rock outside dungeon: pitch black
-				if solid == 0 and not is_town:
+				# In Cathedral, uncarved rock outside rooms is pitch black void
+				if solid == 0 and is_cathedral_level():
 					light_bytes[i] = 0
 					continue
 

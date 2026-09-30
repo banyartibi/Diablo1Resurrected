@@ -4,7 +4,7 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specula
 uniform sampler2D d1_texture : source_color, filter_linear_mipmap, hint_default_black;
 uniform float bump_strength : hint_range(0.0, 3.0) = 0.65;
 uniform int color_profile : hint_range(0, 4) = 1;   // 0: Vanilla, 1: Dark Gothic (Default), 2: Hellish Crimson, 3: Crypt Cyan, 4: Noir
-uniform int upscaler_mode : hint_range(0, 4) = 3;   // 0: AMD CAS, 1: Anime4K Edge, 2: Anime4K Thin, 3: 8K Spline (Default), 4: Native
+uniform int upscaler_mode : hint_range(0, 4) = 0;   // 0: xBRZ, 1: SDF Edge, 2: Bilateral Dither, 3: AMD FSR 1.0, 4: Native
 uniform int relief_mode : hint_range(0, 4) = 3;     // 0: Off, 1: Subtle, 2: Balanced, 3: Deep 3D (Default), 4: Extreme
 uniform float cas_sharpness : hint_range(0.0, 2.0) = 0.95;
 uniform float playfield_zoom : hint_range(1.0, 2.5) = 1.0; // Continuous playfield zoom (1.0x, 1.25x, 1.50x)
@@ -109,6 +109,46 @@ vec3 sample_anime4k_thin_lines(sampler2D tex, vec2 uv, vec2 texel) {
     return clamp(sharpened, min_c, max_c);
 }
 
+// xBRZ-style vector smoothing
+vec3 sample_xbrz(sampler2D tex, vec2 uv, vec2 texel) {
+    vec3 c = texture(tex, uv).rgb;
+    vec3 up = texture(tex, uv + vec2( 0.0, -1.0) * texel).rgb;
+    vec3 dn = texture(tex, uv + vec2( 0.0,  1.0) * texel).rgb;
+    vec3 lf = texture(tex, uv + vec2(-1.0,  0.0) * texel).rgb;
+    vec3 rt = texture(tex, uv + vec2( 1.0,  0.0) * texel).rgb;
+    vec3 ul = texture(tex, uv + vec2(-1.0, -1.0) * texel).rgb;
+    vec3 ur = texture(tex, uv + vec2( 1.0, -1.0) * texel).rgb;
+    vec3 bl = texture(tex, uv + vec2(-1.0,  1.0) * texel).rgb;
+    vec3 br = texture(tex, uv + vec2( 1.0,  1.0) * texel).rgb;
+
+    vec2 f = fract(uv / texel);
+    vec3 blend = c;
+    if (f.x < 0.5 && f.y < 0.5 && distance(up, lf) < distance(c, ul)) {
+        blend = mix(c, (up + lf) * 0.5, smoothstep(0.35, 0.70, (0.5 - f.x) + (0.5 - f.y)));
+    } else if (f.x >= 0.5 && f.y < 0.5 && distance(up, rt) < distance(c, ur)) {
+        blend = mix(c, (up + rt) * 0.5, smoothstep(0.35, 0.70, (f.x - 0.5) + (0.5 - f.y)));
+    } else if (f.x < 0.5 && f.y >= 0.5 && distance(dn, lf) < distance(c, bl)) {
+        blend = mix(c, (dn + lf) * 0.5, smoothstep(0.35, 0.70, (0.5 - f.x) + (f.y - 0.5)));
+    } else if (f.x >= 0.5 && f.y >= 0.5 && distance(dn, rt) < distance(c, br)) {
+        blend = mix(c, (dn + rt) * 0.5, smoothstep(0.35, 0.70, (f.x - 0.5) + (f.y - 0.5)));
+    }
+    return blend;
+}
+
+// Fast Bilateral / Kuwahara dither remover
+vec3 sample_bilateral_dither(sampler2D tex, vec2 uv, vec2 texel) {
+    vec3 c = texture(tex, uv).rgb;
+    vec3 n = texture(tex, uv + vec2(0.0, -1.0) * texel).rgb;
+    vec3 s = texture(tex, uv + vec2(0.0,  1.0) * texel).rgb;
+    vec3 w = texture(tex, uv + vec2(-1.0, 0.0) * texel).rgb;
+    vec3 e = texture(tex, uv + vec2( 1.0, 0.0) * texel).rgb;
+    float wn = exp(-distance(n, c) * 7.0);
+    float ws = exp(-distance(s, c) * 7.0);
+    float ww = exp(-distance(w, c) * 7.0);
+    float we = exp(-distance(e, c) * 7.0);
+    return (c + n * wn + s * ws + w * ww + e * we) / (1.0 + wn + ws + ww + we);
+}
+
 // Distinct, Rich Color Grading Profiles
 vec3 apply_color_grading(vec3 c, int profile) {
     if (profile == 0) {
@@ -199,17 +239,17 @@ void fragment() {
     // Apply selected Upscaler
     vec3 base_color;
     if (upscaler_mode == 0) {
-        // AMD FidelityFX CAS
-        base_color = apply_fsr_cas(d1_texture, sample_uv, texel_size);
+        // xBRZ Vector Smoothing
+        base_color = sample_xbrz(d1_texture, sample_uv, texel_size);
     } else if (upscaler_mode == 1) {
-        // Anime4K / Neural Spatial CNN Edge Push
+        // SDF Silhouette / Neural Edge Push
         base_color = sample_neural_edge_push(d1_texture, sample_uv, texel_size);
     } else if (upscaler_mode == 2) {
-        // Anime4K Ultra Thin Lines & Vector Contours
-        base_color = sample_anime4k_thin_lines(d1_texture, sample_uv, texel_size);
+        // Kuwahara / Fast Bilateral Dither Filter
+        base_color = sample_bilateral_dither(d1_texture, sample_uv, texel_size);
     } else if (upscaler_mode == 3) {
-        // 8K Catmull-Rom Bicubic Spline (Default)
-        base_color = sample_catmull_rom_8k(d1_texture, sample_uv, texel_size);
+        // AMD FSR 1.0 (EASU + RCAS)
+        base_color = apply_fsr_cas(d1_texture, sample_uv, texel_size);
     } else {
         // Native 1:1 Pixel-Art
         base_color = raw_pixel;

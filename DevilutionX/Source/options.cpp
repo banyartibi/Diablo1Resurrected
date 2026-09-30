@@ -1142,12 +1142,12 @@ ResurrectedOptions::ResurrectedOptions()
               { HDRGlowLevel::Radiant_2x, N_("2.0x (Warm Radiant Bloom)") },
               { HDRGlowLevel::Blazing_3x, N_("3.0x (Intense Blazing Bloom)") },
           })
-    , upscalerMode("Upscaler Mode", OptionEntryFlags::None, N_("Upscaler"), N_("Upsampler implementation for the playfield."), UpscalerMode::CAS_FSR,
+    , upscalerMode("Upscaler Mode", OptionEntryFlags::None, N_("Upscaler"), N_("Upsampler implementation for the playfield."), UpscalerMode::XBRZ,
           {
-              { UpscalerMode::CAS_FSR, N_("AMD FidelityFX CAS Super-Resolution") },
-              { UpscalerMode::Neural_CNN, N_("Anime4K / Neural Spatial CNN (Edge Reconstruction)") },
-              { UpscalerMode::ThinLines, N_("Anime4K Ultra Thin Lines & Vector Contours") },
-              { UpscalerMode::CatmullRom, N_("8K Catmull-Rom Bicubic Spline") },
+              { UpscalerMode::XBRZ, N_("xBRZ (4x/5x Vector Smoothing)") },
+              { UpscalerMode::SDF_Silhouette, N_("SDF Silhouette Smoothing") },
+              { UpscalerMode::Kuwahara_Bilateral, N_("Kuwahara / Bilateral Dither Filter") },
+              { UpscalerMode::FSR_FullScreen, N_("AMD FSR 1.0 (EASU + RCAS Full-Screen)") },
               { UpscalerMode::NativePixelArt, N_("Native 1:1 Direct Retro Pixel-Art") },
           })
     , reliefMode("Surface Relief Mode", OptionEntryFlags::None, N_("3D Surface Relief"), N_("Bump-mapped surface relief for the playfield (Mode 0)."), ReliefMode::Flat_2D,

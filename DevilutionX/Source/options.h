@@ -90,10 +90,10 @@ enum class HDRGlowLevel : uint8_t {
 };
 
 enum class UpscalerMode : uint8_t {
-	CAS_FSR = 0,
-	Neural_CNN = 1,
-	ThinLines = 2,
-	CatmullRom = 3,
+	XBRZ = 0,
+	SDF_Silhouette = 1,
+	Kuwahara_Bilateral = 2,
+	FSR_FullScreen = 3,
 	NativePixelArt = 4,
 };
 

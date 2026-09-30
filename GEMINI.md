@@ -86,3 +86,12 @@
 * The long-term architecture moves logic natively into Godot 4.7 GDScript and C++ GDExtension, reducing DevilutionX dependencies over time.
 * Never introduce tightly-coupled hacks or hardcode file paths without checking level types.
 * Always preserve backward compatibility across all 3 display modes (Mode 0: Classic 2.5D, Mode 1: Native Godot 2.5D, Mode 2: Native 3D Sandbox).
+
+---
+
+## 6. Laya System 1 Decision Engine Routing & Token Optimization
+
+* **Zero Token & Zero GPU Overhead:** Laya runs locally on CPU (`laya-decision-engine` MCP server via `call_mcp_tool`).
+* **Shell Command Safety:** All mutating/risky shell commands (file modifications, git actions, builds, package/system changes) MUST be evaluated with `evaluate_shell_command` before running. Simple read-only queries (`cat`, `ls`, `grep`) are exempt.
+* **Build Error Triage:** When C++, CMake, SCons, or GDExtension compilation or linker errors occur, call `triage_build_error` to apply mechanical fixes directly and eliminate speculative reasoning.
+* **Architectural Decisions:** For multi-option architectural trade-offs, query `make_decision` to select the highest-confidence deterministic path without token waste.

@@ -129,10 +129,10 @@ var hdr_names = [
 ]
 
 var upscaler_names = [
-	"Upscaler: AMD FidelityFX CAS Super-Resolution",
-	"Upscaler: Anime4K / Neural Spatial CNN (Edge Reconstruction)",
-	"Upscaler: Anime4K Ultra Thin Lines & Vector Contours",
-	"Upscaler: 8K Catmull-Rom Bicubic Spline",
+	"Upscaler: xBRZ (4x/5x Vector Smoothing)",
+	"Upscaler: SDF Silhouette Smoothing",
+	"Upscaler: Kuwahara / Bilateral Dither Filter",
+	"Upscaler: AMD FSR 1.0 (EASU + RCAS Full-Screen)",
 	"Upscaler: Native 1:1 Direct Retro Pixel-Art"
 ]
 
@@ -596,6 +596,7 @@ func update_shader_params():
 
 	if brightness_material:
 		brightness_material.set_shader_parameter("color_profile", current_color_profile if current_display_mode != DisplayMode.ORIGINAL_25D else 0)
+		brightness_material.set_shader_parameter("upscaler_mode", current_upscaler_mode)
 		_apply_brightness()
 		_apply_gamma()
 
