@@ -10,6 +10,7 @@ var is_active: bool = false
 # Nodes
 var camera: Camera2D = null
 var world_root: Node2D = null
+var floor_root: Node2D = null
 var player_node: Node2D = null
 var player_sprite: Sprite2D = null
 var player_light: PointLight2D = null
@@ -26,6 +27,81 @@ var level_stabilize_frames: int = 0
 var pending_secondary_rebuild: bool = false
 var secondary_rebuild_countdown: int = 0
 var last_gamma_value: int = -1  # bridge gamma; on change -> invalidate all palette-baked textures
+
+# Bridge capability flags (resolved once to avoid per-frame has_method() reflection)
+var _has_light_grid: bool = false
+var _has_solidity_grid: bool = false
+var _has_flags_grid: bool = false
+var _has_trans_grid: bool = false
+var _has_trans_mask: bool = false
+var _has_trans_list: bool = false
+var _has_special_grid: bool = false
+var _has_player_pos: bool = false
+var _has_current_level: bool = false
+var _has_gamma: bool = false
+var _has_level_loading: bool = false
+var _has_game_running: bool = false
+var _has_dungeon_grid: bool = false
+var _has_player_sprite: bool = false
+var _has_monster_data: bool = false
+var _has_monster_sprite: bool = false
+var _has_active_lights: bool = false
+var _has_active_objects: bool = false
+var _has_active_items: bool = false
+var _has_active_corpses: bool = false
+var _has_active_missiles: bool = false
+var _has_visual_events: bool = false
+var _has_object_sprite: bool = false
+var _has_ground_item_sprite: bool = false
+var _has_corpse_sprite: bool = false
+var _has_missile_sprite: bool = false
+var _has_piece_texture: bool = false
+var _has_special_cel: bool = false
+var _has_item_label_highlight: bool = false
+var _has_clear_cache: bool = false
+var _has_zoom_vision: bool = false
+var _has_map_world: bool = false
+var _has_modal_active: bool = false
+var _has_text_input: bool = false
+
+func _init_bridge_caps():
+	if not diablo_bridge:
+		return
+	_has_light_grid = diablo_bridge.has_method("get_dungeon_light_grid")
+	_has_solidity_grid = diablo_bridge.has_method("get_dungeon_solidity_grid")
+	_has_flags_grid = diablo_bridge.has_method("get_dungeon_flags_grid")
+	_has_trans_grid = diablo_bridge.has_method("get_dungeon_trans_grid")
+	_has_trans_mask = diablo_bridge.has_method("get_dungeon_trans_mask")
+	_has_trans_list = diablo_bridge.has_method("get_trans_list")
+	_has_special_grid = diablo_bridge.has_method("get_dungeon_special_grid")
+	_has_player_pos = diablo_bridge.has_method("get_player_continuous_pos")
+	_has_current_level = diablo_bridge.has_method("get_current_level")
+	_has_gamma = diablo_bridge.has_method("get_gamma")
+	_has_level_loading = diablo_bridge.has_method("is_level_loading")
+	_has_game_running = diablo_bridge.has_method("is_game_running")
+	_has_dungeon_grid = diablo_bridge.has_method("get_dungeon_grid")
+	_has_player_sprite = diablo_bridge.has_method("get_player_sprite_data")
+	_has_monster_data = diablo_bridge.has_method("get_active_monsters_data")
+	_has_monster_sprite = diablo_bridge.has_method("get_monster_sprite_data")
+	_has_active_lights = diablo_bridge.has_method("get_active_lights")
+	_has_active_objects = diablo_bridge.has_method("get_active_objects")
+	_has_active_items = diablo_bridge.has_method("get_active_items")
+	_has_active_corpses = diablo_bridge.has_method("get_active_corpses")
+	_has_active_missiles = diablo_bridge.has_method("get_active_missiles")
+	_has_visual_events = diablo_bridge.has_method("poll_visual_events")
+	_has_object_sprite = diablo_bridge.has_method("get_object_sprite_data")
+	_has_ground_item_sprite = diablo_bridge.has_method("get_ground_item_sprite_data")
+	_has_corpse_sprite = diablo_bridge.has_method("get_corpse_sprite_data")
+	_has_missile_sprite = diablo_bridge.has_method("get_missile_sprite_data")
+	_has_piece_texture = diablo_bridge.has_method("get_dungeon_piece_texture")
+	_has_special_cel = diablo_bridge.has_method("get_special_cel_texture")
+	_has_item_label_highlight = diablo_bridge.has_method("is_item_label_highlight_enabled")
+	_has_clear_cache = diablo_bridge.has_method("clear_dungeon_piece_cache")
+	_has_zoom_vision = diablo_bridge.has_method("set_zoom_vision_radius")
+	_has_map_world = diablo_bridge.has_method("map_world_to_screen")
+	_has_modal_active = diablo_bridge.has_method("is_modal_active")
+	_has_text_input = diablo_bridge.has_method("is_text_input_active")
+
 var tile_sprites: Dictionary = {} # Vector2i -> Sprite2D (Floor diamonds, z_index = -2)
 var wall_sprites: Dictionary = {} # Vector2i -> Sprite2D (Upper Wall & Scenery, z_index = 0)
 var special_sprites: Dictionary = {} # Vector2i -> Sprite2D (Arches, Doorways, Column Tops)
@@ -46,7 +122,11 @@ var object_textures: Dictionary = {} # String ("type_frame") -> ImageTexture
 
 # Milestone 4: Dropped Items (Loot with name labels)
 var item_nodes: Dictionary = {} # int (id) -> Node2D
-var item_textures: Dictionary = {} # int (id) -> ImageTexture
+var item_textures: Dictionary = {}
+var _loot_stylebox_normal: StyleBoxFlat = null
+var _loot_stylebox_magic: StyleBoxFlat = null
+var _loot_stylebox_unique: StyleBoxFlat = null
+ # int (id) -> ImageTexture
 
 # Ground loot typography & Diablo IV loot beams
 const FONT_EXOCET = preload("res://assets/fonts/Exocet.ttf")
@@ -130,6 +210,11 @@ func _ready():
 
 func setup_scene_hierarchy():
 	# 2D World Root with Y-sorting and adaptive texture filtering (HD: Linear with Mipmaps, 1996: Nearest)
+	floor_root = Node2D.new()
+	floor_root.name = "FloorRoot"
+	floor_root.y_sort_enabled = false
+	add_child(floor_root)
+
 	world_root = Node2D.new()
 	world_root.name = "WorldRoot"
 	world_root.y_sort_enabled = true
@@ -217,12 +302,17 @@ func set_hd_graphics_enabled(enabled: bool) -> void:
 		dungeon_tile_material.set_shader_parameter("relief_mode", current_relief_mode if enabled else 0)
 	_apply_texture_filtering()
 	rebuild_dungeon_tiles()
-	update_lighting_and_transparency()
+	var inline_light = diablo_bridge.get_dungeon_light_grid() if _has_light_grid else PackedByteArray()
+	var inline_solid = diablo_bridge.get_dungeon_solidity_grid() if _has_solidity_grid else PackedByteArray()
+	var inline_pos = diablo_bridge.get_player_continuous_pos() if _has_player_pos else {}
+	update_lighting_and_transparency(inline_light, inline_solid, inline_pos)
 	print("[Native 2.5D View] HD Graphics switched to: %s" % ("Definitive Edition 4x HD" if enabled else "Authentic 1996"))
 
 func _apply_texture_filtering() -> void:
 	if world_root:
 		world_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if hd_graphics_enabled else CanvasItem.TEXTURE_FILTER_NEAREST
+	if floor_root:
+		floor_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if hd_graphics_enabled else CanvasItem.TEXTURE_FILTER_NEAREST
 	var ent_filter = CanvasItem.TEXTURE_FILTER_LINEAR if (hd_graphics_enabled and current_upscaler_mode != 4) else CanvasItem.TEXTURE_FILTER_NEAREST
 	if player_sprite:
 		player_sprite.texture_filter = ent_filter
@@ -369,6 +459,7 @@ func apply_all_resurrected_settings(torch: bool, fog: int, upscaler: int, relief
 
 func activate():
 	is_active = true
+	_init_bridge_caps()
 	visible = true
 	set_process(true)
 	if camera:
@@ -391,7 +482,7 @@ func _process(delta: float):
 		return
 
 	# Check level change
-	if diablo_bridge.has_method("get_current_level"):
+	if _has_current_level:
 		var cur_lvl = diablo_bridge.get_current_level()
 		if cur_lvl != last_level_idx:
 			last_level_idx = cur_lvl
@@ -404,7 +495,7 @@ func _process(delta: float):
 	# whole scene re-renders with the new palette, matching legacy behaviour where gamma affects the entire
 	# image. We poll the gamma VALUE (not the raw palette version), because that counter also ticks every frame
 	# for animated lava/glow in cave/crypt levels and would force a full rebuild per frame there.
-	if diablo_bridge.has_method("get_gamma"):
+	if _has_gamma:
 		var cur_gamma = diablo_bridge.get_gamma()
 		if cur_gamma != last_gamma_value:
 			last_gamma_value = cur_gamma
@@ -426,10 +517,10 @@ func _process(delta: float):
 
 	# During level transitions, DevilutionX is tearing down and rebuilding memory.
 	# Freeze rendering updates until the new level is 100% ready to eliminate race conditions.
-	if diablo_bridge.has_method("is_level_loading") and diablo_bridge.is_level_loading():
+	if _has_level_loading and diablo_bridge.is_level_loading():
 		return
 
-	if diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
+	if _has_game_running and not diablo_bridge.is_game_running():
 		return
 
 	if level_stabilize_frames > 0:
@@ -437,7 +528,7 @@ func _process(delta: float):
 		return
 
 	if pending_dungeon_rebuild:
-		var grid = diablo_bridge.get_dungeon_grid() if diablo_bridge.has_method("get_dungeon_grid") else PackedInt32Array()
+		var grid = diablo_bridge.get_dungeon_grid() if _has_dungeon_grid else PackedInt32Array()
 		if grid.size() >= 112 * 112:
 			var can_fetch = false
 			for piece_id in grid:
@@ -447,17 +538,20 @@ func _process(delta: float):
 						can_fetch = true
 						break
 			if can_fetch:
-				var p_pos = diablo_bridge.get_player_continuous_pos() if diablo_bridge.has_method("get_player_continuous_pos") else {}
+				var p_pos = diablo_bridge.get_player_continuous_pos() if _has_player_pos else {}
 				var px = float(p_pos.get("pos_x", 0.0))
 				var py = float(p_pos.get("pos_y", 0.0))
 				if last_level_idx > 0 and (px <= 0.0 or py <= 0.0):
 					# Player position not yet initialized in engine, wait another frame
 					return
 
-				if diablo_bridge.has_method("clear_dungeon_piece_cache"):
+				if _has_clear_cache:
 					diablo_bridge.clear_dungeon_piece_cache()
 				rebuild_dungeon_tiles()
-				update_lighting_and_transparency()
+				var inline_light = diablo_bridge.get_dungeon_light_grid() if _has_light_grid else PackedByteArray()
+				var inline_solid = diablo_bridge.get_dungeon_solidity_grid() if _has_solidity_grid else PackedByteArray()
+				var inline_pos = diablo_bridge.get_player_continuous_pos() if _has_player_pos else {}
+				update_lighting_and_transparency(inline_light, inline_solid, inline_pos)
 				pending_dungeon_rebuild = false
 				pending_secondary_rebuild = true
 				secondary_rebuild_countdown = 8
@@ -468,7 +562,10 @@ func _process(delta: float):
 		else:
 			pending_secondary_rebuild = false
 			rebuild_dungeon_tiles()
-			update_lighting_and_transparency()
+			var inline_light = diablo_bridge.get_dungeon_light_grid() if _has_light_grid else PackedByteArray()
+			var inline_solid = diablo_bridge.get_dungeon_solidity_grid() if _has_solidity_grid else PackedByteArray()
+			var inline_pos = diablo_bridge.get_player_continuous_pos() if _has_player_pos else {}
+			update_lighting_and_transparency(inline_light, inline_solid, inline_pos)
 			print("[Native 2.5D View] Post-load stabilization rebuild completed (100% assets verified)")
 
 	time_accum += delta
@@ -476,15 +573,20 @@ func _process(delta: float):
 	if fog_layer and fog_layer.visible and fog_material and camera:
 		fog_material.set_shader_parameter("camera_offset", camera.position)
 
-	update_player(delta)
-	update_monsters(delta)
-	update_torches()
-	update_objects()
-	update_corpses()
-	update_ground_items()
-	update_missiles()
+	# --- Per-frame shared data (fetch once, pass everywhere) ---
+	var frame_light_grid: PackedByteArray = diablo_bridge.get_dungeon_light_grid() if _has_light_grid else PackedByteArray()
+	var frame_solidity_grid: PackedByteArray = diablo_bridge.get_dungeon_solidity_grid() if _has_solidity_grid else PackedByteArray()
+	var frame_player_pos: Dictionary = diablo_bridge.get_player_continuous_pos() if _has_player_pos else {}
+
+	update_player(delta, frame_light_grid, frame_player_pos)
+	update_monsters(delta, frame_light_grid)
+	update_torches(frame_light_grid, frame_player_pos)
+	update_objects(frame_light_grid, frame_player_pos)
+	update_corpses(frame_light_grid)
+	update_ground_items(frame_light_grid)
+	update_missiles(frame_light_grid)
 	update_visual_effects()
-	update_lighting_and_transparency()
+	update_lighting_and_transparency(frame_light_grid, frame_solidity_grid, frame_player_pos)
 
 # --- PBR Asset & Linear Wall Occluder Pipeline ---
 
@@ -521,7 +623,7 @@ func get_pbr_or_base_texture(piece_id: int) -> Texture2D:
 
 	# Always fetch authentic ground-truth engine piece for validation & fallback
 	var base_tex: Texture2D = null
-	if diablo_bridge and diablo_bridge.has_method("get_dungeon_piece_texture"):
+	if diablo_bridge and _has_piece_texture:
 		base_tex = diablo_bridge.get_dungeon_piece_texture(piece_id)
 
 	# If HD is disabled (Authentic 1996), return pure engine base texture
@@ -581,7 +683,7 @@ func get_pbr_or_base_special_texture(special_id: int) -> Texture2D:
 
 	# Always fetch authentic ground-truth special cel
 	var base_tex: Texture2D = null
-	if diablo_bridge and diablo_bridge.has_method("get_special_cel_texture"):
+	if diablo_bridge and _has_special_cel:
 		base_tex = diablo_bridge.get_special_cel_texture(special_id)
 
 	# If HD is disabled (Authentic 1996) or non-Cathedral level, return pure engine special cel.
@@ -651,7 +753,7 @@ func ensure_pbr_assets_for_level(grid: PackedInt32Array, special_grid: PackedInt
 		if not FileAccess.file_exists(alb_file):
 			var raw_file = "%s/piece_%d.png" % [raw_dir, pid]
 			if not FileAccess.file_exists(raw_file):
-				if diablo_bridge and diablo_bridge.has_method("get_dungeon_piece_texture"):
+				if diablo_bridge and _has_piece_texture:
 					var rtex = diablo_bridge.get_dungeon_piece_texture(pid)
 					if rtex:
 						var rimg = rtex.get_image()
@@ -666,7 +768,7 @@ func ensure_pbr_assets_for_level(grid: PackedInt32Array, special_grid: PackedInt
 			if not FileAccess.file_exists(alb_file):
 				var raw_file = "%s/special_%d.png" % [raw_dir, sid]
 				if not FileAccess.file_exists(raw_file):
-					if diablo_bridge and diablo_bridge.has_method("get_special_cel_texture"):
+					if diablo_bridge and _has_special_cel:
 						var stex = diablo_bridge.get_special_cel_texture(sid)
 						if stex:
 							var simg = stex.get_image()
@@ -685,7 +787,7 @@ func ensure_pbr_assets_for_level(grid: PackedInt32Array, special_grid: PackedInt
 		load_pbr_occluders()
 
 func rebuild_dungeon_tiles():
-	if not diablo_bridge or not diablo_bridge.has_method("get_dungeon_grid"):
+	if not diablo_bridge or not _has_dungeon_grid:
 		return
 
 	var grid = diablo_bridge.get_dungeon_grid()
@@ -771,11 +873,11 @@ func rebuild_dungeon_tiles():
 	last_player_mode = -999
 
 	var special_grid = PackedInt32Array()
-	if diablo_bridge.has_method("get_dungeon_special_grid"):
+	if _has_special_grid:
 		special_grid = diablo_bridge.get_dungeon_special_grid()
 
 	var solidity_grid = PackedByteArray()
-	if diablo_bridge.has_method("get_dungeon_solidity_grid"):
+	if _has_solidity_grid:
 		solidity_grid = diablo_bridge.get_dungeon_solidity_grid()
 
 	ensure_pbr_assets_for_level(grid, special_grid)
@@ -817,7 +919,10 @@ func rebuild_dungeon_tiles():
 					spr.self_modulate = Color(1.0, 1.0, 1.0)
 					spr.visible = false
 					spr.z_index = 0 if is_wall else -2
-					world_root.add_child(spr)
+					if is_wall:
+						world_root.add_child(spr)
+					else:
+						floor_root.add_child(spr)
 					if is_wall:
 						wall_sprites[Vector2i(x, y)] = spr
 					else:
@@ -872,42 +977,38 @@ func rebuild_dungeon_tiles():
 func _apply_zoom_vision(z: float) -> void:
 	var zoom_boost = clampf(1.5 / z, 1.0, 2.2)
 	var d1_rad = int(clampf(10.0 * zoom_boost, 10.0, 15.0))
-	if diablo_bridge and diablo_bridge.has_method("set_zoom_vision_radius"):
+	if diablo_bridge and _has_zoom_vision:
 		diablo_bridge.set_zoom_vision_radius(d1_rad)
 	if player_light:
 		player_light.texture_scale = 2.4 * zoom_boost
 		player_light.energy = 1.05 * clampf(zoom_boost, 1.0, 1.35)
 
-func update_lighting_and_transparency():
+func update_lighting_and_transparency(light_grid: PackedByteArray, solidity_grid: PackedByteArray, player_pos: Dictionary):
 	if not diablo_bridge:
 		return
 
-	var light_grid: PackedByteArray = PackedByteArray()
-	if diablo_bridge.has_method("get_dungeon_light_grid"):
-		light_grid = diablo_bridge.get_dungeon_light_grid()
+
 
 	var flags_grid: PackedByteArray = PackedByteArray()
-	if diablo_bridge.has_method("get_dungeon_flags_grid"):
+	if _has_flags_grid:
 		flags_grid = diablo_bridge.get_dungeon_flags_grid()
 
-	var solidity_grid: PackedByteArray = PackedByteArray()
-	if diablo_bridge.has_method("get_dungeon_solidity_grid"):
-		solidity_grid = diablo_bridge.get_dungeon_solidity_grid()
+
 
 	var trans_grid: PackedByteArray = PackedByteArray()
-	if diablo_bridge.has_method("get_dungeon_trans_grid"):
+	if _has_trans_grid:
 		trans_grid = diablo_bridge.get_dungeon_trans_grid()
 
 	var trans_mask: PackedByteArray = PackedByteArray()
-	if diablo_bridge.has_method("get_dungeon_trans_mask"):
+	if _has_trans_mask:
 		trans_mask = diablo_bridge.get_dungeon_trans_mask()
 
 	var trans_list: PackedByteArray = PackedByteArray()
-	if diablo_bridge.has_method("get_trans_list"):
+	if _has_trans_list:
 		trans_list = diablo_bridge.get_trans_list()
 
 	var special_grid: PackedInt32Array = PackedInt32Array()
-	if diablo_bridge.has_method("get_dungeon_special_grid"):
+	if _has_special_grid:
 		special_grid = diablo_bridge.get_dungeon_special_grid()
 
 	var has_light = (light_grid.size() >= 112 * 112)
@@ -916,7 +1017,7 @@ func update_lighting_and_transparency():
 	var has_trans = (trans_grid.size() >= 112 * 112 and trans_list.size() >= 256)
 	var has_trans_mask = (trans_mask.size() >= 112 * 112)
 
-	var p_pos = diablo_bridge.get_player_continuous_pos() if diablo_bridge.has_method("get_player_continuous_pos") else {}
+	var p_pos = player_pos
 	var p_tx = int(p_pos.get("pos_x", 25.0))
 	var p_ty = int(p_pos.get("pos_y", 25.0))
 
@@ -1025,7 +1126,7 @@ func calculate_shadow_skew_for_position(world_pos: Vector2) -> Dictionary:
 		"length": 0.85,
 		"opacity": 0.52
 	}
-	if not diablo_bridge or not diablo_bridge.has_method("get_active_lights"):
+	if not diablo_bridge or not _has_active_lights:
 		return result
 
 	var lights: Array = diablo_bridge.get_active_lights()
@@ -1072,8 +1173,8 @@ func calculate_shadow_skew_for_position(world_pos: Vector2) -> Dictionary:
 
 	return result
 
-func update_player(delta: float):
-	if not diablo_bridge or not diablo_bridge.has_method("get_player_continuous_pos"):
+func update_player(delta: float, light_grid: PackedByteArray, player_pos: Dictionary):
+	if not diablo_bridge or not _has_player_pos:
 		return
 
 	var p_data = diablo_bridge.get_player_continuous_pos()
@@ -1097,7 +1198,7 @@ func update_player(delta: float):
 		camera.position = camera.position.lerp(player_node.position, delta * 20.0).round()
 
 	# Update animated player sprite (supports all Diablo 1 & Hellfire classes: Monk, Bard, Barbarian, Sorcerer, Rogue, Warrior)
-	if diablo_bridge.has_method("get_player_sprite_data"):
+	if _has_player_sprite:
 		if anim_frame != last_player_frame or dir != last_player_dir or mode != last_player_mode or player_texture == null:
 			var s_data: Dictionary = diablo_bridge.get_player_sprite_data()
 			var sw = s_data.get("width", 0)
@@ -1142,13 +1243,13 @@ func update_player(delta: float):
 			player_light.color = Color(1.0, 0.94, 0.85)
 
 	# Authentic per-tile lighting on player
-	var p_light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
+	var p_light_grid = light_grid
 	var p_tile_idx = clamp(int(py), 0, 111) * 112 + clamp(int(px), 0, 111)
 	# In Diablo 1, the local hero carries their own light/torch and is always fully illuminated (ClxDraw).
 	player_sprite.self_modulate = Color(1.50, 1.46, 1.38) if is_town else Color(1.48, 1.44, 1.36)
 
-func update_monsters(delta: float):
-	if not diablo_bridge or not diablo_bridge.has_method("get_active_monsters_data"):
+func update_monsters(delta: float, light_grid: PackedByteArray):
+	if not diablo_bridge or not _has_monster_data:
 		return
 
 	var monsters: Array = diablo_bridge.get_active_monsters_data()
@@ -1185,7 +1286,7 @@ func update_monsters(delta: float):
 		var last_d = monster_last_dir.get(m_id, -999)
 		var cur_tex: ImageTexture = monster_textures.get(m_id, null)
 
-		if diablo_bridge.has_method("get_monster_sprite_data"):
+		if _has_monster_sprite:
 			if anim_frame != last_f or dir != last_d or cur_tex == null:
 				var ms_data: Dictionary = diablo_bridge.get_monster_sprite_data(m_id)
 				var mw = ms_data.get("width", 0)
@@ -1204,7 +1305,7 @@ func update_monsters(delta: float):
 						m_sprite.offset = Vector2(0, -float(mh) * 0.5)
 
 		# Milestone 2: Per-Tile Authentic Lighting on Monsters, Ground Shadows & Fog of War
-		var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
+		
 		var m_tx = clamp(int(mx), 0, 111)
 		var m_ty = clamp(int(my), 0, 111)
 		var m_idx = m_ty * 112 + m_tx
@@ -1264,8 +1365,8 @@ func get_or_create_monster_node(m_id: int) -> Node2D:
 	monster_nodes[m_id] = m_root
 	return m_root
 
-func update_torches():
-	if not diablo_bridge or not diablo_bridge.has_method("get_active_lights"):
+func update_torches(light_grid: PackedByteArray, player_pos: Dictionary):
+	if not diablo_bridge or not _has_active_lights:
 		return
 
 	var lights = diablo_bridge.get_active_lights()
@@ -1283,8 +1384,8 @@ func update_torches():
 		world_root.add_child(pl)
 		torch_lights.append(pl)
 
-	var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
-	var p_pos = diablo_bridge.get_player_continuous_pos() if diablo_bridge.has_method("get_player_continuous_pos") else {}
+	
+	var p_pos = player_pos
 	var p_tx = float(p_pos.get("pos_x", 25.0))
 	var p_ty = float(p_pos.get("pos_y", 25.0))
 	var is_town = (last_level_idx == 0)
@@ -1335,19 +1436,17 @@ func update_torches():
 			pl.visible = false
 
 # Milestone 4: Dungeon Objects (Animated Torches, Barrels, Chests, Shrines)
-func update_objects():
-	if not diablo_bridge or not diablo_bridge.has_method("get_active_objects"):
+func update_objects(light_grid: PackedByteArray, player_pos: Dictionary):
+	if not diablo_bridge or not _has_active_objects:
 		return
 
 	var objects: Array = diablo_bridge.get_active_objects()
 	var seen_ids: Dictionary = {}
-
-	var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
 	var has_light = (light_grid.size() >= 112 * 112)
 
 	# Camera-visible tile window around the hero, using the same math as update_lighting_and_transparency().
 	# Without this cull every door/chest/barrel/arches anywhere in the level renders on screen.
-	var p_pos = diablo_bridge.get_player_continuous_pos() if diablo_bridge.has_method("get_player_continuous_pos") else {}
+	var p_pos = player_pos
 	var ppx = float(p_pos.get("pos_x", 25.0))
 	var ppy = float(p_pos.get("pos_y", 25.0))
 	var cam_z = camera.zoom.x if camera else 1.0
@@ -1469,14 +1568,12 @@ func update_objects():
 			object_sprites[o_id].visible = false
 
 # Milestone 4: Ground Items & Loot with Authentic Labels
-func update_ground_items():
-	if not diablo_bridge or not diablo_bridge.has_method("get_active_items") or world_root == null:
+func update_ground_items(light_grid: PackedByteArray):
+	if not diablo_bridge or not _has_active_items or world_root == null:
 		return
 
 	var items: Array = diablo_bridge.get_active_items()
 	var seen_ids: Dictionary = {}
-
-	var light_grid = diablo_bridge.get_dungeon_light_grid() if diablo_bridge.has_method("get_dungeon_light_grid") else PackedByteArray()
 	var has_light = (light_grid.size() >= 112 * 112)
 
 	for item in items:
@@ -1698,16 +1795,14 @@ func update_ground_items():
 			item_nodes[i_id].visible = false
 
 # Milestone 4: Corpses & Fallen Monsters on the Floor
-func update_corpses():
-	if not diablo_bridge or not diablo_bridge.has_method("get_active_corpses"):
+func update_corpses(light_grid: PackedByteArray):
+	if not diablo_bridge or not _has_active_corpses:
 		return
 
 	var corpses: Array = diablo_bridge.get_active_corpses()
 	var seen_keys: Dictionary = {}
 
-	var light_grid: PackedByteArray = PackedByteArray()
-	if diablo_bridge.has_method("get_dungeon_light_grid"):
-		light_grid = diablo_bridge.get_dungeon_light_grid()
+
 	var has_light = (light_grid.size() >= 112 * 112)
 
 	for c in corpses:
@@ -1813,16 +1908,14 @@ func update_visual_effects():
 			world_root.add_child(extra_bones)
 
 # Projectiles & Spells (Arrows, Firebolts, Fireballs, Lightning, Holy Bolts)
-func update_missiles():
-	if not diablo_bridge or not diablo_bridge.has_method("get_active_missiles"):
+func update_missiles(light_grid: PackedByteArray):
+	if not diablo_bridge or not _has_active_missiles:
 		return
 
 	var missiles: Array = diablo_bridge.get_active_missiles()
 	var seen_ids: Dictionary = {}
 
-	var light_grid: PackedByteArray = PackedByteArray()
-	if diablo_bridge.has_method("get_dungeon_light_grid"):
-		light_grid = diablo_bridge.get_dungeon_light_grid()
+
 	var has_light = (light_grid.size() >= 112 * 112)
 
 	for m in missiles:
@@ -1918,7 +2011,7 @@ func handle_input(event: InputEvent) -> bool:
 
 	# If the game is not actively in a dungeon/game session (e.g. main menu, hero select, character create),
 	# do NOT intercept input with world-space raycasting! Pass through to classic UI!
-	if diablo_bridge and diablo_bridge.has_method("is_game_running") and not diablo_bridge.is_game_running():
+	if diablo_bridge and _has_game_running and not diablo_bridge.is_game_running():
 		return false
 
 	# When a modal menu, store, or dialog is active, pass input through to screen-space UI
@@ -1926,7 +2019,7 @@ func handle_input(event: InputEvent) -> bool:
 		return false
 
 	# When entering text (chat, naming, gold drop), pass input through to D1
-	if diablo_bridge and diablo_bridge.has_method("is_text_input_active") and diablo_bridge.is_text_input_active():
+	if diablo_bridge and _has_text_input and diablo_bridge.is_text_input_active():
 		return false
 
 	# Mouse Wheel Zoom

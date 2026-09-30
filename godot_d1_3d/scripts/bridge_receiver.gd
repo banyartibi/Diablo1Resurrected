@@ -1072,6 +1072,10 @@ func apply_display_mode():
 			dungeon_embers.visible = should_emit
 		_apply_environment_glow()
 		update_fog_mode()
+		# Mode 0 uses 3D QuadMesh: re-enable 3D anti-aliasing on SubViewport
+		if game_view:
+			game_view.msaa_3d = 2
+			game_view.screen_space_aa = 1
 		if brightness_material:
 			brightness_material.set_shader_parameter("color_profile", 0)
 		if camera:
@@ -1086,6 +1090,8 @@ func apply_display_mode():
 			hero_light.visible = false
 		if torch_container:
 			torch_container.visible = false
+		if shadow_container:
+			shadow_container.visible = false
 		if effects_container:
 			effects_container.visible = false
 			for child in effects_container.get_children():
@@ -1099,6 +1105,10 @@ func apply_display_mode():
 			dungeon_embers.visible = false
 		if world_env and world_env.environment:
 			world_env.environment.volumetric_fog_enabled = false
+		# Mode 1 is pure 2D: disable 3D anti-aliasing on SubViewport (saves GPU time)
+		if game_view:
+			game_view.msaa_3d = 0
+			game_view.screen_space_aa = 0
 		_apply_environment_glow()
 		if brightness_material:
 			brightness_material.set_shader_parameter("color_profile", current_color_profile)
