@@ -26,12 +26,18 @@ void fragment() {
 	// Walls, arches and scenery have H / W >= 1.0.
 	bool is_floor = (TEXTURE_PIXEL_SIZE.x / TEXTURE_PIXEL_SIZE.y <= 0.55);
 
+	// Isometric diamond edge distance for seamless tile boundaries:
+	// In 2:1 isometric UVs, (abs(UV.x - 0.5) + abs(UV.y - 0.5)) * 2.0 equals 1.0 exactly at the diamond perimeter.
+	float diamond_dist = 1.0 - 2.0 * (abs(UV.x - 0.5) + abs(UV.y - 0.5));
+	float edge_fade = is_floor ? clamp(diamond_dist * 10.0, 0.0, 1.0) : clamp(min(UV.x, 1.0 - UV.x) * 20.0, 0.0, 1.0);
+
 	vec2 final_uv = UV;
-	if (relief_mode >= 3) {
+	if (relief_mode >= 3 && edge_fade > 0.01) {
 		// Parallax Occlusion Mapping (POM)
 		// Isometric view vector (~35 deg slant towards South/down)
 		vec2 view_dir = vec2(0.0, 0.45);
-		float h_scale = (relief_mode == 4 ? 0.010 : 0.005) * bump_scale;
+		// Scale height smoothly to 0 at the boundary so adjacent tiles never disconnect
+		float h_scale = (relief_mode == 4 ? 0.010 : 0.005) * bump_scale * edge_fade;
 
 		const int pom_steps = 6;
 		float step_size = 1.0 / float(pom_steps);
@@ -47,7 +53,7 @@ void fragment() {
 			}
 			vec2 next_uv = curr_uv + step_delta;
 			// Guard against POM raymarching outside the tile diamond
-			if (texture(TEXTURE, next_uv).a < 0.45) {
+			if (texture(TEXTURE, next_uv).a < 0.10) {
 				break;
 			}
 			curr_uv = next_uv;
@@ -61,12 +67,12 @@ void fragment() {
 	bool in_floor_row = is_floor || (v_world_pos.y >= (v_foot_pos.y - 32.5));
 
 	vec4 tex = texture(TEXTURE, final_uv);
-	if (tex.a < 0.35) {
+	if (tex.a < 0.05) {
 		discard;
 	}
 
-	// De-premultiply RGB safely without amplifying transparent edge bleed
-	vec3 base_rgb = (tex.a > 0.35) ? (tex.rgb / max(tex.a, 0.50)) : tex.rgb;
+	// Direct straight alpha RGB (textures have clean Voronoi color dilation into 0-alpha margins)
+	vec3 base_rgb = tex.rgb;
 
 	// For floor rows: use per-pixel world_pos for seamless continuous lightmap interpolation.
 	// For upper walls: anchor lighting to the base tile center (v_foot_pos - (0, 16)).
@@ -96,13 +102,40 @@ void fragment() {
 		// Town in Diablo 1 is full clean daylight / ambient lighting:
 		vec3 daylight = vec3(1.65, 1.60, 1.48);
 
+		// Dynamic River Water Flow Simulation (Tristram river)
+		// Tristram water occurs on ground rows (in_floor_row) and has authentic slate-blue/cyan tones:
+		bool is_water = in_floor_row && (base_rgb.b > base_rgb.r * 1.15 && base_rgb.b > 0.05 && base_rgb.b > base_rgb.g * 0.88 && base_rgb.r < 0.22);
+		if (is_water) {
+			vec2 flow_dir = vec2(-0.7, 0.7); // Tristram river flow direction (NE to SW)
+			vec2 river_flow = (flow_dir * sin(TIME * 2.0 + (v_world_pos.x + v_world_pos.y) * 0.03) +
+			                   vec2(-flow_dir.y, flow_dir.x) * cos(TIME * 1.6 + (v_world_pos.x - v_world_pos.y) * 0.04)) * (0.016 * edge_fade);
+
+			vec4 flow_tex = texture(TEXTURE, UV + river_flow);
+			if (flow_tex.a > 0.10) {
+				base_rgb = flow_tex.rgb;
+			}
+
+			// Gentle sun glint ripple and caustic wave on the water surface
+			float wave1 = sin(dot(v_world_pos, vec2(0.05, 0.04)) - TIME * 2.5);
+			float wave2 = cos(dot(v_world_pos, vec2(-0.04, 0.06)) + TIME * 2.0);
+			float wave3 = sin(dot(v_world_pos, vec2(0.08, -0.06)) - TIME * 3.0);
+			float caustic = clamp(wave1 * 0.4 + wave2 * 0.4 + wave3 * 0.2 + 0.35, 0.0, 1.0);
+			float shimmer = pow(caustic, 2.5);
+			vec3 water_shimmer = vec3(0.08, 0.16, 0.28) * shimmer;
+			base_rgb += water_shimmer * edge_fade;
+		}
+
 		if (relief_mode > 0) {
 			float mult = 0.35;
 			if (relief_mode == 2) mult = 0.65;
 			else if (relief_mode == 3) mult = 1.0;
 			else if (relief_mode == 4) mult = 1.5;
 
-			if (length(NORMAL.xy) > 0.001) {
+			if (is_water) {
+				float w1 = sin(dot(v_world_pos, vec2(0.05, 0.04)) - TIME * 2.5);
+				float w2 = cos(dot(v_world_pos, vec2(-0.04, 0.06)) + TIME * 2.0);
+				NORMAL = normalize(vec3(vec2(w1, w2) * 0.45 * mult * edge_fade, 1.0));
+			} else if (length(NORMAL.xy) > 0.001) {
 				NORMAL = normalize(vec3(NORMAL.xy * mult * bump_scale, NORMAL.z));
 			} else {
 				vec2 texel = TEXTURE_PIXEL_SIZE;
@@ -137,32 +170,37 @@ void fragment() {
 		float min_amb = 0.06;
 		vec3 lit_tint = mix(vec3(min_amb), light_tint, l);
 
-		// Dynamic Lava Simulation (Hell / Caves molten liquid)
-		bool is_lava = is_floor && (base_rgb.r > 0.55 && base_rgb.g > 0.18 && base_rgb.b < 0.25 && (base_rgb.r > base_rgb.b * 3.0));
+		// Dynamic Liquid Simulation (Hell blood/lava + Caves molten magma)
+		// Caves magma: bright orange/yellow (r > 0.24, r > b * 1.7, g > b * 0.75)
+		// Hell magma/blood river: intense deep crimson (r > 0.20, r > g * 1.30, r > b * 1.30)
+		bool is_caves_lava = (base_rgb.r > 0.24 && base_rgb.r > base_rgb.b * 1.7 && base_rgb.g > base_rgb.b * 0.75);
+		bool is_hell_lava = (base_rgb.r > 0.20 && base_rgb.r > base_rgb.g * 1.30 && base_rgb.r > base_rgb.b * 1.30);
+		bool is_lava = in_floor_row && (is_caves_lava || is_hell_lava);
 		if (is_lava) {
-			// Continuous fluid displacement across world coordinates
+			// Continuous fluid displacement: fade to 0 at perimeter so adjacent tiles stay seamless
 			vec2 lava_flow = vec2(
 				sin(v_world_pos.y * 0.05 + TIME * 2.2) + cos(v_world_pos.x * 0.04 + TIME * 1.5),
-				cos(v_world_pos.x * 0.05 + TIME * 1.8) + sin(v_world_pos.y * 0.04 + TIME * 2.0)
-			) * 0.015;
+				cos(v_world_pos.x * 0.04 + TIME * 1.8) + sin(v_world_pos.y * 0.04 + TIME * 2.0)
+			) * (0.016 * edge_fade);
 
 			vec4 flow_tex = texture(TEXTURE, UV + lava_flow);
-			if (flow_tex.a > 0.6) {
+			if (flow_tex.a > 0.10) {
 				base_rgb = flow_tex.rgb;
 			}
 
 			// Magma heat wave cycling across the entire lake
-			float wave1 = sin(dot(v_world_pos, vec2(0.06, 0.04)) - TIME * 3.2) * 0.5 + 0.5;
-			float wave2 = cos(dot(v_world_pos, vec2(-0.05, 0.06)) + TIME * 2.5) * 0.5 + 0.5;
-			float heat_cycle = clamp(wave1 * 0.6 + wave2 * 0.4, 0.0, 1.0);
+			float wave1 = sin(dot(v_world_pos, vec2(0.05, 0.04)) - TIME * 2.8) * 0.5 + 0.5;
+			float wave2 = cos(dot(v_world_pos, vec2(-0.04, 0.05)) + TIME * 2.2) * 0.5 + 0.5;
+			float wave3 = sin(dot(v_world_pos, vec2(0.03, -0.06)) - TIME * 1.8) * 0.5 + 0.5;
+			float heat_cycle = clamp(wave1 * 0.5 + wave2 * 0.3 + wave3 * 0.2, 0.0, 1.0);
 
-			vec3 cool_lava = vec3(0.85, 0.20, 0.02);
-			vec3 hot_lava = vec3(1.15, 0.55, 0.05);
-			vec3 sear_lava = vec3(1.35, 0.95, 0.25);
+			vec3 cool_lava = is_hell_lava ? vec3(0.70, 0.06, 0.02) : vec3(0.85, 0.20, 0.02);
+			vec3 hot_lava  = is_hell_lava ? vec3(1.15, 0.25, 0.05) : vec3(1.18, 0.58, 0.06);
+			vec3 sear_lava = is_hell_lava ? vec3(1.45, 0.55, 0.15) : vec3(1.40, 1.02, 0.30);
 			vec3 heat_color = (heat_cycle < 0.5) ? mix(cool_lava, hot_lava, heat_cycle * 2.0) : mix(hot_lava, sear_lava, (heat_cycle - 0.5) * 2.0);
 
-			base_rgb = mix(base_rgb, base_rgb * heat_color, 0.55);
-			lit_tint = max(lit_tint, vec3(1.25, 0.95, 0.70));
+			base_rgb = mix(base_rgb, base_rgb * heat_color, 0.65);
+			lit_tint = max(lit_tint, is_hell_lava ? vec3(1.35, 0.65, 0.50) : vec3(1.25, 0.95, 0.70));
 		}
 
 		COLOR = vec4(base_rgb * lit_tint, final_a);

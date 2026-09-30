@@ -662,12 +662,14 @@ func get_pbr_or_base_texture(piece_id: int) -> Texture2D:
 			var ct = CanvasTexture.new()
 			ct.diffuse_texture = ImageTexture.create_from_image(alb_img)
 			ct.normal_texture = ImageTexture.create_from_image(norm_img)
-			if FileAccess.file_exists(spec_path):
-				var spec_img = Image.load_from_file(ProjectSettings.globalize_path(spec_path))
+			var orm_path = "%s/orm/piece_%d_orm.png" % [base_folder, piece_id]
+			var final_spec_path = spec_path if FileAccess.file_exists(spec_path) else (orm_path if FileAccess.file_exists(orm_path) else "")
+			if final_spec_path != "":
+				var spec_img = Image.load_from_file(ProjectSettings.globalize_path(final_spec_path))
 				if spec_img and not spec_img.is_empty():
 					spec_img.generate_mipmaps()
 					ct.specular_texture = ImageTexture.create_from_image(spec_img)
-					ct.specular_shininess = 0.35
+					ct.specular_shininess = 1.0
 					ct.specular_color = Color(1.0, 1.0, 1.0)
 			ct.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 			pbr_texture_cache[piece_id] = ct
@@ -720,13 +722,15 @@ func get_pbr_or_base_special_texture(special_id: int) -> Texture2D:
 			var ct = CanvasTexture.new()
 			ct.diffuse_texture = ImageTexture.create_from_image(alb_img)
 			ct.normal_texture = ImageTexture.create_from_image(norm_img)
-			if FileAccess.file_exists(spec_path):
-				var spec_img = Image.load_from_file(ProjectSettings.globalize_path(spec_path))
+			var orm_path = "%s/orm/special_%d_orm.png" % [base_folder, special_id]
+			var final_spec_path = spec_path if FileAccess.file_exists(spec_path) else (orm_path if FileAccess.file_exists(orm_path) else "")
+			if final_spec_path != "":
+				var spec_img = Image.load_from_file(ProjectSettings.globalize_path(final_spec_path))
 				if spec_img and not spec_img.is_empty():
 					spec_img.generate_mipmaps()
 					ct.specular_texture = ImageTexture.create_from_image(spec_img)
-					ct.specular_shininess = 0.35
-					ct.specular_color = Color(0.75, 0.65, 0.50)
+					ct.specular_shininess = 1.0
+					ct.specular_color = Color(1.0, 1.0, 1.0)
 			ct.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 			pbr_special_cache[special_id] = ct
 			return ct
@@ -883,6 +887,8 @@ func rebuild_dungeon_tiles():
 		solidity_grid = diablo_bridge.get_dungeon_solidity_grid()
 
 	ensure_pbr_assets_for_level(grid, special_grid)
+	if dungeon_tile_material:
+		dungeon_tile_material.set_shader_parameter("is_town", last_level_idx == 0)
 
 	var count = 0
 	var special_count = 0
@@ -910,7 +916,7 @@ func rebuild_dungeon_tiles():
 					var is_hd_asset = (tw >= 256)
 					var spr = Sprite2D.new()
 					spr.texture = tex
-					spr.material = dungeon_tile_material if last_level_idx != 0 else null
+					spr.material = dungeon_tile_material
 					spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if (hd_graphics_enabled and is_hd_asset) else CanvasItem.TEXTURE_FILTER_NEAREST
 					spr.centered = false
 					spr.scale = Vector2(scale_factor, scale_factor)
